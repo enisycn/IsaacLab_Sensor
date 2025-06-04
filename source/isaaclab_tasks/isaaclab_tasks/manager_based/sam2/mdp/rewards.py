@@ -9,6 +9,7 @@ import torch
 from typing import TYPE_CHECKING
 
 from isaaclab.managers import SceneEntityCfg
+from isaaclab.sensors import ContactSensor, RayCaster
 import isaaclab.utils.math as math_utils
 
 if TYPE_CHECKING:
@@ -111,3 +112,138 @@ def velocity_command_tracking_exp(
     total_error = forward_error + 2.0 * lateral_error  # Penalize lateral error more
     
     return torch.exp(-total_error / (std**2))
+
+
+# === CONTACT-BASED OBSTACLE AVOIDANCE ===
+
+def robot_contact_forces(env: ManagerBasedRLEnv, sensor_cfg: SceneEntityCfg) -> torch.Tensor:
+    """Get robot contact forces for observation (flattened and normalized)."""
+    contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
+    
+    # Get net contact forces for all robot links
+    net_forces = contact_sensor.data.net_forces_w_history[:, -1, :, :]  # Latest timestep: (num_envs, num_bodies, 3)
+    
+    # Compute force magnitudes for each body
+    force_magnitudes = torch.norm(net_forces, dim=2)  # (num_envs, num_bodies)
+    
+    # Flatten to get a single observation vector per environment
+    obs = force_magnitudes.flatten(start_dim=1)  # (num_envs, num_bodies)
+    
+    # Normalize to prevent explosion
+    obs = torch.clamp(obs / 10.0, 0.0, 1.0)  # Scale forces and clip
+    
+    return obs
+
+
+def robot_obstacle_collision_penalty(
+    env: ManagerBasedRLEnv, 
+    sensor_cfg: SceneEntityCfg,
+    threshold: float = 1.0
+) -> torch.Tensor:
+    """Penalize robot collisions with obstacles using contact sensor."""
+    contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
+    
+    # Get net contact forces
+    net_forces = contact_sensor.data.net_forces_w_history[:, -1, :, :]  # (num_envs, num_bodies, 3)
+    
+    # Compute force magnitudes for each body
+    force_magnitudes = torch.norm(net_forces, dim=2)  # (num_envs, num_bodies)
+    
+    # Only consider forces above threshold AND not on feet (to exclude ground contact)
+    # Heuristic: foot contacts typically have large Z forces (vertical), obstacle contacts have more XY components
+    force_xy = torch.norm(net_forces[:, :, :2], dim=2)  # XY components (horizontal forces)
+    force_z = torch.abs(net_forces[:, :, 2])  # Z component (vertical forces)
+    
+    # Obstacle collision: high total force AND significant horizontal component
+    is_obstacle_contact = (force_magnitudes > threshold) & (force_xy > (threshold * 0.3))
+    
+    # Sum obstacle contacts across all robot bodies (excluding likely ground contacts)
+    total_obstacle_contacts = torch.sum(is_obstacle_contact.float(), dim=1)  # (num_envs,)
+    
+    return total_obstacle_contacts
+
+
+def robot_obstacle_collision_termination(
+    env: ManagerBasedRLEnv, 
+    sensor_cfg: SceneEntityCfg,
+    threshold: float = 10.0
+) -> torch.Tensor:
+    """Terminate episode if robot has strong collision with obstacles."""
+    contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
+    
+    # Get net contact forces
+    net_forces = contact_sensor.data.net_forces_w_history[:, -1, :, :]  # (num_envs, num_bodies, 3)
+    
+    # Check for strong contacts (indicating collision)
+    force_magnitudes = torch.norm(net_forces, dim=2)  # (num_envs, num_bodies)
+    strong_contact = force_magnitudes > threshold  # (num_envs, num_bodies)
+    
+    # Terminate if any robot body has a strong contact
+    should_terminate = torch.any(strong_contact, dim=1)  # (num_envs,)
+    
+    return should_terminate
+
+
+def obstacle_distance_reward_position_based(
+    env: ManagerBasedRLEnv,
+    asset_cfg: SceneEntityCfg,
+    min_distance: float = 1.5,
+    std: float = 0.5
+) -> torch.Tensor:
+    """Reward for maintaining safe distance from obstacles using robot and obstacle positions."""
+    # Get robot position
+    robot = env.scene[asset_cfg.name]
+    robot_pos = robot.data.root_pos_w  # (num_envs, 3)
+    
+    # Define obstacle position (updated to match current obstacle location)
+    obstacle_position = torch.tensor([
+        [2.0, 0.3, 0.5],   # Red obstacle (moved to side for navigation learning)
+    ], device=env.device, dtype=torch.float32)
+    
+    # Calculate distance from robot to the obstacle
+    robot_pos_expanded = robot_pos.unsqueeze(1)  # (num_envs, 1, 3)
+    obstacle_pos_expanded = obstacle_position.unsqueeze(0)  # (1, 1, 3)
+    
+    distances = torch.norm(robot_pos_expanded - obstacle_pos_expanded, dim=2)  # (num_envs, 1)
+    
+    # Get distance to the single obstacle
+    distances_to_obstacle = distances.squeeze(1)  # (num_envs,)
+    
+    # Reward based on distance - higher reward for maintaining safe distance
+    distance_error = torch.clamp(min_distance - distances_to_obstacle, min=0.0)
+    reward = torch.exp(-distance_error / std)
+    
+    return reward
+
+
+def progressive_lateral_penalty_position_based(
+    env: ManagerBasedRLEnv,
+    asset_cfg: SceneEntityCfg,
+    safe_distance: float = 3.0,
+    max_penalty_distance: float = 5.0
+) -> torch.Tensor:
+    """Progressive penalty for lateral movement - less penalty when obstacles are near (position-based)."""
+    robot = env.scene[asset_cfg.name]
+    robot_pos = robot.data.root_pos_w
+    
+    # Define obstacle position (updated to match current obstacle location)
+    obstacle_position = torch.tensor([
+        [2.0, 0.3, 0.5],   # Red obstacle (moved to side for navigation learning)
+    ], device=env.device, dtype=torch.float32)
+    
+    # Calculate distance to the obstacle
+    robot_pos_expanded = robot_pos.unsqueeze(1)
+    obstacle_pos_expanded = obstacle_position.unsqueeze(0)
+    distances = torch.norm(robot_pos_expanded - obstacle_pos_expanded, dim=2)
+    distance_to_obstacle = distances.squeeze(1)  # (num_envs,)
+    
+    # Get lateral velocity squared
+    lateral_vel_sq = torch.square(robot.data.root_lin_vel_b[:, 1])
+    
+    # Progressive penalty factor: 0 when very close, 1 when far
+    penalty_factor = torch.clamp(
+        (distance_to_obstacle - safe_distance) / (max_penalty_distance - safe_distance),
+        min=0.0, max=1.0
+    )
+    
+    return penalty_factor * lateral_vel_sq

@@ -1,0 +1,16 @@
+Your reward function must return a SINGLE torch.Tensor with shape [num_envs] containing the total reward for each environment.
+
+Do NOT return a tuple or dictionary - Isaac Lab expects only the total reward tensor.
+
+The code output should be formatted as a python code string: "```python ... ```".
+
+Some helpful tips for writing the reward function code:
+    (1) Use only Isaac Lab environment interface: env.scene["robot"], env.command_manager, env.scene.sensors
+    (2) Access robot data through: robot = env.scene["robot"]; robot.data.root_pos_w, robot.data.joint_pos, etc.
+    (3) CRITICAL: Use BODY frame velocities (robot.data.root_lin_vel_b, robot.data.root_ang_vel_b)
+    (4) Access contact forces through: contact_sensor = env.scene.sensors["contact_forces"]; contact_sensor.data.net_forces_w
+    (5) CRITICAL: Get foot indices correctly: foot_ids, foot_names = contact_sensor.find_bodies(".*_foot")
+    (6) Make sure all tensors are on the same device: device=env.device
+    (7) Return only the total reward tensor, not individual components
+    (8) Commands are in body frame: env.command_manager.get_command("base_velocity") gives [vx, vy, omega_z]
+    (9) Use torch.norm() for contact force magnitudes and vector operations

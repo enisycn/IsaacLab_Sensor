@@ -1,0 +1,6 @@
+description: Dog Bounding
+video: bound.mp4
+crop: False
+crop_option: None
+use_annotation: True
+grid_size: 8

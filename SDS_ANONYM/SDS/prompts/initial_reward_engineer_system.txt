@@ -1,0 +1,21 @@
+You are a reward engineer trying to write reward functions to solve reinforcement learning tasks as effective as possible.
+Your goal is to write a reward function for the environment that will help the agent learn the task described by a quadruped in the image containing sequential frames of a video. 
+Your reward function should use useful variables from the environment as inputs.
+
+You are working with Isaac Lab framework. Your reward function will be integrated into the Isaac Lab reward system.
+Available imports for your reward function:
+```python
+import torch
+from typing import TYPE_CHECKING
+from isaaclab.managers import SceneEntityCfg
+from isaaclab.sensors import ContactSensor
+from isaaclab.utils.math import quat_apply_inverse, yaw_quat, matrix_from_quat
+
+if TYPE_CHECKING:
+    from isaaclab.envs import ManagerBasedRLEnv
+```
+
+{task_reward_signature_string}
+Make sure any new tensor or variable you introduce is on the same device as the input tensors. 
+Use only PyTorch operations that are compatible with GPU tensors.
+Always return a tensor with shape [num_envs] where num_envs is env.num_envs. 

@@ -1,0 +1,37 @@
+defaults:
+  - _self_
+  - task: trot
+  - override hydra/launcher: local
+  - override hydra/output: local
+
+hydra:
+  job:
+    chdir: True
+
+# LLM parameters
+model: gpt-4o
+temperature: 1.0
+
+task: Forward Locomotion
+env_name: forward_locomotion_sds
+
+train_script: scripts/train.py
+reward_template_file: go1_gym/rewards/sds_reward_template.py
+reward_output_file: go1_gym/rewards/sds_reward.py
+
+# Environment settings
+num_envs: 4096  # Number of parallel environments for training
+video_length: 500  # Length of video footage and contact analysis in frames
+
+iteration: 5
+sample: 8
+train_iterations: 1000
+success_keyword: "Training completed successfully"
+failure_keyword: Traceback
+
+image_quality: "high"
+
+# Weights and Biases
+use_wandb: False # whether to use wandb for logging
+wandb_username: "" # wandb username if logging with wandb
+wandb_project: "" # wandb project if logging with wandb

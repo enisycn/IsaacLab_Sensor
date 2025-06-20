@@ -1,0 +1,26 @@
+The Isaac Lab environment structure is:
+
+{task_obs_code_string}
+
+You are working with Isaac Lab's Unitree Go1 quadruped robot. The robot has the following body structure:
+- Base body: "trunk" (main chassis)
+- Foot bodies: "FL_foot", "FR_foot", "RL_foot", "RR_foot" (for contact detection)
+- Thigh bodies: "FL_thigh", "FR_thigh", "RL_thigh", "RR_thigh" (undesired contacts)
+
+For Isaac Lab API usage, remember these critical points:
+- Velocities: Use BODY frame (robot.data.root_lin_vel_b, robot.data.root_ang_vel_b)
+- Commands: Body frame velocity commands (vx, vy, omega_z)
+- Contact forces: Use contact_sensor.data.net_forces_w [num_envs, num_bodies, 3]
+- Contact detection: Apply torch.norm() to get force magnitudes, then use threshold
+- Quaternions: Format is (w, x, y, z) for root_quat_w
+- Device compatibility: Ensure all tensors use device=env.device
+
+The robot's nominal trunk height is 0.34 meters above ground.
+Joint configuration: 12 DOF total (3 per leg × 4 legs)
+Control frequency: 50Hz with 4x decimation from 200Hz physics
+
+{sus_string} 
+
+Lastly, generate a reward function for this task to be imitated by a quadruped robot. Remember that the torso should remain near a z position of 0.34 and the orientation should be perpendicular to gravity. As the policy will be trained in a simulated environment and deployed in the real world, prioritize stability while ensuring minimal action rate. Leg movements should stay within their DOF limits and avoid too frequent foot contact.
+
+Your reward function must return a single torch.Tensor with shape [num_envs] containing the total reward for each environment.

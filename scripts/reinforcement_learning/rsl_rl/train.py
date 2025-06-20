@@ -182,6 +182,9 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # run training
     runner.learn(num_learning_iterations=agent_cfg.max_iterations, init_at_random_ep_len=True)
 
+    # Print success message for SDS detection
+    print("Training completed successfully")
+
     # close the simulator
     env.close()
 

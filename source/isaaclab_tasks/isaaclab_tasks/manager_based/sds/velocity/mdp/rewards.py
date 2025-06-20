@@ -113,53 +113,56 @@ def track_ang_vel_z_world_exp(
 def sds_custom_reward(env) -> torch.Tensor:
         """
         Custom SDS-generated reward function for locomotion.
+        
         Args:
             env: The Isaac Lab environment instance
+            
         Returns:
             torch.Tensor: Reward values for each environment (shape: [num_envs])
         """
         # Access robot data
         robot = env.scene["robot"]
         contact_sensor = env.scene.sensors["contact_forces"]
-        commands = env.command_manager.get_command("base_velocity")
         
+        # Retrieve commands
+        commands = env.command_manager.get_command("base_velocity")
+    
         # Initialize reward tensor
         reward = torch.zeros(env.num_envs, device=env.device)
         
-        # Velocity tracking reward
-        velocity_error = torch.norm(robot.data.root_lin_vel_b[:, 0] - commands[:, 0])
-        velocity_reward = torch.exp(-velocity_error / 0.5)
-        reward += velocity_reward
+        # 1. Velocity tracking in the x direction
+        vx_command = commands[:, 0]  # Desired velocity in x-direction
+        velocity_error = (robot.data.root_lin_vel_b[:, 0] - vx_command).norm(dim=-1)
+        velocity_tracking_reward = torch.exp(-velocity_error / 0.5)
+        reward += velocity_tracking_reward
     
-        # Torso height reward
+        # 2. Height stability
         height_error = torch.abs(robot.data.root_pos_w[:, 2] - 0.34)
-        height_reward = torch.exp(-height_error / 0.02)
+        height_reward = torch.exp(-height_error / 0.1)
         reward += height_reward
     
-        # Orientation reward (projected gravity error)
+        # 3. Orientation stability (keeping upright)
         up_vector = matrix_from_quat(robot.data.root_quat_w)[:, :3, 2]
         gravity_vector = torch.tensor([0, 0, -1], device=env.device)
         orientation_error = torch.norm(up_vector - gravity_vector, dim=-1)
         orientation_reward = torch.exp(-orientation_error)
         reward += orientation_reward
-        
-        # Foot contact pattern reward (Walk-like pattern)
+    
+        # 4. Walk pattern: FL and RR then FR and RL
         foot_ids, foot_names = contact_sensor.find_bodies(".*_foot")
-        contact_forces = contact_sensor.data.net_forces_w[:, foot_ids, :]
-        contact_magnitudes = torch.norm(contact_forces, dim=-1)
-        in_contact = contact_magnitudes > 5.0
-        
-        fl, fr, rl, rr = in_contact[:, 0], in_contact[:, 1], in_contact[:, 2], in_contact[:, 3]
-        walk_pattern = (fl & ~fr & rl & ~rr) | (~fl & fr & ~rl & rr)
-        walk_reward = walk_pattern.float() * 2.0
+        foot_forces = contact_sensor.data.net_forces_w[:, foot_ids, :]
+        foot_contact_magnitudes = torch.norm(foot_forces, dim=-1)
+        fl_contact, fr_contact, rl_contact, rr_contact = foot_contact_magnitudes[:, 0], foot_contact_magnitudes[:, 1], foot_contact_magnitudes[:, 2], foot_contact_magnitudes[:, 3]
+        walk_pattern1 = (fl_contact > 5.0) & (rr_contact > 5.0) & (fr_contact <= 5.0) & (rl_contact <= 5.0)
+        walk_pattern2 = (fr_contact > 5.0) & (rl_contact > 5.0) & (fl_contact <= 5.0) & (rr_contact <= 5.0)
+        walk_reward = (walk_pattern1 | walk_pattern2).float() * 2.0
         reward += walk_reward
-        
-        # Penalty for high joint velocities to ensure smooth movements
-        joint_velocity_penalty = torch.norm(robot.data.joint_vel, dim=-1)
-        reward -= 0.01 * joint_velocity_penalty
+    
+        # 5. Minimize excessive joint movement
+        joint_vel_penalty = torch.sum(torch.square(robot.data.joint_vel), dim=-1)
+        reward -= joint_vel_penalty * 0.01  # Penalty weight
     
         return reward
-
 
 
 

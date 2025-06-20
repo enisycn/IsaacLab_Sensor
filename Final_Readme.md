@@ -320,6 +320,127 @@ response = client.chat.completions.create(...)  # ✅ New v1.x API
 
 **Solution**: Complete OpenAI API upgrade with backward-compatible response handling
 ```python
+from isaaclab.utils.math import matrix_from_quat, quat_rotate_inverse
+```
+
+### **Issue #5: Contact Sensor API Misuse** ⚠️ **CRITICAL**
+
+**Problem**: SDS prompts contained incorrect contact sensor API usage for Isaac Lab 2025
+
+**Incorrect (Non-existent API)**:
+```python
+# WRONG - contact_sensor.body_names doesn't exist as a list
+foot_bodies = [i for i, name in enumerate(contact_sensor.body_names) if "_foot" in name]
+foot_forces = contact_forces[:, foot_bodies, :]
+```
+
+**Correct (Isaac Lab 2025 API)**:
+```python
+# CORRECT - use find_bodies method  
+foot_ids, foot_names = contact_sensor.find_bodies(".*_foot")
+foot_forces = contact_forces[:, foot_ids, :]
+```
+
+**Files Fixed**:
+- `SDS/prompts/reward_signatures/forward_locomotion_sds.txt` - Updated contact detection examples
+- `SDS/prompts/code_output_tip.txt` - Added correct API usage instructions
+- `SDS/envs/isaac_lab_sds_env.py` - Fixed helper function implementation
+- `source/isaaclab_tasks/.../velocity/mdp/rewards.py` - Corrected velocity environment rewards
+
+**Solution**: Complete contact API revision with proper `find_bodies()` method usage
+
+### **Issue #6: Contact Plotting Data Handling** ⚠️ **HIGH PRIORITY**
+
+**Problem**: Contact plotting function had unsafe array operations and inconsistent foot ordering
+
+**Issues Found**:
+1. **Unsafe squeeze operation**: `act_foot_contacts.squeeze(axis=1)` failed when no dimension to squeeze
+2. **Inconsistent foot ordering**: SDS plotting didn't match Isaac Lab reference implementation
+
+**Before (Problematic)**:
+```python
+def plot_foot_contacts(act_foot_contacts, save_root, title='Contact Sequence', evaluation=False):
+    act_foot_contacts = np.array(act_foot_contacts)
+    act_foot_contacts = act_foot_contacts.squeeze(axis=1)  # ❌ UNSAFE
+    
+    foot_names = ['FL', 'FR', 'RL', 'RR']  # ❌ INCONSISTENT ORDER
+    # foot_contacts = foot_contacts[:,[0,2,3,1]]  # ❌ COMMENTED OUT
+```
+
+**After (Fixed)**:
+```python
+def plot_foot_contacts(act_foot_contacts, save_root, title='Contact Sequence', evaluation=False):
+    act_foot_contacts = np.array(act_foot_contacts)
+    # ✅ SAFE: Only squeeze if there's actually a dimension of size 1 to remove
+    if act_foot_contacts.ndim > 2 and act_foot_contacts.shape[1] == 1:
+        act_foot_contacts = act_foot_contacts.squeeze(axis=1)
+    
+    # ✅ CONSISTENT: Reorder to match expected plotting layout: FL, RL, RR, FR
+    foot_names = ['FL', 'RL', 'RR', 'FR']  # Reordered for better visualization
+    foot_contacts = foot_contacts[:,[0,2,3,1]]  # FL(0), RL(2), RR(3), FR(1)
+```
+
+**Solution**: Robust array handling and consistent visualization layout matching Isaac Lab reference
+
+### **Issue #7: Monitor Script Directory Issues** ⚠️ **MEDIUM PRIORITY**
+
+**Problem**: Training monitor couldn't locate SDS workspace after directory structure changes
+
+**Error**: 
+```bash
+No SDS workspace found in outputs
+```
+
+**Root Cause**: Monitor was looking in wrong directory structure after environment path updates
+
+**Before (Incorrect Path)**:
+```python
+def get_latest_workspace():
+    outputs_dir = Path("outputs")  # ❌ Wrong path
+    # ... rest of function
+```
+
+**After (Correct Path)**:
+```python  
+def get_latest_workspace():
+    outputs_dir = Path("outputs/sds")  # ✅ Correct SDS path
+    # ... rest of function
+```
+
+**Solution**: Updated monitor script to use correct SDS workspace path structure
+
+### **Issue #8: OpenAI API Version Compatibility** ⚠️ **HIGH PRIORITY**
+
+**Problem**: SDS was using outdated OpenAI v0.28.0 with deprecated API calls
+
+**Security & Performance Impact**:
+- Missing automatic retries and rate limiting
+- No structured outputs support  
+- Missing security patches from 1.5 years of updates
+- Deprecated authentication method
+
+**Before (Outdated v0.28.0)**:
+```python
+import openai
+openai.api_key = "sk-..."  # ❌ Deprecated
+response = openai.ChatCompletion.create(...)  # ❌ Old API
+```
+
+**After (Modern v1.89.0)**:
+```python
+from openai import OpenAI
+client = OpenAI()  # ✅ Uses OPENAI_API_KEY environment variable
+response = client.chat.completions.create(...)  # ✅ New v1.x API
+```
+
+**Migration Benefits**:
+- ✅ **Security**: Latest patches and secure authentication
+- ✅ **Reliability**: Automatic retries and better error handling  
+- ✅ **Performance**: Improved rate limiting and connection pooling
+- ✅ **Future-proof**: Supported API version with ongoing updates
+
+**Solution**: Complete OpenAI API upgrade with backward-compatible response handling
+```python
 from isaaclab.utils.math import quat_apply_inverse, yaw_quat, matrix_from_quat
 ```
 

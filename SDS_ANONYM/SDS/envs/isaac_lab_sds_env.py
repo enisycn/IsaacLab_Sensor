@@ -5,6 +5,8 @@ This file describes the Isaac Lab environment structure for GPT to generate comp
 The environment uses Isaac Lab's ManagerBasedRLEnv with Unitree Go1 quadruped robot.
 """
 
+import torch
+
 class SDSIsaacLabEnvironment:
     """
     Isaac Lab Manager-Based RL Environment for SDS Quadruped Locomotion
@@ -137,7 +139,7 @@ GO1_SPECS = {
 }
 
 # Contact Force Analysis Helper
-def extract_foot_contacts(env, force_threshold=1.0):
+def extract_foot_contacts(env, force_threshold=2.0):
     """
     Extract foot contact information from Isaac Lab contact sensor.
     
@@ -187,7 +189,7 @@ def calculate_joint_power(robot_data):
 # Example Isaac Lab Reward Function Template
 """
 def sds_custom_reward(env: ManagerBasedRLEnv, **kwargs) -> torch.Tensor:
-    '''Custom SDS reward for Isaac Lab locomotion.'''
+    '''Custom SDS reward for Isaac Lab locomotion - GPT will generate all logic.'''
     
     # Access robot and sensor data
     robot = env.scene["robot"]
@@ -197,35 +199,33 @@ def sds_custom_reward(env: ManagerBasedRLEnv, **kwargs) -> torch.Tensor:
     # Initialize reward tensor
     reward = torch.zeros(env.num_envs, device=env.device)
     
-    # Example reward components:
-    # 1. Velocity tracking
-    # velocity_error = (robot.data.root_lin_vel_b[:, :2] - commands[:, :2]).norm(dim=-1)
-    # reward += torch.exp(-velocity_error / 0.5)  # Exponential reward
+    # GPT will generate all reward components here
+    # Available data examples:
+    # - robot.data.root_lin_vel_b[:, :2]  # Linear velocity in body frame
+    # - robot.data.root_quat_w            # Quaternion orientation (w,x,y,z)
+    # - robot.data.joint_pos              # Joint positions
+    # - commands[:, :2]                   # Velocity commands (vx, vy)
     
-    # 2. Orientation stability
-    # gravity_projection = ... # Calculate projected gravity
-    # reward -= torch.square(gravity_projection[:, :2]).sum(dim=-1)
-    
-    # 3. Contact patterns (CORRECTED VERSION)
-    # Get foot contact forces correctly
+    # Contact analysis example (GPT can use or modify):
     # foot_ids, foot_names = contact_sensor.find_bodies(".*_foot")
     # contact_forces = contact_sensor.data.net_forces_w[:, foot_ids, :]  # [num_envs, 4, 3]
     # contact_magnitudes = torch.norm(contact_forces, dim=-1)  # [num_envs, 4]
-    # foot_contacts = contact_magnitudes > 5.0  # Binary contact detection
-    # fl, fr, rl, rr = foot_contacts[:, 0], foot_contacts[:, 1], foot_contacts[:, 2], foot_contacts[:, 3]
-    # trot_pattern = (fl & rr & ~fr & ~rl) | (~fl & ~rr & fr & rl)  # Diagonal pairs
-    # reward += trot_pattern.float() * 2.0
+    # foot_contacts = contact_magnitudes > 2.0  # Use consistent threshold
     
     return reward
-""" 
+"""
 
 # Detailed Contact Analysis for SDS Reward Functions
-def get_foot_contact_analysis(env, contact_threshold=5.0):
+def get_foot_contact_analysis(env, contact_threshold=2.0):
     """
     Comprehensive foot contact analysis for reward function development.
     
     Returns detailed contact information including force magnitudes,
     contact states, gait patterns, and temporal analysis.
+    
+    Args:
+        env: Isaac Lab environment instance
+        contact_threshold: Force threshold for contact detection (N) - default 2.0N
     """
     contact_sensor = env.scene.sensors["contact_forces"]
     

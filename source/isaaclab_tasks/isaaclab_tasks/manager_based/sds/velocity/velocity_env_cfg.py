@@ -80,7 +80,9 @@ class MySceneCfg(InteractiveSceneCfg):
         debug_vis=False,
         mesh_prim_paths=["/World/ground"],
     )
-    contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*", history_length=3, track_air_time=True)
+    contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*_foot", history_length=3, track_air_time=True)
+    # Separate contact sensor for trunk/body contact detection
+    trunk_contact = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/trunk", history_length=3, track_air_time=False)
     # lights
     sky_light = AssetBaseCfg(
         prim_path="/World/skyLight",
@@ -109,7 +111,7 @@ class CommandsCfg:
         heading_control_stiffness=0.5,
         debug_vis=False,  # Disabled to remove arrows from training footage
         ranges=mdp.UniformVelocityCommandCfg.Ranges(
-            lin_vel_x=(-1.0, 1.0), lin_vel_y=(-1.0, 1.0), ang_vel_z=(-1.0, 1.0), heading=(-math.pi, math.pi)
+            lin_vel_x=(-1.0, 3.0), lin_vel_y=(-1.0, 1.0), ang_vel_z=(-1.0, 1.0), heading=(-math.pi, math.pi)
         ),
     )
 
@@ -252,7 +254,7 @@ class TerminationsCfg:
     time_out = DoneTerm(func=mdp.time_out, time_out=True)
     base_contact = DoneTerm(
         func=mdp.illegal_contact,
-        params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names="trunk"), "threshold": 1.0},
+        params={"sensor_cfg": SceneEntityCfg("trunk_contact", body_names="trunk"), "threshold": 1.0},
     )
 
 

@@ -9,6 +9,7 @@ import subprocess
 from pathlib import Path
 import shutil
 import torch
+import gc
 import glob
 from utils.misc import * 
 from utils.extract_task_code import *
@@ -348,7 +349,7 @@ def main(cfg):
                     "--num_envs=1",
                     f"--checkpoint={latest_checkpoint}",
                     f"--plot_steps={cfg.video_length}",
-                    "--contact_threshold=5.0",
+                    "--contact_threshold=2.0",
                     "--warmup_steps=50",
                     "--headless"
                 ]
@@ -396,7 +397,8 @@ def main(cfg):
                     logging.info(f"Copied Isaac Lab contact pattern: {contact_pattern_dir} -> {contact_sequence_save_dir}")
                     
                     footage_grids_dir.append(footage_grid_save_dir)
-                    contact_pattern_dirs.append(contact_sequence_save_dir)    
+                    contact_pattern_dirs.append(contact_sequence_save_dir)
+
                     successful_runs_index.append(response_id)
                     eval_success = True
 
@@ -405,6 +407,30 @@ def main(cfg):
                     logging.info(f"Iteration {iter}: Code Run {response_id} Failed to Evaluate: {str(e)}")
             else:
                 logging.info(f"Iteration {iter}: Code Run {response_id} Unstable, Not evaluated")
+        
+            # GPU MEMORY CLEANUP - Add after each sample completes
+            try:
+                # Clear PyTorch GPU cache
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                    torch.cuda.synchronize()
+                    logging.info(f"GPU cache cleared after sample {response_id}")
+                
+                # Force garbage collection
+                gc.collect()
+                
+                # Log current GPU memory usage
+                try:
+                    result = subprocess.run(['nvidia-smi', '--query-gpu=memory.used', '--format=csv,noheader,nounits'], 
+                                          capture_output=True, text=True, timeout=5)
+                    if result.returncode == 0:
+                        vram_used = result.stdout.strip()
+                        logging.info(f"GPU VRAM after sample {response_id}: {vram_used}MB")
+                except:
+                    pass
+                    
+            except Exception as e:
+                logging.warning(f"GPU memory cleanup failed: {e}")
         
         # Repeat the iteration if all code generation failed
         if not eval_success and cfg.sample != 1:

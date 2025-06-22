@@ -18,6 +18,16 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors import ContactSensor
 from isaaclab.utils.math import quat_apply_inverse, yaw_quat, matrix_from_quat
 
+# Import SDS contact analysis function
+import sys
+import os
+# Add the SDS environment path to sys.path for importing
+sds_env_path = os.path.join(os.path.dirname(__file__), "../../../../../../../SDS_ANONYM/SDS/envs")
+if sds_env_path not in sys.path:
+    sys.path.append(sds_env_path)
+
+from isaac_lab_sds_env import get_foot_contact_analysis, extract_foot_contacts
+
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
 
@@ -109,60 +119,98 @@ def track_ang_vel_z_world_exp(
 
 # SDS Custom Reward Integration
 # The following function will be dynamically updated by the SDS system
+# GPT will generate the complete reward logic - no hardcoded components
 
 def sds_custom_reward(env) -> torch.Tensor:
-        """
-        Custom SDS-generated reward function for locomotion.
-        
-        Args:
-            env: The Isaac Lab environment instance
-            
-        Returns:
-            torch.Tensor: Reward values for each environment (shape: [num_envs])
-        """
-        # Access robot data
         robot = env.scene["robot"]
         contact_sensor = env.scene.sensors["contact_forces"]
-        
-        # Retrieve commands
-        commands = env.command_manager.get_command("base_velocity")
     
-        # Initialize reward tensor
-        reward = torch.zeros(env.num_envs, device=env.device)
-        
-        # 1. Velocity tracking in the x direction
-        vx_command = commands[:, 0]  # Desired velocity in x-direction
-        velocity_error = (robot.data.root_lin_vel_b[:, 0] - vx_command).norm(dim=-1)
-        velocity_tracking_reward = torch.exp(-velocity_error / 0.5)
-        reward += velocity_tracking_reward
+        root_pos_w = robot.data.root_pos_w
+        root_quat_w = robot.data.root_quat_w
+        root_lin_vel_b = robot.data.root_lin_vel_b
+        joint_vel = robot.data.joint_vel
     
-        # 2. Height stability
-        height_error = torch.abs(robot.data.root_pos_w[:, 2] - 0.34)
-        height_reward = torch.exp(-height_error / 0.1)
-        reward += height_reward
+        num_envs = env.num_envs
+        device = env.device
     
-        # 3. Orientation stability (keeping upright)
-        up_vector = matrix_from_quat(robot.data.root_quat_w)[:, :3, 2]
-        gravity_vector = torch.tensor([0, 0, -1], device=env.device)
-        orientation_error = torch.norm(up_vector - gravity_vector, dim=-1)
-        orientation_reward = torch.exp(-orientation_error)
-        reward += orientation_reward
-    
-        # 4. Walk pattern: FL and RR then FR and RL
+        # Contact analysis
+        contact_forces = contact_sensor.data.net_forces_w
         foot_ids, foot_names = contact_sensor.find_bodies(".*_foot")
-        foot_forces = contact_sensor.data.net_forces_w[:, foot_ids, :]
-        foot_contact_magnitudes = torch.norm(foot_forces, dim=-1)
-        fl_contact, fr_contact, rl_contact, rr_contact = foot_contact_magnitudes[:, 0], foot_contact_magnitudes[:, 1], foot_contact_magnitudes[:, 2], foot_contact_magnitudes[:, 3]
-        walk_pattern1 = (fl_contact > 5.0) & (rr_contact > 5.0) & (fr_contact <= 5.0) & (rl_contact <= 5.0)
-        walk_pattern2 = (fr_contact > 5.0) & (rl_contact > 5.0) & (fl_contact <= 5.0) & (rr_contact <= 5.0)
-        walk_reward = (walk_pattern1 | walk_pattern2).float() * 2.0
-        reward += walk_reward
+        foot_forces = contact_forces[:, foot_ids, :]      # [num_envs, 4, 3]
+        force_magnitudes = foot_forces.norm(dim=-1)       # [num_envs, 4]
+        foot_contacts = force_magnitudes > 2.0            # [num_envs, 4]
     
-        # 5. Minimize excessive joint movement
-        joint_vel_penalty = torch.sum(torch.square(robot.data.joint_vel), dim=-1)
-        reward -= joint_vel_penalty * 0.01  # Penalty weight
+        fl = foot_contacts[:, 0]
+        fr = foot_contacts[:, 1]
+        rl = foot_contacts[:, 2]
+        rr = foot_contacts[:, 3]
     
+        # Pace: FL+RL or FR+RR and not the other
+        pace_left = fl & rl & (~fr) & (~rr)
+        pace_right = fr & rr & (~fl) & (~rl)
+        pace_pattern = pace_left | pace_right
+    
+        num_contacts = foot_contacts.sum(dim=-1)  # [num_envs]
+    
+        reward = torch.zeros(num_envs, dtype=torch.float32, device=device)
+    
+        # 1. Forward velocity tracking (L1 around 2.5 m/s, body-x)
+        target_vx = 2.5
+        lin_vel_bx = root_lin_vel_b[:, 0]
+        vel_error = torch.abs(lin_vel_bx - target_vx)
+        vel_reward = 1.0 - 0.33 * vel_error  # Range: [very negative, 1.0], rapidly decreases when off target
+        vel_reward = torch.clamp(vel_reward, min=-1.0, max=1.0)
+        reward += 1.0 * vel_reward
+    
+        # 2. Trunk height control (soft region at 0.34, hard penalty <0.28)
+        target_z = 0.34
+        height = root_pos_w[:, 2]
+        height_error = torch.abs(height - target_z)
+        height_soft = torch.clamp(1.0 - 7.0 * height_error, 0.0, 1.0)
+        reward += 0.8 * height_soft
+        # Hard penalty if falling too low
+        reward -= 2.0 * (height < 0.28).float()
+    
+        # 3. Uprightness (no large roll/pitch: use world-z in body frame)
+        up_vector = torch.tensor([0, 0, 1], dtype=torch.float32, device=device).expand(num_envs, 3)
+        projected_up = quat_apply_inverse(root_quat_w, up_vector)
+        uprightness = projected_up[:, 2]  # z-up component in body frame
+        upright_reward = torch.clamp(uprightness, min=0.0, max=1.0)
+        reward += 0.7 * upright_reward
+    
+        # 4. Pace pattern soft reward
+        reward += 0.35 * pace_pattern.float()
+    
+        # 5. #contacts pattern (prefer 2 or 4)
+        contacts_preferred = ((num_contacts == 2) | (num_contacts == 4)).float()
+        reward += 0.15 * contacts_preferred
+    
+        # 6. Joint velocity penalty (L1 norm)
+        reward -= 0.015 * torch.sum(torch.abs(joint_vel), dim=-1)
+    
+        # 7. Foot force penalty for excessive impacts
+        force_slamming = torch.clamp(force_magnitudes - 35.0, min=0.0)
+        reward -= 0.004 * torch.sum(force_slamming, dim=-1)
+    
+        # 8. Penalty for not being in pace pattern (merge with 4)
+        reward -= 0.25 * (~pace_pattern).float()
+    
+        # Clip negative rewards to stabilize
+        reward = torch.clamp(reward, min=-2.0)
         return reward
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -14,3 +14,34 @@ Some helpful tips for writing the reward function code:
     (7) Return only the total reward tensor, not individual components
     (8) Commands are in body frame: env.command_manager.get_command("base_velocity") gives [vx, vy, omega_z]
     (9) Use torch.norm() for contact force magnitudes and vector operations
+
+CRITICAL ISAAC LAB CONSTRAINTS:
+    (10) NEVER call external functions like extract_foot_contacts() or get_foot_contact_analysis()
+    (11) Use ONLY inline contact analysis within your reward function
+    (12) Do NOT add any import statements - all necessary imports are already available
+    (13) For contact analysis, use this pattern:
+         contact_forces = contact_sensor.data.net_forces_w
+         foot_ids, foot_names = contact_sensor.find_bodies(".*_foot")
+         foot_forces = contact_forces[:, foot_ids, :]
+         force_magnitudes = foot_forces.norm(dim=-1)
+         foot_contacts = force_magnitudes > 2.0
+    (14) CRITICAL TENSOR DTYPE: Always use torch.tensor(..., dtype=torch.float32, device=env.device)
+         NEVER use torch.tensor([1, 2, 3]) - always specify dtype=torch.float32
+    (15) For Isaac Lab math functions like quat_apply_inverse, ensure all tensors are float32
+         Example: torch.tensor([0, 0, 1], dtype=torch.float32, device=env.device)
+    (16) CRITICAL TENSOR BROADCASTING: When using Isaac Lab math functions (quat_apply_inverse, etc.):
+         - Ensure tensor dimensions match the batch size (env.num_envs)
+         - For single vectors, expand to batch size: 
+           up_vector = torch.tensor([0, 0, 1], dtype=torch.float32, device=env.device).expand(env.num_envs, 3)
+         - quat_apply_inverse(quaternions, vectors) expects both inputs to have same batch dimension
+         - quaternions shape: [num_envs, 4], vectors shape: [num_envs, 3]
+    (17) CRITICAL TENSOR OPERATIONS: For batched operations (multiple environments):
+         - NEVER use torch.dot() - it only works with 1D tensors
+         - For batched dot products: torch.sum(tensor1 * tensor2, dim=-1)
+         - For batched norms: tensor.norm(dim=-1)
+         - All operations must preserve the batch dimension [num_envs]
+    (18) CRITICAL ISAAC LAB BODY NAMES: For Unitree Go1 robot contact sensing:
+         - ONLY these bodies exist: ['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']
+         - NEVER try to find: thigh, shin, calf, hip, base, torso, or other body parts
+         - ONLY use: foot_ids, foot_names = contact_sensor.find_bodies(".*_foot")
+         - DO NOT attempt contact_sensor.find_bodies(".*_thigh") or similar

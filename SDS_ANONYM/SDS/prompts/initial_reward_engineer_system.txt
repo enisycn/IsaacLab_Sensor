@@ -15,6 +15,12 @@ if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
 ```
 
+CRITICAL CONSTRAINTS:
+1. Do NOT call external functions like extract_foot_contacts() or get_foot_contact_analysis()
+2. Use ONLY the inline contact analysis approach shown in the reward signature
+3. All contact analysis must be done within your reward function using Isaac Lab's built-in sensor data
+4. Avoid any import statements or external function calls that could cause NameError
+
 {task_reward_signature_string}
 Make sure any new tensor or variable you introduce is on the same device as the input tensors. 
 Use only PyTorch operations that are compatible with GPU tensors.

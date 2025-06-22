@@ -1,80 +1,51 @@
 Isaac Lab Reward Function Format:
 
-Your reward function should follow this exact signature:
+Your reward function must follow this exact structure and use inline contact analysis:
 
 def sds_custom_reward(env) -> torch.Tensor:
-    """
-    Custom SDS-generated reward function for locomotion.
-    
-    Args:
-        env: The Isaac Lab environment instance
-        
-    Returns:
-        torch.Tensor: Reward values for each environment (shape: [num_envs])
-    """
-    # Access robot data through env.scene["robot"]
+    # Access environment data
     robot = env.scene["robot"]
+    contact_sensor = env.scene.sensors["contact_forces"]
+    commands = env.command_manager.get_command("base_velocity")
     
-    # Example access patterns (IMPORTANT: Use body frame for velocities):
-    # robot.data.root_pos_w          # Root position in world frame [num_envs, 3]
-    # robot.data.root_quat_w         # Root orientation in world frame [num_envs, 4] (w,x,y,z)
-    # robot.data.root_lin_vel_b      # Root linear velocity in BODY frame [num_envs, 3] 
-    # robot.data.root_ang_vel_b      # Root angular velocity in BODY frame [num_envs, 3]
-    # robot.data.joint_pos           # Joint positions [num_envs, num_joints]
-    # robot.data.joint_vel           # Joint velocities [num_envs, num_joints]
-    # robot.data.joint_acc           # Joint accelerations [num_envs, num_joints]
-    
-    # CORRECT orientation calculations (DO NOT compare quaternions directly):
-    # from isaaclab.utils.math import matrix_from_quat
-    # up_vector = matrix_from_quat(robot.data.root_quat_w)[:, :3, 2]  # Extract up direction
-    # gravity_vector = torch.tensor([0, 0, -1], device=env.device)
-    # orientation_error = torch.norm(up_vector - gravity_vector, dim=-1)
-    # orientation_reward = torch.exp(-orientation_error)
-    
-    # Access command manager for velocity commands (body frame):
-    # commands = env.command_manager.get_command("base_velocity")  # [num_envs, 3] (vx, vy, omega_z)
-    
-    # CORRECT velocity tracking (use dynamic commands, not hardcoded values):
-    # velocity_error = torch.norm(robot.data.root_lin_vel_b[:, :2] - commands[:, :2], dim=-1)
-    # velocity_reward = torch.exp(-velocity_error / 0.5)  # Use dynamic commands
-    
-    # AVOID hardcoded velocities like:
-    # desired_velocity = torch.tensor([2.0, 0.0], device=env.device)  # BAD - hardcoded
-    
-    # CORRECT velocity tracking (use dynamic commands, not hardcoded values):
-    # velocity_error = torch.norm(robot.data.root_lin_vel_b[:, :2] - commands[:, :2], dim=-1)
-    # velocity_reward = torch.exp(-velocity_error / 0.5)  # Use dynamic commands
-    
-    # AVOID hardcoded velocities like:
-    # desired_velocity = torch.tensor([2.0, 0.0], device=env.device)  # BAD - hardcoded
-    
-    # Access contact forces:
-    # contact_sensor = env.scene.sensors["contact_forces"]
-    # contact_forces = contact_sensor.data.net_forces_w  # [num_envs, num_bodies, 3]
-    
-    # Foot contact detection (Go1 has 4 feet: FL_foot, FR_foot, RL_foot, RR_foot):
-    # CORRECT API - use find_bodies method to get foot indices:
-    # foot_ids, foot_names = contact_sensor.find_bodies(".*_foot")
-    # foot_forces = contact_forces[:, foot_ids, :]  # [num_envs, 4, 3]
-    # foot_contact_magnitudes = torch.norm(foot_forces, dim=-1)  # [num_envs, 4]
-    
-    # Alternative approach if needed (foot order: FL, FR, RL, RR):
-    # fl_id, _ = contact_sensor.find_bodies("FL_foot")
-    # fr_id, _ = contact_sensor.find_bodies("FR_foot") 
-    # rl_id, _ = contact_sensor.find_bodies("RL_foot")
-    # rr_id, _ = contact_sensor.find_bodies("RR_foot")
-    
-    # Diagonal trotting pattern example:
-    # fl, fr, rl, rr = foot_contact_magnitudes[:, 0], foot_contact_magnitudes[:, 1], foot_contact_magnitudes[:, 2], foot_contact_magnitudes[:, 3]
-    # diagonal1 = (fl > 5.0) & (rr > 5.0) & (fr <= 5.0) & (rl <= 5.0)  # FL+RR only
-    # diagonal2 = (fr > 5.0) & (rl > 5.0) & (fl <= 5.0) & (rr <= 5.0)  # FR+RL only
-    # proper_trot = diagonal1 | diagonal2
-    # trot_reward = proper_trot.float() * 2.0
-    
-    # Your reward computation here
+    # Initialize reward
     reward = torch.zeros(env.num_envs, device=env.device)
     
-    # Add your reward terms (example structure):
-    # reward += some_reward_term * weight
+    # IMPORTANT: For contact analysis, use this inline approach:
+    # Get foot contact forces
+    contact_forces = contact_sensor.data.net_forces_w  # [num_envs, num_bodies, 3]
+    foot_ids, foot_names = contact_sensor.find_bodies(".*_foot")
+    foot_forces = contact_forces[:, foot_ids, :]  # [num_envs, num_feet, 3]
+    force_magnitudes = foot_forces.norm(dim=-1)  # [num_envs, num_feet]
+    foot_contacts = force_magnitudes > 2.0  # [num_envs, num_feet] boolean tensor
+    
+    # Available robot data:
+    # robot.data.root_pos_w[:, 2] - height (z-coordinate)
+    # robot.data.root_lin_vel_b[:, 0] - forward velocity (x-axis in body frame)
+    # robot.data.root_quat_w - orientation quaternion [w,x,y,z]
+    # robot.data.joint_vel - joint velocities [num_envs, 12]
+    
+    # CRITICAL: Available contact sensor bodies for Unitree Go1:
+    # ONLY these body names exist: ['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']
+    # DO NOT try to find: thigh, shin, calf, hip, or any other body parts
+    # ONLY use: contact_sensor.find_bodies(".*_foot") for foot contacts
+    
+    # CRITICAL: For tensor creation, always specify dtype and device:
+    # For single vectors used with batch operations, expand to match env.num_envs:
+    # up_vector = torch.tensor([0, 0, 1], dtype=torch.float32, device=env.device).expand(env.num_envs, 3)
+    # projected_up = quat_apply_inverse(robot.data.root_quat_w, up_vector)
+    # For batched dot products: uprightness = torch.sum(projected_up * up_vector, dim=-1)
+    # 
+    # NOT: torch.tensor([0, 0, 1])  # This creates Long tensors and causes errors!
+    # NOT: up_vector = torch.tensor([0, 0, 1], dtype=torch.float32, device=env.device)  # Wrong shape for batch ops!
+    # NOT: torch.dot(tensor1, tensor2)  # Only works with 1D tensors, not batched!
+    
+    # Your reward computation here
+    # ...
     
     return reward
+
+CRITICAL: Do NOT call external functions like extract_foot_contacts() or get_foot_contact_analysis().
+Use the inline contact analysis code shown above.
+
+CRITICAL: Always specify dtype=torch.float32 and device=env.device for tensor creation!

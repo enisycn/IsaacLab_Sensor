@@ -31,14 +31,14 @@ def plot_foot_contacts(act_foot_contacts, save_root,title='Contact Sequence',eva
     medium_dark_brown = "#D2691E"
     
     # Isaac Lab foot order: [FL, FR, RL, RR] (indices 0,1,2,3)
-    # Reorder to match expected plotting layout: FL, RL, RR, FR
-    foot_names = ['FL', 'RL', 'RR', 'FR']  # Reordered for better visualization
+    # Use Isaac Lab's natural ordering - no reordering needed
+    foot_names = ['FL', 'FR', 'RL', 'RR']  # Match Isaac Lab's actual order
     foot_colors = [medium_dark_grey, medium_dark_brown, very_dark_brown, very_dark_grey]
     default_color = 'darkblue'
     foot_contacts = np.array(foot_contacts)
     
-    # Reorder columns from [FL, FR, RL, RR] to [FL, RL, RR, FR] for better plotting layout
-    foot_contacts = foot_contacts[:,[0,2,3,1]]  # FL(0), RL(2), RR(3), FR(1)
+    # No reordering - use Isaac Lab's natural foot order directly
+    # foot_contacts columns are already [FL, FR, RL, RR] which matches foot_names
         
     ax.set_yticks([3,2,1,0])
     ax.set_yticklabels(foot_names)

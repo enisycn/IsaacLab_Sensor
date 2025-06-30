@@ -10,13 +10,17 @@ You are an expert in quadruped locomotion and gait analysis. Your task is to det
    - **Pattern:** Two-beat gait
    - **Characteristics:** Same-side pairs of legs move together (e.g., FL with RL and FR with RR).
 
-3. **Bound**
-   - **Pattern:** Two-beat gait
-   - **Characteristics:** A high-speed locomotion method where both front legs strike the ground simultaneously, followed by both rear legs. This gait is typically employed by animals to achieve rapid movement.
+3. **Hop**
+   - **Pattern:** One-beat gait
+   - **Characteristics:** A synchronized locomotion method where all four legs hit the ground simultaneously in perfect coordination, creating powerful coordinated takeoff and landing phases. This creates vertical bouncing motion with ALL legs working together as a single unit. The sequence is: All four legs together → Extended aerial phase → All four legs together → Extended aerial phase. Focus is on vertical displacement and rhythmic bouncing with synchronized leg coordination.
 
 4. **Pronk**
    - **Pattern:** One-beat gait
-   - **Characteristics:** Both front legs and both rear legs hit the ground simultaneously, projecting the torso upwards and forwards.
+   - **Characteristics:** Both front legs and both rear legs hit the ground simultaneously, projecting the torso upwards and forwards with strong forward momentum.
+
+5. **Bound**
+   - **Pattern:** Two-beat gait
+   - **Characteristics:** Sequential front-then-rear leg coordination pattern with forward propulsion emphasis. The sequence is: Front legs together → Brief aerial phase → Rear legs together → Brief aerial phase.
 
 **Input Data:**
 
@@ -82,10 +86,15 @@ The contact patterns show that the Front Left (FL) and Rear Right (RR) legs, as 
 
 3. **Match with Gait Characteristics:**
    - Compare observed patterns with the defined gait types.
+   - **Key Distinction for One-Beat Gaits:** 
+     * **Hop** = All four legs together simultaneously (synchronized all-together sequence)
+     * **Pronk** = All legs together with forward momentum emphasis
+     * **Bound** = Front legs together, then rear legs together (sequential front-then-rear pattern)
 
 4. **Conclude and Reason:**
    - Determine the gait type that best fits the observed patterns from both the contact sequences and the input image.
    - Provide logical reasoning linking specific features to the gait characteristics.
+   - For synchronized vs sequential distinction, specifically note whether legs move all-together or in sequential patterns.
 
 **Final Note:**
 - **Clarity and Conciseness:** Ensure that both the gait identification and reasoning are clear, concise, and directly derived from the contact patterns.

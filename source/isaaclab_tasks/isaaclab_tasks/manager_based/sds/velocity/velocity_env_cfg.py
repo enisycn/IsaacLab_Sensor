@@ -111,7 +111,7 @@ class CommandsCfg:
         heading_control_stiffness=0.5,
         debug_vis=False,  # Disabled to remove arrows from training footage
         ranges=mdp.UniformVelocityCommandCfg.Ranges(
-            lin_vel_x=(-1.0, 3.0), lin_vel_y=(-1.0, 1.0), ang_vel_z=(-1.0, 1.0), heading=(-math.pi, math.pi)
+            lin_vel_x=(0.5, 2.6), lin_vel_y=(-0.01, 0.01), ang_vel_z=(-0.01, 0.01), heading=(-math.pi, math.pi)
         ),
     )
 

@@ -65,7 +65,14 @@ class Agent():
         self.logger.info(f"Activated Agent {self.__class__.__name__}")
         self.sample = 1
         self.model = cfg.model
-        self.temperature = 0.8
+        
+        # Reasoning models (o1, o3, o4 series) only support temperature=1.0
+        reasoning_models = ['o1', 'o1-mini', 'o1-preview', 'o3', 'o3-mini', 'o4-mini']
+        if any(self.model.startswith(model) for model in reasoning_models):
+            self.temperature = 1.0  # Required for reasoning models
+            self.logger.info(f"Using temperature=1.0 for reasoning model {self.model}")
+        else:
+            self.temperature = 0.8  # Default for other models
     
     def get_conversation(self):
         return self.conversation
@@ -119,8 +126,11 @@ class TaskDescriptor(Agent):
     def __init__(self, cfg, prompt_dir):
         system_prompt_file=f"{prompt_dir}/task_descriptor_system.txt"
         super().__init__(system_prompt_file, cfg)
-    def analyse(self,encoded_frame_grid):
-        self.prepare_user_content([{"type":"image_uri","data":encoded_frame_grid}])
+    def analyse(self,encoded_frame_grid, task_hint=None):
+        user_content = [{"type":"image_uri","data":encoded_frame_grid}]
+        if task_hint:
+            user_content.append({"type":"text","data":f"You are analyzing a video demonstrating: {task_hint}. Focus your analysis on the specific behaviors and movements characteristic of this task."})
+        self.prepare_user_content(user_content)
         return self.query()
 
 class ContactSequenceAnalyser(Agent):
@@ -140,8 +150,11 @@ class TaskRequirementAnalyser(Agent):
     def __init__(self, cfg, prompt_dir):
         system_prompt_file=f"{prompt_dir}/task_requirement_system.txt"
         super().__init__(system_prompt_file, cfg)
-    def analyse(self,encoded_frame_grid):
-        self.prepare_user_content([{"type":"image_uri","data":encoded_frame_grid}])
+    def analyse(self,encoded_frame_grid, task_hint=None):
+        user_content = [{"type":"image_uri","data":encoded_frame_grid}]
+        if task_hint:
+            user_content.append({"type":"text","data":f"You are analyzing a video demonstrating: {task_hint}. Please provide requirements specifically for this type of locomotion behavior."})
+        self.prepare_user_content(user_content)
         
         return self.query()
 
@@ -163,9 +176,9 @@ class SUSGenerator(Agent):
         self.prompt_dir = prompt_dir
         super().__init__(system_prompt_file, cfg)
     
-    def generate_sus_prompt(self,encoded_gt_frame_grid):
+    def generate_sus_prompt(self,encoded_gt_frame_grid, task_description_hint=None):
         task_descriptor = TaskDescriptor(self.cfg,self.prompt_dir)
-        task_description = task_descriptor.analyse(encoded_gt_frame_grid)   
+        task_description = task_descriptor.analyse(encoded_gt_frame_grid, task_description_hint)   
         
         contact_sequence_analyser = ContactSequenceAnalyser(self.cfg,self.prompt_dir)
         contact_pattern = contact_sequence_analyser.analyse(encoded_gt_frame_grid)
@@ -174,7 +187,7 @@ class SUSGenerator(Agent):
         gait_response = gait_analyser.analyse(encoded_gt_frame_grid,contact_pattern)
         
         task_requirement_analyser = TaskRequirementAnalyser(self.cfg,self.prompt_dir)
-        task_requirement_response = task_requirement_analyser.analyse(encoded_gt_frame_grid)
+        task_requirement_response = task_requirement_analyser.analyse(encoded_gt_frame_grid, task_description_hint)
         
         self.prepare_user_content([{"type":"text","data":task_description},{"type":"text","data":gait_response},{"type":"text","data":task_requirement_response}])
         

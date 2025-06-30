@@ -1,8 +1,100 @@
+IMPORTANT: Provide ONLY the reward function code in ```python ``` blocks. Do NOT include lengthy explanations.
+
+🚨 CRITICAL: NEVER USE torch.clamp() ON LITERAL NUMBERS 🚨
+
+The most common error that crashes training is using torch.clamp() on literal numbers instead of tensor variables.
+
+❌ WRONG - CAUSES TRAINING CRASH:
+```python
+# These are LITERAL NUMBERS - will crash with TypeError!
+reward = error / torch.clamp(0.1, min=1e-6)    # 0.1 is a literal number
+reward = error / torch.clamp(2.0, min=1e-6)    # 2.0 is a literal number  
+reward = error / torch.clamp(0.15, min=1e-6)   # 0.15 is a literal number
+```
+
+✅ CORRECT - USE max() FOR LITERAL NUMBERS:
+```python
+# Use max() function for literal numbers
+reward = error / max(0.1, 1e-6)     # ✅ Correct
+reward = error / max(2.0, 1e-6)     # ✅ Correct
+reward = error / max(0.15, 1e-6)    # ✅ Correct
+```
+
+✅ CORRECT - USE torch.clamp() ONLY FOR TENSOR VARIABLES:
+```python
+# These are TENSOR VARIABLES computed from robot data
+tolerance = vx_command * 1.2                           # vx_command is tensor
+reward = error / torch.clamp(tolerance, min=1e-6)      # ✅ Correct
+
+velocity_threshold = robot.data.root_lin_vel_b.norm()   # computed tensor
+reward = error / torch.clamp(velocity_threshold, min=1e-6)  # ✅ Correct
+```
+
+🔍 HOW TO TELL THE DIFFERENCE:
+- LITERAL NUMBER: 0.1, 2.0, 0.15, 1.5 (you type the number directly) → Use max()
+- TENSOR VARIABLE: vx_command, height_error, tolerance (computed from robot data) → Use torch.clamp()
+
+FORMATTING REQUIREMENTS:
+1. Function definition at column 0: "def sds_custom_reward(env) -> torch.Tensor:"
+2. Use exactly 4 spaces for indentation (not 8 spaces or tabs)
+3. Always specify dtype=torch.float32 and device=env.device for tensor creation
+4. Return single torch.Tensor with shape [num_envs]
+
+ISAAC LAB PATTERNS:
+- Robot access: robot = env.scene["robot"]
+- Commands: commands = env.command_manager.get_command("base_velocity")
+- Contact sensor: contact_sensor = env.scene.sensors["contact_forces"]
+- Foot detection: foot_ids, foot_names = contact_sensor.find_bodies(".*_foot")
+- Only these feet exist: FL_foot, FR_foot, RL_foot, RR_foot
+
+STABLE REWARD PATTERNS:
+- Exponential tracking: torch.exp(-scale * error.abs())
+- Bounded linear: (1.0 - error / max(tolerance, 1e-6)).clamp(min=0.0, max=1.0)
+- Boolean gait masks: ((condition1) & (condition2)).float()
+- Final clamp: return reward.clamp(min=0.0, max=10.0)
+
+Remember: Use max() for literal numbers, torch.clamp() only for tensor variables!
+
 Your reward function must return a SINGLE torch.Tensor with shape [num_envs] containing the total reward for each environment.
 
 Do NOT return a tuple or dictionary - Isaac Lab expects only the total reward tensor.
 
 The code output should be formatted as a python code string: "```python ... ```".
+
+CRITICAL FORMATTING REQUIREMENTS:
+    (FORMAT-1) Use EXACTLY 4 spaces for function body indentation (not 8 spaces or tabs):
+         def sds_custom_reward(env) -> torch.Tensor:
+             """Docstring"""
+             robot = env.scene["robot"]  # 4 spaces
+             return reward               # 4 spaces
+    
+    (FORMAT-2) Function definition MUST start at column 0 (no indentation):
+         # WRONG: "    def sds_custom_reward(env) -> torch.Tensor:"
+         # CORRECT: "def sds_custom_reward(env) -> torch.Tensor:"
+    
+    (FORMAT-3) Prevent division by zero - use the correct method for each type:
+         # DANGEROUS: reward = numerator / denominator
+         # For TENSOR variables: reward = numerator / torch.clamp(tensor_denominator, min=1e-6)
+         # For LITERAL numbers: reward = numerator / max(literal_number, 1e-6)
+         # EXAMPLE TENSOR: tol_v = torch.clamp(vx_t * 1.2, min=1e-6)  # vx_t is tensor!
+         # EXAMPLE LITERAL: reward = error / max(0.1, 1e-6)  # 0.1 is literal - use max()!
+    
+    (FORMAT-4) Always specify dtype for tensors:
+         # WRONG: torch.tensor([0, 0, 1])
+         # CORRECT: torch.tensor([0, 0, 1], dtype=torch.float32, device=env.device)
+
+    (FORMAT-5) NEVER mix indentation styles - use ONLY 4 spaces:
+         # WRONG MIXED INDENTATION:
+         def sds_custom_reward(env) -> torch.Tensor:
+                 """8 spaces here"""
+             robot = env.scene["robot"]  # 4 spaces here
+                 return reward           # 8 spaces here
+         
+         # CORRECT CONSISTENT INDENTATION:
+         def sds_custom_reward(env) -> torch.Tensor:
+             """4 spaces"""
+             robot = env.scene["robot"]  # 4 spaces
+             return reward               # 4 spaces
 
 Some helpful tips for writing the reward function code:
     (1) Use only Isaac Lab environment interface: env.scene["robot"], env.command_manager, env.scene.sensors
@@ -18,7 +110,11 @@ Some helpful tips for writing the reward function code:
 CRITICAL ISAAC LAB CONSTRAINTS:
     (10) NEVER call external functions like extract_foot_contacts() or get_foot_contact_analysis()
     (11) Use ONLY inline contact analysis within your reward function
-    (12) Do NOT add any import statements - all necessary imports are already available
+    (12) 🚨 CRITICAL: NEVER ADD ANY IMPORT STATEMENTS - all necessary imports are already available
+    (12.1) NEVER use: from omni.isaac.core.utils.quaternion import quat_apply_inverse
+    (12.2) NEVER use: from omni.isaac.core import *
+    (12.3) DO NOT add any "from" or "import" lines in your function
+    (12.4) All Isaac Lab math functions (quat_apply_inverse, yaw_quat, etc.) are already imported at top of file
     (13) For contact analysis, use this pattern:
          contact_forces = contact_sensor.data.net_forces_w
          foot_ids, foot_names = contact_sensor.find_bodies(".*_foot")
@@ -45,3 +141,191 @@ CRITICAL ISAAC LAB CONSTRAINTS:
          - NEVER try to find: thigh, shin, calf, hip, base, torso, or other body parts
          - ONLY use: foot_ids, foot_names = contact_sensor.find_bodies(".*_foot")
          - DO NOT attempt contact_sensor.find_bodies(".*_thigh") or similar
+    (19) CRITICAL ROBOT DATA AVAILABILITY: 
+         - Available: robot.data.joint_pos, robot.data.joint_vel, robot.data.root_pos_w, robot.data.root_quat_w
+         - Available: robot.data.root_lin_vel_w, robot.data.root_ang_vel_b, robot.data.root_ang_vel_w, robot.data.applied_torque
+         - Available: contact_sensor.data.current_air_time, contact_sensor.data.last_air_time (for step timing rewards)  
+         - AVOID: robot.data.joint_acc (joint accelerations) - uses unstable finite differencing
+         - For smoothness metrics, use robot.data.joint_vel (velocities) instead of accelerations
+         - Joint accelerations computed via finite differencing become numerically unstable during training
+
+    (19.5) CONTACT SENSOR TIMING DATA FOR GAIT REWARDS:
+         Isaac Lab provides rich timing data for sophisticated gait control:
+         
+         ✅ AVAILABLE CONTACT TIMING DATA:
+         - contact_sensor.data.last_air_time[:, foot_ids]        # Duration of previous aerial phase
+         - contact_sensor.data.current_air_time[:, foot_ids]     # Current ongoing air time
+         - contact_sensor.data.last_contact_time[:, foot_ids]    # Duration of previous ground contact 
+         - contact_sensor.data.current_contact_time[:, foot_ids] # Current ongoing contact time
+         - contact_sensor.compute_first_contact(env.step_dt)[:, foot_ids]  # Just-landed detection
+         
+         ✅ PROPER AIR TIME USAGE:
+         # For gaits with aerial phases (hopping, galloping, dynamic gaits):
+         air_threshold = 0.05  # Minimum meaningful air time in seconds
+         meaningful_air = (last_air_time > air_threshold) & (first_contact > 0)
+         air_reward = torch.sum(meaningful_air.float(), dim=1)
+         
+         # For sustained aerial phases (all feet airborne):
+         all_airborne = (current_air_time > 0.0).all(dim=1)
+         sustained_air_reward = torch.where(all_airborne, current_air_time.mean(dim=1), 0.0)
+         
+         ❌ AVOID OVERLY SIMPLE CONTACT DETECTION:
+         # Don't use only: (foot_contacts.sum(dim=-1) == 0).float()  # Too basic
+         # This misses timing, duration, and rhythm which are crucial for natural gaits
+         
+         ✅ GAIT-SPECIFIC TIMING PATTERNS:
+         - For synchronized gaits: Reward all-together coordination using timing data
+         - For rhythmic gaits: Reward consistent step timing and aerial phases  
+         - For coordinated gaits: Combine timing data with contact patterns
+         - Always consider that natural locomotion involves temporal coordination, not just contact states
+         
+         🚨 CRITICAL: HOPPING REQUIRES SYNCHRONIZED LEG COORDINATION:
+         # HOPPING (vertical bouncing, all legs synchronized):
+         num_contacts = foot_contacts.sum(dim=-1)
+         hop_states = (num_contacts == 0) | (num_contacts == 4)  # Only airborne OR all-contact
+         hop_reward = hop_states.float() + vertical_velocity_emphasis + synchronized_timing_reward
+         
+         # Don't use sequential "front-then-rear" patterns for hopping - wrong gait type!
+         # Hopping needs ALL legs working together, not in sequence
+    (20) Design rewards that match the demonstrated locomotion pattern. Analyze the video to understand the specific movement requirements.
+    (21) CRITICAL PYTORCH API: torch.clamp() ONLY works on tensors, NEVER on scalar numbers:
+         # CAUSES TRAINING CRASH: torch.clamp(0.05, min=1e-6)  # 0.05 is NUMBER!
+         # CAUSES TRAINING CRASH: torch.clamp(1.2, min=0.1)    # 1.2 is NUMBER!
+         # CORRECT: torch.clamp(tensor_variable, min=1e-6)      # Only for tensors
+         # CORRECT: max(0.05, 1e-6)                             # Use max() for numbers
+
+STABLE MATHEMATICAL PATTERNS (for numerical stability and preventing PPO crashes):
+    (22) Use exponential decay for tracking targets: torch.exp(-factor * error.abs()) with moderate factors (0.5 to 10.0)
+    (23) Use bounded linear for contact rewards: (1.0 - error.abs()/tolerance).clamp(min=0.0, max=1.0)
+    (24) Use boolean masks for gait patterns: ((condition1) & (condition2)).float()
+    (25) ALWAYS clamp final reward to prevent numerical instability: return reward.clamp(min=0.0, max=10.0)
+    (26) DIVISION SAFETY: ONLY use torch.clamp() for TENSOR variables, NEVER for literal numbers:
+         # For TENSOR variables: torch.clamp(tensor_denominator, min=1e-6)
+         # For LITERAL numbers: max(literal_number, 1e-6)
+         # Example TENSOR: tol_v = torch.clamp(vx_t * 1.2, min=0.1)  # vx_t is tensor!
+         # Example LITERAL: reward = error / max(0.15, 1e-6)  # 0.15 is literal number
+    (27) VELOCITY TOLERANCE SAFETY: For velocity-based rewards, ensure tolerances are never zero:
+         # DANGEROUS: tol_v = vx_t * 1.2  # Can be zero when vx_t=0
+         # SAFE: tol_v = torch.clamp(vx_t * 1.2, min=0.1)  # vx_t is tensor!
+         # NEVER: tol_v = torch.clamp(0.1, min=1e-6)  # 0.1 is NUMBER - CRASHES!
+
+**Important Tips for Code Generation:**
+
+Remember to follow these guidelines when generating your reward function code:
+
+(1) Always ensure your reward function follows the exact Isaac Lab function signature format
+(2) Always specify dtype=torch.float32 and device=env.device for tensor creation
+(3) Use inline contact analysis code - do NOT call external functions like extract_foot_contacts() 
+(4) Provide comments explaining your reward design choices and mathematical formulations
+(5) Test your mathematical formulations for edge cases (zero velocity, maximum velocity, etc.)
+(6) Balance reward components appropriately and consider their relative magnitudes
+(7) Use stable mathematical operations and avoid division by potentially small numbers
+(8) Consider computational efficiency - use vectorized operations when possible
+(9) Make sure all tensor operations are differentiable for gradient-based learning
+(10) Include proper error handling and validation for tensor shapes and dimensions
+
+Common Isaac Lab tensor operations:
+(11) For vector creation: torch.tensor([x, y, z], dtype=torch.float32, device=env.device)
+(12) For batch operations: expand tensors to match env.num_envs dimension
+(13) For dot products: use torch.sum(tensor1 * tensor2, dim=-1) instead of torch.dot()
+(14) For contact detection: use force_threshold > 2.0 for reliable contact sensing
+(15) For foot identification: use contact_sensor.find_bodies(".*_foot") pattern
+
+Mathematical patterns for stability:
+(16) Use exponential decay for tracking: torch.exp(-scale * error) with reasonable scale
+(17) Use linear bounded rewards: (1.0 - error/tolerance).clamp(min=0.0, max=1.0)
+(18) Use smooth transitions instead of hard thresholds when possible
+(19) Normalize different reward components to similar magnitude ranges
+(20) Include safety constraints through penalty terms rather than hard constraints
+
+Critical implementation notes:
+(21) NEVER use torch.clamp(tensor, device=device) - device parameter not supported
+(22) Use robot.data.joint_vel for smoothness (joint_acc uses unstable finite differencing)
+(23) ONLY use foot bodies: ['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot'] for Unitree Go1
+(24) Use boolean masks for gait patterns: ((condition1) & (condition2)).float()
+(25) ALWAYS clamp final reward to prevent numerical instability: return reward.clamp(min=0.0, max=10.0)
+(26) INDENTATION SAFETY: Function definition at column 0, body indented exactly 4 spaces
+(27) DIVISION SAFETY: Use the correct method for each type:
+     # For TENSOR variables: torch.clamp(tensor_denominator, min=1e-6)
+     # For LITERAL numbers: max(literal_number, 1e-6)
+     # NEVER mix these up - literal numbers cannot use torch.clamp()
+
+Normalization tip: Use .clamp(min=0.0, max=1.0) to keep individual reward components in 0-1 range.
+
+## TEMPORAL CONSIDERATIONS
+
+Consider that quadruped locomotion involves temporal patterns. When analyzing contact states or movement patterns, account for how behaviors change over time to create natural, coordinated movement.
+
+**Important**: Design rewards that promote balanced and coordinated leg movements to ensure natural locomotion patterns.
+
+🚨 CRITICAL FORMATTING REQUIREMENTS 🚨
+
+MOST COMMON ERRORS CAUSING TRAINING CRASHES:
+
+1. INDENTATION ERRORS:
+   ✅ CORRECT: Use exactly 4 spaces for function body
+   ```python
+   def sds_custom_reward(env) -> torch.Tensor:
+       """Description"""
+       robot = env.scene["robot"]
+       reward = torch.zeros(env.num_envs, device=env.device)
+       return reward.clamp(min=0.0, max=10.0)
+   ```
+   
+   ❌ WRONG: 8 spaces, tabs, or inconsistent spacing
+   ```python
+   def sds_custom_reward(env) -> torch.Tensor:
+           robot = env.scene["robot"]  # 8 spaces - CRASHES!
+   ```
+
+2. DIVISION BY ZERO ERRORS:
+   🚨 #1 CAUSE OF CRASHES: torch.clamp() on literal numbers
+   
+   ✅ CORRECT PATTERNS:
+   - LITERAL NUMBERS: 0.1, 2.0, 0.15 (typed directly) → Use max()
+   - TENSOR VARIABLE: vx_command, height_error, tolerance (computed from robot data) → Use torch.clamp()
+   
+   ```python
+   # ✅ CORRECT: max() for literal numbers
+   reward = error / max(0.1, 1e-6)        # 0.1 is typed directly
+   reward = error / max(2.0, 1e-6)        # 2.0 is typed directly
+   
+   # ✅ CORRECT: torch.clamp() for tensor variables
+   tolerance = commands[:, 0] * 1.2       # tolerance computed from robot data
+   reward = error / torch.clamp(tolerance, min=1e-6)  # ✅ Works!
+   
+   # ❌ CRASHES: torch.clamp() on literal numbers
+   reward = error / torch.clamp(0.1, min=1e-6)   # 0.1 is literal - CRASHES!
+   reward = error / torch.clamp(2.0, min=1e-6)   # 2.0 is literal - CRASHES!
+   ```
+
+3. TENSOR CREATION ERRORS:
+   ✅ ALWAYS specify dtype and device:
+   ```python
+   up_vector = torch.tensor([0, 0, 1], dtype=torch.float32, device=env.device)
+   ```
+   
+   ❌ Missing dtype creates Long tensors (crashes):
+   ```python
+   up_vector = torch.tensor([0, 0, 1])  # Creates Long tensor - CRASHES!
+   ```
+
+ISAAC LAB SPECIFIC REQUIREMENTS:
+
+- Function must start at column 0 (no indentation)
+- Use exactly 4 spaces for all indentation inside function
+- Always return reward.clamp(min=0.0, max=10.0) for PPO stability
+- All tensors must use device=env.device
+- Contact bodies: ONLY "FL_foot", "FR_foot", "RL_foot", "RR_foot" exist
+
+LOCOMOTION DESIGN PRINCIPLES:
+
+Analyze the video frames to understand the specific locomotion pattern:
+- Dynamic vs static height control requirements
+- Contact force patterns and timing
+- Body orientation flexibility needs
+- Speed and movement characteristics
+
+Design rewards that match the observed locomotion while ensuring real-world deployment success.
+
+Remember: Different gaits require different reward structures - avoid hardcoding values that favor specific locomotion patterns.

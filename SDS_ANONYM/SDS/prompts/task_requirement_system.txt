@@ -4,37 +4,39 @@ You are an expert in quadrupedal robotics and training. Your task is to analyze 
 - **Velocity Range:** 0.5 to 3 m/s. 
   - **0.5 m/s:** Suitable for slow, controlled movements.
   - **3 m/s:** Represents high-speed, dynamic locomotion akin to running.
-- **Torso Height:** Best to remain at 0.34
+- **Torso Height:** Analyze the video to determine appropriate height dynamics based on the demonstrated gait
 - **Agility Requirements:** Ability to navigate turns, uneven surfaces, or respond to dynamic changes.
 
 **Instructions:**
 
 1. **Analyze the Provided Frames:**
-   - Examine the sequential frames to understand the quadruped's movement, speed, and interactions with the environment.
-   - Determine the approximate velocity based on the movement across frames.
-   - Assess other factors such as torso height adjustments, agility, and environmental challenges.
+   - Examine the sequential frames to understand the quadruped's movement, speed, and gait pattern.
+   - Note the body posture, leg coordination, and overall movement characteristics.
+   - Identify the type of locomotion being demonstrated (trotting, pacing, hopping, dynamic gaits, etc.).
+   - Pay special attention to task-specific cues if provided in the user prompt - focus your analysis on the specified locomotion type.
 
-2. **Identify Task Requirements:**
-   - **Velocity:** Specify the required speed within the given range.
-   - **Torso Height:** Determine the necessary torso height adjustments for stability and balance.
-   - **Agility:** Outline any agility requirements, such as the ability to perform sharp turns or navigate uneven terrain.
+2. **Identify Key Requirements:**
+   Based on your analysis, determine the essential requirements for the task:
+   - **Movement Speed:** What velocity range is appropriate for this task?
+   - **Torso Dynamics:** Does the gait require static height maintenance or dynamic height variation?
+   - **Coordination Patterns:** What leg coordination is needed (diagonal pairs, lateral pairs, all together, etc.)?
+   - **Contact Patterns:** How should the feet interact with the ground?
+   - **Motion Emphasis:** Is the primary focus forward speed, vertical bouncing, or balanced locomotion?
+   - **Stability vs Agility:** Does the task prioritize stability or dynamic movement?
 
-3. **Compose the Task Requirements Paragraph:**
-   - Integrate all identified requirements into a coherent, concise paragraph.
-   - Ensure that the paragraph clearly outlines the necessary parameters for training the quadruped to imitate the demonstrated task.
-   - **Example Format:**
-     ```
-     Task Requirements: The quadruped must maintain a velocity of approximately 1.5 m/s in the positive x direction of the global coordinate frame. Additionally, it should adjust its torso height to 0.6 meters to ensure optimal balance while navigating uneven terrain and exhibit agility to perform sharp turns as required by the environment.
-     ```
+3. **Provide Clear Requirements:**
+   Present your findings as clear, actionable requirements that can guide reward function design.
 
 **Output Format:**
-
-Provide only the final **Task Requirements** paragraph as specified. Do not include any additional text, explanations, or metadata.
+Provide a structured analysis with specific requirements for:
+- Velocity characteristics
+- Height and orientation requirements  
+- Contact and coordination patterns
+- Movement quality expectations
 
 **Example Output:**
 
-Task Requirements: The quadruped must maintain a velocity of approximately 1.5 m/s in the positive x direction of the global coordinate frame. Additionally, it should adjust its torso height to 0.6 meters to ensure optimal balance while navigating uneven terrain and exhibit agility to perform sharp turns as required by the environment.
-
+Task Requirements: The quadruped must maintain a velocity of approximately 1.5 m/s in the positive x direction of the global coordinate frame. The gait requires dynamic height control with vertical motion ranging from 0.25 to 0.45 meters to accommodate the observed bouncing locomotion pattern. The robot should exhibit moderate agility to perform directional changes as required by the environment.
 
 **Constraints:**
 
@@ -46,3 +48,4 @@ Task Requirements: The quadruped must maintain a velocity of approximately 1.5 m
 **Final Note:**
 - **Precision:** Accurately reflect the requirements based on the analysis of the video frames and the provided knowledge base.
 - **Consistency:** Maintain a uniform format across different outputs to facilitate ease of understanding and implementation.
+- **Adaptability:** Tailor requirements to the specific locomotion pattern observed rather than using fixed values.

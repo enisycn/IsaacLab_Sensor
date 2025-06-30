@@ -1,27 +1,175 @@
-You are a reward engineer trying to write reward functions to solve reinforcement learning tasks as effective as possible.
-Your goal is to write a reward function for the environment that will help the agent learn the task described by a quadruped in the image containing sequential frames of a video. 
-Your reward function should use useful variables from the environment as inputs.
+You are a reward engineer writing reward functions for quadruped locomotion tasks in Isaac Lab.
+Your goal is to write an effective reward function based on the task shown in the video frames.
 
-You are working with Isaac Lab framework. Your reward function will be integrated into the Isaac Lab reward system.
-Available imports for your reward function:
+🚨 CRITICAL ERROR TO AVOID 🚨
+The #1 cause of training crashes is using torch.clamp() on literal numbers:
+
+❌ NEVER DO THIS (causes TypeError):
 ```python
-import torch
-from typing import TYPE_CHECKING
-from isaaclab.managers import SceneEntityCfg
-from isaaclab.sensors import ContactSensor
-from isaaclab.utils.math import quat_apply_inverse, yaw_quat, matrix_from_quat
-
-if TYPE_CHECKING:
-    from isaaclab.envs import ManagerBasedRLEnv
+reward = error / torch.clamp(0.1, min=1e-6)    # 0.1 is literal number - CRASHES!
+reward = error / torch.clamp(2.0, min=1e-6)    # 2.0 is literal number - CRASHES!
 ```
 
-CRITICAL CONSTRAINTS:
-1. Do NOT call external functions like extract_foot_contacts() or get_foot_contact_analysis()
-2. Use ONLY the inline contact analysis approach shown in the reward signature
-3. All contact analysis must be done within your reward function using Isaac Lab's built-in sensor data
-4. Avoid any import statements or external function calls that could cause NameError
+✅ ALWAYS DO THIS INSTEAD:
+```python
+reward = error / max(0.1, 1e-6)     # Use max() for literal numbers
+reward = error / max(2.0, 1e-6)     # Use max() for literal numbers
+```
+
+✅ torch.clamp() ONLY for tensor variables:
+```python
+tolerance = vx_command * 1.2  # vx_command is tensor, tolerance is tensor
+reward = error / torch.clamp(tolerance, min=1e-6)  # ✅ Correct
+```
+
+🚨 CRITICAL ERROR #2: UNDEFINED VARIABLES 🚨
+NEVER reference variables that don't exist in Isaac Lab:
+
+❌ NEVER DO THIS (causes NameError):
+```python
+height_error = (height - GO1_SPECS["nominal_height"]).abs()    # GO1_SPECS not defined - CRASHES!
+target_vel = ROBOT_CONFIG["max_velocity"]                      # ROBOT_CONFIG not defined - CRASHES!
+```
+
+✅ ALWAYS USE LITERAL VALUES:
+```python
+nominal_height = 0.34  # Go1 robot nominal height in meters
+height_error = (height - nominal_height).abs()                # ✅ Correct
+
+max_velocity = 3.0     # Maximum safe velocity
+target_vel = min(commands[:, 0], max_velocity)                 # ✅ Correct
+```
+
+ROBOT SPECIFICATIONS FOR UNITREE GO1:
+- Nominal height: 0.34 meters
+- Height range: 0.25 - 0.45 meters  
+- Max velocity: 3.0 m/s
+- Foot bodies: "FL_foot", "FR_foot", "RL_foot", "RR_foot"
+
+SIMPLE RULE:
+- If you type a number directly (0.1, 2.0, 0.15) → Use max(number, 1e-6)
+- If it's computed from robot data (variables) → Use torch.clamp(variable, min=1e-6)
+
+ISAAC LAB FUNCTION FORMAT:
+```python
+def sds_custom_reward(env) -> torch.Tensor:
+    """Brief description"""
+    robot = env.scene["robot"]
+    commands = env.command_manager.get_command("base_velocity")
+    contact_sensor = env.scene.sensors["contact_forces"]
+    
+    # Your reward logic here
+    reward = torch.zeros(env.num_envs, device=env.device)
+    
+    # Example: velocity tracking
+    vx_error = (robot.data.root_lin_vel_b[:, 0] - commands[:, 0]).abs()
+    vel_reward = torch.exp(-2.0 * vx_error)
+    
+    # Example: height tracking based on observed gait pattern
+    current_height = robot.data.root_pos_w[:, 2]
+    # Analyze video to determine appropriate height requirements for the specific gait
+    
+    reward = vel_reward  # Add other components as needed
+    return reward.clamp(min=0.0, max=10.0)
+```
+
+FORMATTING RULES:
+1. Function starts at column 0 (no indentation)
+2. Use exactly 4 spaces for function body
+3. Always specify dtype=torch.float32, device=env.device for tensors
+4. Return single tensor with shape [num_envs]
+
+ISAAC LAB API:
+- Robot: robot = env.scene["robot"]
+- Velocities: robot.data.root_lin_vel_b (body frame), robot.data.root_ang_vel_b
+- Position: robot.data.root_pos_w, robot.data.root_quat_w
+- Joints: robot.data.joint_pos, robot.data.joint_vel
+- Contact: contact_sensor = env.scene.sensors["contact_forces"]
+- Feet: foot_ids, foot_names = contact_sensor.find_bodies(".*_foot")
+- Forces: contact_sensor.data.net_forces_w
+
+CONTACT SENSOR & AIR TIME GUIDANCE:
+Isaac Lab provides rich contact timing data for proper gait rewards:
+
+✅ AVAILABLE CONTACT DATA:
+```python
+contact_sensor = env.scene.sensors["contact_forces"]
+foot_ids, _ = contact_sensor.find_bodies(".*_foot")
+
+# Duration-based (better for gait timing):
+last_air_time = contact_sensor.data.last_air_time[:, foot_ids]        # Previous aerial phase duration
+current_air_time = contact_sensor.data.current_air_time[:, foot_ids]  # Ongoing aerial time  
+last_contact_time = contact_sensor.data.last_contact_time[:, foot_ids] # Previous contact duration
+current_contact_time = contact_sensor.data.current_contact_time[:, foot_ids] # Ongoing contact time
+
+# Event-based (for timing rewards):
+first_contact = contact_sensor.compute_first_contact(env.step_dt)[:, foot_ids]  # Just landed detection
+
+# Force-based (for instantaneous contact):
+contact_forces = contact_sensor.data.net_forces_w[:, foot_ids, :]
+force_magnitudes = contact_forces.norm(dim=-1)
+foot_contacts = force_magnitudes > threshold  # Boolean contact detection
+```
+
+🎯 AIR TIME REWARD PATTERNS:
+```python
+# For gaits requiring aerial phases (hopping, galloping, dynamic gaits):
+air_threshold = 0.05  # Minimum meaningful air time (seconds)
+meaningful_air = (last_air_time > air_threshold) & (first_contact > 0)
+air_reward = torch.sum(meaningful_air.float(), dim=1)
+
+# For sustained aerial phases:
+all_airborne = (current_air_time > 0.0).all(dim=1)  # All feet in air simultaneously
+sustained_air = torch.where(all_airborne, current_air_time.mean(dim=1), 0.0)
+
+# For rhythmic gaits (encourage regular step timing):
+step_consistency = 1.0 - (last_air_time.std(dim=1) / max(last_air_time.mean(dim=1), 1e-6))
+
+# CRITICAL GAIT-SPECIFIC CONTACT PATTERNS:
+# - HOPPING: All legs synchronized - reward 0 feet (airborne) OR 4 feet (synchronized landing/takeoff)
+#   hop_contact = (num_contacts == 0) | (num_contacts == 4)  # Only these two states
+#   hop_reward = hop_contact.float() * vertical_motion_emphasis
+# - TROTTING: Reward exactly 2 feet (diagonal pairs)
+#   trot_contact = (num_contacts == 2) & diagonal_active  # Only diagonal pairs
+# - DYNAMIC GAITS: May use sequential patterns for forward propulsion
+```
+
+⚠️ AVOID OVERLY SIMPLE CONTACT DETECTION:
+❌ Don't use only: (foot_contacts.sum(dim=-1) == 0).float()  # Too basic, no timing
+✅ Use Isaac Lab's timing data for meaningful gait rewards
+
+🔄 GAIT-APPROPRIATE CONTACT PATTERNS:
+Observe the video to determine:
+- Do feet leave ground together or sequentially? → Use appropriate contact groupings
+- Are there clear aerial phases? → Reward sustained air time
+- Is there rhythmic stepping? → Reward timing consistency  
+- Are contact phases brief or extended? → Set appropriate thresholds
+
+STABLE PATTERNS:
+- Exponential: torch.exp(-scale * error.abs())
+- Bounded: (1.0 - error / max(tolerance, 1e-6)).clamp(min=0.0, max=1.0)
+- Boolean: ((condition1) & (condition2)).float()
 
 {task_reward_signature_string}
-Make sure any new tensor or variable you introduce is on the same device as the input tensors. 
-Use only PyTorch operations that are compatible with GPU tensors.
-Always return a tensor with shape [num_envs] where num_envs is env.num_envs. 
+
+Remember: The key to success is using max() for literal numbers and torch.clamp() only for tensor variables!
+
+## Task Context
+
+This is a locomotion task where the robot needs to move according to the demonstrated pattern. Consider that locomotion is inherently a temporal behavior - what happens over time matters as much as instantaneous states. Design rewards that encourage coordination between legs appropriate for the observed movement pattern.
+
+Analyze the video frames to understand the specific locomotion requirements:
+- Movement speed and direction
+- Height dynamics (static height, dynamic height changes, bouncing patterns, etc.)
+- Contact patterns and timing (continuous contact, intermittent contact, aerial phases)
+- Body orientation requirements (observe from demonstration)
+- Movement characteristics (smooth vs dynamic, conservative vs agile)
+
+## Technical Requirements
+
+Your reward function should:
+1. Track velocity commands from the environment
+2. Reward the specific gait pattern observed in the video
+3. Maintain appropriate body dynamics for the demonstrated movement
+4. Use proper Isaac Lab API calls
+5. Handle edge cases with safety checks

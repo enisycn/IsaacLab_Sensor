@@ -84,7 +84,7 @@ def main(cfg):
     encoded_gt_frame_grid = encode_image(f'{workspace_dir}/gt_demo.png')
     
     sus_generator = SUSGenerator(cfg,prompt_dir)
-    SUS_prompt = sus_generator.generate_sus_prompt(encoded_gt_frame_grid)
+    SUS_prompt = sus_generator.generate_sus_prompt(encoded_gt_frame_grid, cfg.task.description)
     
     initial_reward_engineer_system = initial_reward_engineer_system.format(task_reward_signature_string=reward_signature,task_obs_code_string=task_obs_code_string) + code_output_tip
 
@@ -295,10 +295,45 @@ def main(cfg):
                 with open(rl_filepath, 'r') as f:
                     error_content = f.read()
                     logging.error(f"Training error output: {error_content[-1000:]}")  # Last 1000 chars
+                
+                # DELAYED GPU cleanup on training failure to allow Isaac Lab to finish cleanup
+                try:
+                    import time
+                    time.sleep(2)  # Give Isaac Lab time to release GPU resources
+                    if torch.cuda.is_available():
+                        device = torch.cuda.current_device()
+                        torch.cuda.synchronize(device)  # Wait for all CUDA operations to complete
+                        torch.cuda.empty_cache()
+                        logging.info(f"GPU cache cleared after training failure for sample {response_id}")
+                except Exception as e:
+                    logging.warning(f"GPU cleanup failed after training failure: {e}")
+                
                 raise RuntimeError(f"Isaac Lab training failed for iteration {iter}, response {response_id}")
+            
             training_success = block_until_training(rl_filepath, success_keyword=cfg.success_keyword, failure_keyword=cfg.failure_keyword,
                                  log_status=True, iter_num=iter, response_id=response_id)
             rl_runs.append(process)
+            
+            # REDUCED FREQUENCY: Only clear GPU cache after training, not after every subprocess
+            # Let Isaac Lab fully complete before clearing cache
+            import time
+            time.sleep(1)  # Give Isaac Lab time to finish any background operations
+            
+            try:
+                if torch.cuda.is_available():
+                    device = torch.cuda.current_device()
+                    torch.cuda.synchronize(device)  # Ensure all CUDA operations complete first
+                    torch.cuda.empty_cache()
+                    logging.info(f"GPU cache cleared after training completion for sample {response_id}")
+                    
+                    # Log GPU memory usage immediately after cleanup
+                    result = subprocess.run(['nvidia-smi', '--query-gpu=memory.used', '--format=csv,noheader,nounits'], 
+                                          capture_output=True, text=True, timeout=5)
+                    if result.returncode == 0:
+                        vram_used = result.stdout.strip()
+                        logging.info(f"GPU VRAM after training cleanup for sample {response_id}: {vram_used}MB")
+            except Exception as e:
+                logging.warning(f"GPU cleanup failed after training: {e}")
             
             if training_success:
                 # Isaac Lab post-training evaluation and analysis - NO FALLBACKS
@@ -337,6 +372,19 @@ def main(cfg):
                 result = subprocess.run(eval_command, cwd=isaac_lab_root, capture_output=True, text=True)
                 if result.returncode != 0:
                     logging.error(f"Video generation failed: {result.stderr}")
+                    
+                    # GPU cleanup on video generation failure
+                    try:
+                        import time
+                        time.sleep(1)
+                        if torch.cuda.is_available():
+                            device = torch.cuda.current_device()
+                            torch.cuda.synchronize(device)
+                            torch.cuda.empty_cache()
+                            logging.info(f"GPU cache cleared after video generation failure for sample {response_id}")
+                    except Exception as e:
+                        logging.warning(f"GPU cleanup failed after video generation failure: {e}")
+                    
                     raise RuntimeError(f"Video generation failed for iteration {iter}, response {response_id}")
                 else:
                     logging.info("Video generation completed successfully")
@@ -358,6 +406,19 @@ def main(cfg):
                 result = subprocess.run(contact_command, cwd=isaac_lab_root, capture_output=True, text=True)
                 if result.returncode != 0:
                     logging.error(f"Contact analysis failed: {result.stderr}")
+                    
+                    # GPU cleanup on contact analysis failure
+                    try:
+                        import time
+                        time.sleep(1)
+                        if torch.cuda.is_available():
+                            device = torch.cuda.current_device()
+                            torch.cuda.synchronize(device)
+                            torch.cuda.empty_cache()
+                            logging.info(f"GPU cache cleared after contact analysis failure for sample {response_id}")
+                    except Exception as e:
+                        logging.warning(f"GPU cleanup failed after contact analysis failure: {e}")
+                    
                     raise RuntimeError(f"Contact analysis failed for iteration {iter}, response {response_id}")
                 else:
                     logging.info("Contact analysis completed successfully")
@@ -408,29 +469,38 @@ def main(cfg):
             else:
                 logging.info(f"Iteration {iter}: Code Run {response_id} Unstable, Not evaluated")
         
-            # GPU MEMORY CLEANUP - Add after each sample completes
+            # CONSERVATIVE GPU MEMORY CLEANUP - Only run once per sample with proper timing
             try:
-                # Clear PyTorch GPU cache
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
-                    torch.cuda.synchronize()
-                    logging.info(f"GPU cache cleared after sample {response_id}")
+                # Give Isaac Lab processes time to fully complete
+                import time
+                time.sleep(2)  # Allow any background processes to finish
                 
-                # Force garbage collection
+                # Clear PyTorch GPU cache only once per sample
+                if torch.cuda.is_available():
+                    device = torch.cuda.current_device()
+                    torch.cuda.synchronize(device)  # Wait for all CUDA operations to complete
+                    torch.cuda.empty_cache()
+                    logging.info(f"Final GPU cache cleared after sample {response_id}")
+                
+                # Force garbage collection only after GPU cleanup
                 gc.collect()
                 
-                # Log current GPU memory usage
+                # Log current GPU memory usage with error handling
                 try:
                     result = subprocess.run(['nvidia-smi', '--query-gpu=memory.used', '--format=csv,noheader,nounits'], 
-                                          capture_output=True, text=True, timeout=5)
+                                          capture_output=True, text=True, timeout=10)  # Increased timeout
                     if result.returncode == 0:
                         vram_used = result.stdout.strip()
-                        logging.info(f"GPU VRAM after sample {response_id}: {vram_used}MB")
-                except:
-                    pass
+                        logging.info(f"Final GPU VRAM after sample {response_id}: {vram_used}MB")
+                    else:
+                        logging.warning(f"nvidia-smi query failed with return code {result.returncode}")
+                except subprocess.TimeoutExpired:
+                    logging.warning(f"nvidia-smi query timed out for sample {response_id}")
+                except Exception as nvidia_e:
+                    logging.warning(f"nvidia-smi query failed: {nvidia_e}")
                     
             except Exception as e:
-                logging.warning(f"GPU memory cleanup failed: {e}")
+                logging.warning(f"Final GPU memory cleanup failed: {e}")
         
         # Repeat the iteration if all code generation failed
         if not eval_success and cfg.sample != 1:

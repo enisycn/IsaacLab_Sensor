@@ -49,8 +49,8 @@ parser.add_argument(
     help="Number of simulation steps to record for contact plotting."
 )
 parser.add_argument(
-    "--contact_threshold", type=float, default=5.0,
-    help="Force threshold in Newtons for contact detection (default: 5.0)"
+    "--contact_threshold", type=float, default=0.5,
+    help="Force threshold in Newtons for contact detection (default: 0.5)"
 )
 parser.add_argument(
     "--warmup_steps", type=int, default=100,
@@ -150,10 +150,10 @@ def plot_foot_contacts(act_foot_contacts, save_root, title='Contact Sequence', e
     
     print(f"[INFO] Contact percentages in window - FL: {contact_percentages[0]:.1f}%, FR: {contact_percentages[1]:.1f}%, RL: {contact_percentages[2]:.1f}%, RR: {contact_percentages[3]:.1f}%")
 
-    # Reorder columns to match FL, RL, RR, FR from FL, FR, RL, RR
-    # Original order: FL_foot(0), FR_foot(1), RL_foot(2), RR_foot(3)
-    # Desired order:  FL(0), RL(1), RR(2), FR(3)
-    foot_contacts = foot_contacts[:,[0,2,3,1]]
+    # Isaac Lab standard order: FL, FR, RL, RR (no reordering needed)
+    # Sensor order: FL_foot(0), FR_foot(1), RL_foot(2), RR_foot(3)
+    # Keep standard Isaac Lab order: FL(0), FR(1), RL(2), RR(3)
+    # foot_contacts = foot_contacts[:,[0,2,3,1]]  # REMOVED - incorrect reordering
     
     # Create the plot
     fig, ax = plt.subplots(1, 1, figsize=(15, 4))
@@ -164,7 +164,7 @@ def plot_foot_contacts(act_foot_contacts, save_root, title='Contact Sequence', e
     very_dark_brown = "#964B00"
     medium_dark_brown = "#D2691E"
     
-    foot_names = ['FL', 'RL', 'RR', 'FR']
+    foot_names = ['FL', 'FR', 'RL', 'RR']
     foot_colors = [medium_dark_grey, medium_dark_brown, very_dark_brown, very_dark_grey]
     default_color = 'darkblue'
         

@@ -83,17 +83,96 @@ def extract_training_log_dir(file_path):
             if dashboard_match:
                 return dashboard_match.group(1)
 
-def block_until_training(rl_filepath, success_keyword, failure_keyword, log_status=False, iter_num=-1, response_id=-1):
+def block_until_training(rl_filepath, success_keyword, failure_keyword, log_status=False, iter_num=-1, response_id=-1, timeout_minutes=60):
     # Ensure that the RL training has started before moving on
+    start_time = time.time()
+    last_log_size = 0
+    no_progress_start = None
+    
     while True:
         rl_log = file_to_string(rl_filepath)
-        if success_keyword in rl_log or failure_keyword in rl_log:
-            if log_status and success_keyword in rl_log:
+        
+        # Check for success
+        if success_keyword in rl_log:
+            if log_status:
                 logging.info(f"Iteration {iter_num}: Code Run {response_id} successfully trained!")
                 return True
-            if log_status and failure_keyword in rl_log:
-                logging.info(f"Iteration {iter_num}: Code Run {response_id} execution error!")
+        
+        # Check for various failure patterns
+        failure_detected = False
+        failure_reason = ""
+        
+        # Original failure keyword check
+        if failure_keyword in rl_log:
+            failure_detected = True
+            failure_reason = "Traceback detected"
+        
+        # Hydra configuration errors
+        elif "HYDRA_FULL_ERROR=1" in rl_log:
+            failure_detected = True
+            failure_reason = "Hydra configuration error"
+        
+        # Hydra missing configuration errors
+        elif "MissingConfigException" in rl_log:
+            failure_detected = True
+            failure_reason = "Missing Hydra configuration"
+        
+        # CUDA/GPU errors
+        elif any(error in rl_log for error in ["CUDA error", "CUDA out of memory", "RuntimeError: CUDA", "torch.cuda.OutOfMemoryError"]):
+            failure_detected = True
+            failure_reason = "CUDA/GPU error"
+        
+        # Isaac Lab specific errors
+        elif any(error in rl_log for error in ["Isaac Lab Error", "Simulation Error", "Environment Error"]):
+            failure_detected = True
+            failure_reason = "Isaac Lab simulation error"
+        
+        # Python syntax/import errors
+        elif any(error in rl_log for error in ["SyntaxError", "IndentationError", "ImportError", "ModuleNotFoundError"]):
+            failure_detected = True
+            failure_reason = "Python syntax/import error"
+        
+        # Process killed/terminated
+        elif any(error in rl_log for error in ["Killed", "Terminated", "Process finished with exit code"]):
+            failure_detected = True
+            failure_reason = "Process terminated"
+        
+        # Training divergence/NaN errors
+        elif any(error in rl_log for error in ["nan", "inf", "NaN", "diverged", "unstable"]):
+            failure_detected = True
+            failure_reason = "Training divergence/NaN values"
+        
+        if failure_detected:
+            if log_status:
+                logging.info(f"Iteration {iter_num}: Code Run {response_id} execution error - {failure_reason}")
+            return False
+        
+        # Check for timeout and stuck training
+        current_time = time.time()
+        elapsed_minutes = (current_time - start_time) / 60
+        
+        # Overall timeout check
+        if elapsed_minutes > timeout_minutes:
+            if log_status:
+                logging.info(f"Iteration {iter_num}: Code Run {response_id} timed out after {timeout_minutes} minutes")
+            return False
+        
+        # Check if log file is growing (training making progress)
+        current_log_size = len(rl_log)
+        if current_log_size > last_log_size:
+            last_log_size = current_log_size
+            no_progress_start = None  # Reset no progress timer
+        else:
+            # No new log output
+            if no_progress_start is None:
+                no_progress_start = current_time
+            elif (current_time - no_progress_start) > 600:  # 10 minutes without progress
+                if log_status:
+                    logging.info(f"Iteration {iter_num}: Code Run {response_id} stuck - no progress for 10 minutes")
                 return False
+        
+        # Add small delay to avoid busy waiting
+        time.sleep(1)
 
 
 def construct_run_log(stdout_str):

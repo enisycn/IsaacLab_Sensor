@@ -139,7 +139,7 @@ GO1_SPECS = {
 }
 
 # Contact Force Analysis Helper
-def extract_foot_contacts(env, force_threshold=2.0):
+def extract_foot_contacts(env, force_threshold=0.5):
     """
     Extract foot contact information from Isaac Lab contact sensor.
     
@@ -216,7 +216,7 @@ def sds_custom_reward(env: ManagerBasedRLEnv, **kwargs) -> torch.Tensor:
 """
 
 # Detailed Contact Analysis for SDS Reward Functions
-def get_foot_contact_analysis(env, contact_threshold=2.0):
+def get_foot_contact_analysis(env, contact_threshold=0.5):
     """
     Comprehensive foot contact analysis for reward function development.
     
@@ -225,7 +225,7 @@ def get_foot_contact_analysis(env, contact_threshold=2.0):
     
     Args:
         env: Isaac Lab environment instance
-        contact_threshold: Force threshold for contact detection (N) - default 2.0N
+        contact_threshold: Force threshold for contact detection (N) - default 0.5N
     """
     contact_sensor = env.scene.sensors["contact_forces"]
     

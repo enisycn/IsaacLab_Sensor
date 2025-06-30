@@ -4,7 +4,7 @@ Using the frames from the ground truth sequence the task description text and th
 
 Your evaluation should consider the following criteria:
 
-1. Torso Stability: Assess the consistency and steadiness of the torso across the sequence.
+1. Movement Quality: Assess how well the robot executes the demonstrated movement pattern, including body dynamics appropriate for the specific gait.
 2. Gait Pattern: Evaluate the timing and coordination of leg movements relative to the ground truth using the frames and the contact sequence plots
 3. Overall Similarity: Compare the overall performance and appearance of the task to the ground truth, considering all aspects of motion and form.
 

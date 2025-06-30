@@ -99,7 +99,7 @@ def do_evaluation_isaac_lab(experiment_dir, iter=eval_iter):
         print(f"Evaluation iteration {iteration + 1}/{iter}")
         
         # Run Isaac Lab evaluation with contact plotting
-        eval_script = f"{isaac_lab_root}/isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play_with_contact_plotting.py --task=Isaac-SDS-Velocity-Flat-Unitree-Go1-Play-v0 --num_envs=1 --checkpoint={latest_checkpoint} --plot_steps={eval_steps} --contact_threshold=2.0 --warmup_steps=50 --headless"
+        eval_script = f"{isaac_lab_root}/isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play_with_contact_plotting.py --task=Isaac-SDS-Velocity-Flat-Unitree-Go1-Play-v0 --num_envs=1 --checkpoint={latest_checkpoint} --plot_steps={eval_steps} --contact_threshold=0.5 --warmup_steps=50 --headless"
         
         try:
             result = subprocess.run(eval_script.split(" "), cwd=isaac_lab_root, capture_output=True, text=True)

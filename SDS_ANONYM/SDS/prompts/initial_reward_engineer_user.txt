@@ -14,13 +14,38 @@ For Isaac Lab API usage, remember these critical points:
 - Contact detection: Apply torch.norm() to get force magnitudes, then use threshold
 - Quaternions: Format is (w, x, y, z) for root_quat_w
 - Device compatibility: Ensure all tensors use device=env.device
+- Additional data: robot.data.root_lin_vel_w, robot.data.root_ang_vel_w, robot.data.applied_torque
 
-The robot's nominal trunk height is 0.34 meters above ground.
-Joint configuration: 12 DOF total (3 per leg × 4 legs)
-Control frequency: 50Hz with 4x decimation from 200Hz physics
+## Task Analysis
 
-{sus_string} 
+Based on the video demonstration, analyze the following aspects and design your reward function accordingly:
 
-Lastly, generate a reward function for this task to be imitated by a quadruped robot. Remember that the torso should remain near a z position of 0.34 and the orientation should be perpendicular to gravity. As the policy will be trained in a simulated environment and deployed in the real world, prioritize stability while ensuring minimal action rate. Leg movements should stay within their DOF limits and avoid too frequent foot contact.
+**Movement Pattern Analysis:**
+- What type of gait is being demonstrated?
+- What velocity characteristics are shown?
+- How does the body height change during movement?
+- What contact patterns are observed?
+- How does the body orientation change?
+
+**Reward Design Considerations:**
+- Design velocity tracking based on observed movement speed
+- Consider height dynamics appropriate for the demonstrated gait
+- Reward contact patterns that match the observed locomotion
+- Balance stability with the dynamic requirements shown in the video
+
+Remember to analyze the video frames carefully to understand what behavior needs to be rewarded, rather than assuming fixed requirements.
+
+## Task Requirements
+
+**Key Analysis Points:**
+- **Movement Pattern:** Observe speed, direction, and trajectory characteristics
+- **Height Dynamics:** Does the robot maintain constant height or show vertical motion patterns?
+- **Contact Behavior:** Analyze ground contact patterns - continuous, intermittent, or aerial phases
+- **Body Orientation:** Observe natural body tilting vs upright posture requirements
+- **Gait Characteristics:** Identify if the gait is conservative/stable or dynamic/agile
+
+Write a reward function that encourages the robot to exhibit the behavior demonstrated in the video frames.
 
 Your reward function must return a single torch.Tensor with shape [num_envs] containing the total reward for each environment.
+
+IMPORTANT: Provide ONLY the Python code wrapped in ```python ``` blocks. Do NOT include explanations, analysis, or commentary. The system will automatically extract your code.

@@ -115,91 +115,70 @@ def track_ang_vel_z_world_exp(
 # GPT will generate the complete reward logic - no hardcoded components
 
 def sds_custom_reward(env) -> torch.Tensor:
-        """Phase‐based squat‐jump reward: prep squat, controlled flight, gentle landing, symmetry, stability."""
+        """Gentle, efficient walking gait reward for Unitree G1 humanoid."""
+        import torch
         robot = env.scene["robot"]
-        contact = env.scene.sensors["contact_forces"]
+        contact_sensor = env.scene.sensors["contact_forces"]
+        commands = env.command_manager.get_command("base_velocity")
+        num_envs = env.num_envs
         device = env.device
     
-        # contact forces & foot contacts
-        forces = contact.data.net_forces_w  # [envs, bodies, 3]
-        foot_ids, _ = contact.find_bodies(".*_ankle_roll_link")
-        foot_forces = forces[:, foot_ids, :]  # [envs,2,3]
-        fm = foot_forces.norm(dim=-1)  # [envs,2]
-        contacts = fm > torch.tensor(50.0, dtype=torch.float32, device=device)
-        left_c, right_c = contacts[:, 0], contacts[:, 1]
-        double_support = left_c & right_c
-        flight = ~left_c & ~right_c
+        # Initialize reward
+        reward = torch.zeros(num_envs, dtype=torch.float32, device=device)
     
-        # height & squat preparation
-        h = robot.data.root_pos_w[:, 2]
-        base_h = torch.tensor(0.74, dtype=torch.float32, device=device)
-        dh = (h - base_h).clamp(min=0.0)
-        squat_reward = torch.where(
-            double_support & (h > 0.32) & (h < 0.45),
-            torch.exp(-((h - 0.38) / 0.04).abs()),
-            torch.zeros_like(h)
-        )
+        # 1. Velocity tracking (forward biased)
+        vel_b = robot.data.root_lin_vel_b  # [num_envs,3]
+        forward_err = (vel_b[:, 0] - commands[:, 0]).abs()
+        forward_r = torch.exp(-forward_err / 0.25) * 3.0
+        lateral_err = (vel_b[:, 1] - commands[:, 1]).abs()
+        lateral_r = torch.exp(-lateral_err / 0.5) * 1.0
+        yaw_err = (robot.data.root_ang_vel_b[:, 2] - commands[:, 2]).abs()
+        yaw_r = torch.exp(-yaw_err / 1.0) * 0.5
     
-        # flight height reward (5-25cm)
-        height_reward = torch.where(
-            flight & (dh > 0.05) & (dh < 0.25),
-            torch.exp(-((dh - 0.15) / 0.05).abs()),
-            torch.zeros_like(dh)
-        )
+        # 2. Height maintenance around nominal walking height
+        height = robot.data.root_pos_w[:, 2]
+        height_err = (height - 0.74).abs()
+        height_r = torch.exp(-height_err / 0.1)
     
-        # vertical velocity reward (0.3-1.5 m/s, peak 0.8)
-        vz = robot.data.root_lin_vel_b[:, 2]
-        vel_reward = torch.where(
-            flight & (vz > 0.3) & (vz < 1.5),
-            torch.exp(-((vz - 0.8) / 0.3).abs()),
-            torch.zeros_like(vz)
-        )
+        # 3. Torso orientation stability (penalize roll/pitch)
+        quat = robot.data.root_quat_w  # [w,x,y,z]
+        orient_pen = quat[:, 1]**2 + quat[:, 2]**2
+        orient_r = torch.exp(-10.0 * orient_pen)
     
-        # bilateral joint symmetry
-        jpos = robot.data.joint_pos
-        left_idx = [0, 1, 2, 3, 9, 10]
-        right_idx = [4, 5, 6, 7, 11, 12]
-        lj = jpos[:, left_idx]
-        rj = jpos[:, right_idx]
-        joint_sym = torch.exp(-((lj - rj).abs().mean(dim=1)) / 0.1)
+        # 4. Angular velocity stability (roll/pitch damping)
+        ang_vel = robot.data.root_ang_vel_b[:, :2]
+        ang_pen = torch.sum(ang_vel**2, dim=1)
+        stability_r = torch.exp(-2.0 * ang_pen)
     
-        # airtime symmetry during flight
-        airtime = contact.data.current_air_time[:, foot_ids]
-        air_sym = flight.float() * torch.exp(-((airtime[:, 0] - airtime[:, 1]).abs()) / 0.1)
+        # 5. Contact pattern for walking (1 or 2 feet)
+        net_forces = contact_sensor.data.net_forces_w  # [num_envs, num_bodies, 3]
+        foot_ids, _ = contact_sensor.find_bodies(".*_ankle_roll_link")
+        foot_forces = net_forces[:, foot_ids, :]  # [num_envs,2,3]
+        force_mag = foot_forces.norm(dim=-1)  # [num_envs,2]
+        contacts = (force_mag > 50.0).float()
+        num_contacts = contacts.sum(dim=-1)
+        contact_r = ((num_contacts == 1) | (num_contacts == 2)).float()
     
-        # gentle landing: penalize high impact
-        first_ct = contact.compute_first_contact(env.step_dt)[:, foot_ids]
-        land_evt = (first_ct[:, 0] > 0) & (first_ct[:, 1] > 0)
-        impact_mag = fm.max(dim=1)[0]
-        impact_pen = torch.clamp(
-            (impact_mag - torch.tensor(200.0, dtype=torch.float32, device=device))
-            / max(200.0, 1e-6),
-            min=0.0, max=1.0
-        )
-        land_reward = land_evt.float() * (1.0 - impact_pen)
+        # 6. Step timing consistency (low variance in last air times)
+        last_air = contact_sensor.data.last_air_time[:, foot_ids]  # [num_envs,2]
+        std_air = last_air.std(dim=1)
+        mean_air = last_air.mean(dim=1)
+        step_consistency = 1.0 - std_air / torch.clamp(mean_air, min=1e-6)
+        step_consistency = step_consistency.clamp(min=0.0, max=1.0)
     
-        # orientation stability
-        proj_g = robot.data.projected_gravity_b[:, :2]
-        orient_pen = torch.sum(proj_g * proj_g, dim=1)
-        orient_reward = torch.exp(-10.0 * orient_pen)
+        # 7. Energy efficiency (joint velocity penalty)
+        joint_vel = robot.data.joint_vel  # [num_envs,37]
+        vel_pen = torch.sum(joint_vel**2, dim=1)
+        efficiency_r = torch.exp(-0.001 * vel_pen)
     
-        # smoothness penalty
-        jv = robot.data.joint_vel
-        smooth_reward = torch.exp(-0.005 * torch.sum(jv * jv, dim=1))
+        # Combine reward components with weights
+        reward = forward_r + lateral_r + yaw_r
+        reward = reward + height_r * 1.0 + orient_r * 1.5 + stability_r * 1.0
+        reward = reward + contact_r * 0.5 + step_consistency * 0.5 + efficiency_r * 0.3
     
-        # combine with tuned weights
-        reward = (
-            squat_reward * 1.0 +
-            height_reward * 2.0 +
-            vel_reward * 1.5 +
-            joint_sym * 1.0 +
-            air_sym * 0.5 +
-            land_reward * 1.0 +
-            orient_reward * 2.0 +
-            smooth_reward * 0.5
-        )
-    
+        # Final bounds
         return reward.clamp(min=0.0, max=10.0)
+
 
 
 

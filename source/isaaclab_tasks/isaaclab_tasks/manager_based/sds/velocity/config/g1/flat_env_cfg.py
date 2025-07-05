@@ -32,7 +32,7 @@ class SDSG1FlatEnvCfg(SDSG1RoughEnvCfg):
         # self.rewards.sds_custom is already configured in the base class
 
         # Commands - focused on forward movement with minimal lateral movement
-        self.commands.base_velocity.ranges.lin_vel_x = (0.0, 0.1)  # Keep higher forward velocity for flat terrain (jumping/sprinting gaits)
+        self.commands.base_velocity.ranges.lin_vel_x = (0.1, 1.5)  # Keep higher forward velocity for flat terrain (jumping/sprinting gaits)
         self.commands.base_velocity.ranges.lin_vel_y = (-0.05, 0.05)  # Minimal lateral movement (just a bit of side movement)
         self.commands.base_velocity.ranges.ang_vel_z = (-0.05, 0.05)  # Reduced turning for forward-focused training
 

@@ -18,15 +18,8 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors import ContactSensor
 from isaaclab.utils.math import quat_apply_inverse, yaw_quat, matrix_from_quat
 
-# Import SDS contact analysis function
-import sys
-import os
-# Add the SDS environment path to sys.path for importing
-sds_env_path = os.path.join(os.path.dirname(__file__), "../../../../../../../SDS_ANONYM/SDS/envs")
-if sds_env_path not in sys.path:
-    sys.path.append(sds_env_path)
-
-from isaac_lab_sds_env import get_foot_contact_analysis, extract_foot_contacts
+# SDS reward functions use inline contact analysis
+# No external imports needed - all analysis done within sds_custom_reward()
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
@@ -122,100 +115,91 @@ def track_ang_vel_z_world_exp(
 # GPT will generate the complete reward logic - no hardcoded components
 
 def sds_custom_reward(env) -> torch.Tensor:
-        """Combined reward: velocity & yaw tracking, height & orientation stability, contact stability."""
-        import torch
-        from omni.isaac.core.utils.quaternion import quat_apply_inverse
-        # Access data
+        """Phase‐based squat‐jump reward: prep squat, controlled flight, gentle landing, symmetry, stability."""
         robot = env.scene["robot"]
-        contact_sensor = env.scene.sensors["contact_forces"]
-        commands = env.command_manager.get_command("base_velocity")
-        # Initialize
-        reward = torch.zeros(env.num_envs, dtype=torch.float32, device=env.device)
-        # Velocity tracking (forward)
-        vx = robot.data.root_lin_vel_b[:, 0]
-        vx_cmd = commands[:, 0]
-        vel_err = (vx - vx_cmd).abs()
-        vel_reward = torch.exp(-2.0 * vel_err)
-        # Yaw rate tracking
-        wz = robot.data.root_ang_vel_b[:, 2]
-        wz_cmd = commands[:, 2]
-        yaw_err = (wz - wz_cmd).abs()
-        yaw_reward = torch.exp(-1.0 * yaw_err)
-        # Height stability
-        height = robot.data.root_pos_w[:, 2]
-        height_err = (height - 0.34).abs()
-        height_reward = torch.exp(-5.0 * height_err)
-        # Uprightness
-        up = torch.tensor([0.0, 0.0, 1.0], dtype=torch.float32, device=env.device).expand(env.num_envs, 3)
-        inv_up = quat_apply_inverse(robot.data.root_quat_w, up)
-        upright = torch.sum(inv_up * up, dim=-1).clamp(min=0.0, max=1.0)
-        # Contact stability
-        cf = contact_sensor.data.net_forces_w
-        foot_ids, _ = contact_sensor.find_bodies(".*_foot")
-        fforces = cf[:, foot_ids, :]
-        mags = fforces.norm(dim=-1)
-        contacts = (mags > 2.0).float()
-        num_c = contacts.sum(dim=1)
-        stable = ((num_c >= 2) & (num_c <= 3)).float()
-        # Aggregate with weights
-        reward = 2.0 * vel_reward + 1.5 * yaw_reward + 1.0 * height_reward + 1.0 * upright + 1.0 * stable
+        contact = env.scene.sensors["contact_forces"]
+        device = env.device
+    
+        # contact forces & foot contacts
+        forces = contact.data.net_forces_w  # [envs, bodies, 3]
+        foot_ids, _ = contact.find_bodies(".*_ankle_roll_link")
+        foot_forces = forces[:, foot_ids, :]  # [envs,2,3]
+        fm = foot_forces.norm(dim=-1)  # [envs,2]
+        contacts = fm > torch.tensor(50.0, dtype=torch.float32, device=device)
+        left_c, right_c = contacts[:, 0], contacts[:, 1]
+        double_support = left_c & right_c
+        flight = ~left_c & ~right_c
+    
+        # height & squat preparation
+        h = robot.data.root_pos_w[:, 2]
+        base_h = torch.tensor(0.74, dtype=torch.float32, device=device)
+        dh = (h - base_h).clamp(min=0.0)
+        squat_reward = torch.where(
+            double_support & (h > 0.32) & (h < 0.45),
+            torch.exp(-((h - 0.38) / 0.04).abs()),
+            torch.zeros_like(h)
+        )
+    
+        # flight height reward (5-25cm)
+        height_reward = torch.where(
+            flight & (dh > 0.05) & (dh < 0.25),
+            torch.exp(-((dh - 0.15) / 0.05).abs()),
+            torch.zeros_like(dh)
+        )
+    
+        # vertical velocity reward (0.3-1.5 m/s, peak 0.8)
+        vz = robot.data.root_lin_vel_b[:, 2]
+        vel_reward = torch.where(
+            flight & (vz > 0.3) & (vz < 1.5),
+            torch.exp(-((vz - 0.8) / 0.3).abs()),
+            torch.zeros_like(vz)
+        )
+    
+        # bilateral joint symmetry
+        jpos = robot.data.joint_pos
+        left_idx = [0, 1, 2, 3, 9, 10]
+        right_idx = [4, 5, 6, 7, 11, 12]
+        lj = jpos[:, left_idx]
+        rj = jpos[:, right_idx]
+        joint_sym = torch.exp(-((lj - rj).abs().mean(dim=1)) / 0.1)
+    
+        # airtime symmetry during flight
+        airtime = contact.data.current_air_time[:, foot_ids]
+        air_sym = flight.float() * torch.exp(-((airtime[:, 0] - airtime[:, 1]).abs()) / 0.1)
+    
+        # gentle landing: penalize high impact
+        first_ct = contact.compute_first_contact(env.step_dt)[:, foot_ids]
+        land_evt = (first_ct[:, 0] > 0) & (first_ct[:, 1] > 0)
+        impact_mag = fm.max(dim=1)[0]
+        impact_pen = torch.clamp(
+            (impact_mag - torch.tensor(200.0, dtype=torch.float32, device=device))
+            / max(200.0, 1e-6),
+            min=0.0, max=1.0
+        )
+        land_reward = land_evt.float() * (1.0 - impact_pen)
+    
+        # orientation stability
+        proj_g = robot.data.projected_gravity_b[:, :2]
+        orient_pen = torch.sum(proj_g * proj_g, dim=1)
+        orient_reward = torch.exp(-10.0 * orient_pen)
+    
+        # smoothness penalty
+        jv = robot.data.joint_vel
+        smooth_reward = torch.exp(-0.005 * torch.sum(jv * jv, dim=1))
+    
+        # combine with tuned weights
+        reward = (
+            squat_reward * 1.0 +
+            height_reward * 2.0 +
+            vel_reward * 1.5 +
+            joint_sym * 1.0 +
+            air_sym * 0.5 +
+            land_reward * 1.0 +
+            orient_reward * 2.0 +
+            smooth_reward * 0.5
+        )
+    
         return reward.clamp(min=0.0, max=10.0)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

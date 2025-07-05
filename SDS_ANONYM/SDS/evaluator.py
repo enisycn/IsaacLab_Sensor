@@ -99,7 +99,7 @@ def do_evaluation_isaac_lab(experiment_dir, iter=eval_iter):
         print(f"Evaluation iteration {iteration + 1}/{iter}")
         
         # Run Isaac Lab evaluation with contact plotting
-        eval_script = f"{isaac_lab_root}/isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play_with_contact_plotting.py --task=Isaac-SDS-Velocity-Flat-Unitree-Go1-Play-v0 --num_envs=1 --checkpoint={latest_checkpoint} --plot_steps={eval_steps} --contact_threshold=0.5 --warmup_steps=50 --headless"
+        eval_script = f"{isaac_lab_root}/isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/play_with_contact_plotting.py --task=Isaac-SDS-Velocity-Flat-G1-Play-v0 --num_envs=1 --checkpoint={latest_checkpoint} --plot_steps={eval_steps} --contact_threshold=50.0 --warmup_steps=50 --headless"
         
         try:
             result = subprocess.run(eval_script.split(" "), cwd=isaac_lab_root, capture_output=True, text=True)
@@ -138,7 +138,7 @@ def do_evaluation_isaac_lab(experiment_dir, iter=eval_iter):
     # Create evaluation config
     eval_cfg = {
         "num_eval_steps": eval_steps,
-        "dt": 0.02  # Assume 50Hz control frequency
+        "dt": 0.04  # 25Hz control frequency (200Hz physics ÷ 8 decimation)
     }
     
     eval_cfg_file = os.path.join(eval_dir, "eval_config.npz")
@@ -199,7 +199,7 @@ def get_experiments_list():
         experiment_dirs = []
         
         # Look for SDS-related experiments
-        sds_experiment_dirs = glob.glob(os.path.join(logs_dir, "unitree_go1_flat", "*"))
+        sds_experiment_dirs = glob.glob(os.path.join(logs_dir, "g1_flat", "*"))
         experiment_dirs.extend(sds_experiment_dirs)
         
         # Filter to only include directories with checkpoints

@@ -2,20 +2,30 @@
 Isaac Lab Environment Reference for SDS Reward Function Generation
 
 This file describes the Isaac Lab environment structure for GPT to generate compatible reward functions.
-The environment uses Isaac Lab's ManagerBasedRLEnv with Unitree Go1 quadruped robot.
+The environment uses Isaac Lab's ManagerBasedRLEnv with Unitree G1 humanoid robot.
 """
 
 import torch
 
 class SDSIsaacLabEnvironment:
     """
-    Isaac Lab Manager-Based RL Environment for SDS Quadruped Locomotion
+    Isaac Lab Manager-Based RL Environment for SDS Humanoid Locomotion
     
     Environment Details:
-    - Robot: Unitree Go1 quadruped (12 DOF)
+    - Robot: Unitree G1 humanoid (37 DOF total, 13 DOF controlled for locomotion)
+    - Action Space: 13 DOF legs-only joints for cleaner locomotion debugging
     - Task: Velocity tracking locomotion  
     - Framework: Isaac Lab ManagerBasedRLEnv
     - Control: 50Hz (20ms timestep, 4x decimation from 200Hz physics)
+    
+    Controlled Joints for Locomotion (13 DOF):
+    - Legs: 8 DOF (hip yaw/roll/pitch, knee per leg)
+    - Ankles: 4 DOF (pitch/roll per ankle)  
+    - Torso: 1 DOF (torso_joint)
+    
+    Fixed Joints (24 DOF):
+    - Arms: 10 DOF maintained at default poses for stability
+    - Hands: 14 DOF maintained at default poses for walking stability
     """
     
     def __init__(self):
@@ -31,7 +41,7 @@ class SDSIsaacLabEnvironment:
         self.command_manager = self._command_interface()
         
     def _robot_interface(self):
-        """Isaac Lab robot interface - Unitree Go1 data access."""
+        """Isaac Lab robot interface - Unitree G1 data access."""
         class Robot:
             def __init__(self):
                 self.data = self._robot_data()
@@ -39,16 +49,16 @@ class SDSIsaacLabEnvironment:
             def _robot_data(self):
                 """Robot state data in Isaac Lab format."""
                 class RobotData:
-                    # Root/Base state (trunk body)
+                    # Root/Base state (torso body)
                     root_pos_w = None      # [num_envs, 3] Position in world frame
                     root_quat_w = None     # [num_envs, 4] Quaternion (w,x,y,z) in world frame
                     root_lin_vel_b = None  # [num_envs, 3] Linear velocity in BODY frame  
                     root_ang_vel_b = None  # [num_envs, 3] Angular velocity in BODY frame
                     
-                    # Joint state (12 joints: 3 per leg × 4 legs)
-                    joint_pos = None       # [num_envs, 12] Joint positions (rad)
-                    joint_vel = None       # [num_envs, 12] Joint velocities (rad/s)
-                    joint_acc = None       # [num_envs, 12] Joint accelerations (rad/s²)
+                    # Joint state (37 joints: 12 legs + 1 torso + 10 arms + 14 hands)
+                    joint_pos = None       # [num_envs, 37] Joint positions (rad)
+                    joint_vel = None       # [num_envs, 37] Joint velocities (rad/s)
+                    joint_acc = None       # [num_envs, 37] Joint accelerations (rad/s²)
                     
                     # Body states (all robot bodies)
                     body_pos_w = None      # [num_envs, num_bodies, 3] Body positions
@@ -100,176 +110,159 @@ class SDSIsaacLabEnvironment:
         
         return CommandManager()
 
-# Unitree Go1 Robot Structure
-GO1_BODY_NAMES = {
-    "base": "trunk",           # Main chassis/base body
-    "feet": [                  # Foot bodies (end effectors)
-        "FL_foot",             # Front Left foot
-        "FR_foot",             # Front Right foot  
-        "RL_foot",             # Rear Left foot
-        "RR_foot"              # Rear Right foot
+# Unitree G1 Humanoid Robot Structure
+G1_BODY_NAMES = {
+    "base": "torso_link",          # Main chassis/torso body
+    "feet": [                      # Foot bodies (end effectors)
+        "left_ankle_roll_link",    # Left foot contact point
+        "right_ankle_roll_link"    # Right foot contact point
     ],
-    "legs": {                  # Leg segment bodies
-        "thighs": ["FL_thigh", "FR_thigh", "RL_thigh", "RR_thigh"],
-        "calfs": ["FL_calf", "FR_calf", "RL_calf", "RR_calf"],
-        "hips": ["FL_hip", "FR_hip", "RL_hip", "RR_hip"]
+    "legs": {                      # Leg segment bodies
+        "thighs": ["left_thigh_link", "right_thigh_link"],
+        "shins": ["left_shin_link", "right_shin_link"],
+        "hips": ["left_hip_link", "right_hip_link"]
+    },
+    "arms": {                      # Arm segment bodies
+        "upper_arms": ["left_upper_arm_link", "right_upper_arm_link"],
+        "forearms": ["left_forearm_link", "right_forearm_link"],
+        "hands": ["left_hand_link", "right_hand_link"]
     }
 }
 
-# Joint Configuration (12 DOF total)
-GO1_JOINT_NAMES = [
-    # Front Left leg (3 DOF)
-    "FL_hip_joint", "FL_thigh_joint", "FL_calf_joint",
-    # Front Right leg (3 DOF)  
-    "FR_hip_joint", "FR_thigh_joint", "FR_calf_joint",
-    # Rear Left leg (3 DOF)
-    "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint", 
-    # Rear Right leg (3 DOF)
-    "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint"
+# Joint Configuration (37 DOF for G1 EDU U4 - VERIFIED FROM ISAAC LAB SOURCE)
+G1_JOINT_NAMES = [
+    # Leg joints (9 DOF - 4 per leg + 1 torso) - VERIFIED FROM ISAAC LAB
+    "left_hip_yaw_joint", "left_hip_roll_joint", "left_hip_pitch_joint", "left_knee_joint",
+    "right_hip_yaw_joint", "right_hip_roll_joint", "right_hip_pitch_joint", "right_knee_joint",
+    "torso_joint",
+    
+    # Ankle joints (4 DOF - 2 per foot) - VERIFIED FROM ISAAC LAB
+    "left_ankle_pitch_joint", "left_ankle_roll_joint",
+    "right_ankle_pitch_joint", "right_ankle_roll_joint",
+    
+    # Arm joints (10 DOF - 5 per arm) - VERIFIED FROM ISAAC LAB
+    "left_shoulder_pitch_joint", "left_shoulder_roll_joint", "left_shoulder_yaw_joint",
+    "left_elbow_pitch_joint", "left_elbow_roll_joint",
+    "right_shoulder_pitch_joint", "right_shoulder_roll_joint", "right_shoulder_yaw_joint",
+    "right_elbow_pitch_joint", "right_elbow_roll_joint",
+    
+    # Hand joints (14 DOF - 7 per hand) - VERIFIED FROM ISAAC LAB
+    "left_zero_joint", "left_one_joint", "left_two_joint", "left_three_joint", 
+    "left_four_joint", "left_five_joint", "left_six_joint",
+    "right_zero_joint", "right_one_joint", "right_two_joint", "right_three_joint",
+    "right_four_joint", "right_five_joint", "right_six_joint",
 ]
 
-# Physical Parameters
-GO1_SPECS = {
-    "nominal_height": 0.34,   # meters - trunk height above ground
-    "mass": 12.0,             # kg - approximate robot mass
-    "num_joints": 12,         # Total degrees of freedom
-    "num_feet": 4,            # Number of foot contact points
-    "control_freq": 50,       # Hz - control frequency  
-    "physics_freq": 200       # Hz - physics simulation frequency
+# Robot specifications based on Isaac Lab implementation and official specs
+G1_SPECS = {
+    "total_joints": 37,             # VERIFIED: Isaac Lab G1 EDU U4 with dexterous hands (full robot)
+    "action_space": 13,             # LEGS-ONLY: Controlled joints for locomotion debugging (6 legs + 4 ankles + 1 torso)
+    "arm_joints": 10,               # Fixed at default poses during locomotion
+    "hand_joints": 14,              # Fixed at default poses during locomotion
+    "nominal_height": 0.74,         # VERIFIED: Isaac Lab init position z=0.74m
+    "contact_threshold": 50.0,      # CORRECTED: Appropriate for 35kg humanoid robot
+    "foot_bodies": ["left_ankle_roll_link", "right_ankle_roll_link"],  # FIXED: Contact detection bodies (links not joints)
 }
 
-# Contact Force Analysis Helper
-def extract_foot_contacts(env, force_threshold=0.5):
-    """
-    Extract foot contact information from Isaac Lab contact sensor.
-    
-    Args:
-        env: Isaac Lab environment instance
-        force_threshold: Minimum force magnitude for contact detection (N)
-        
-    Returns:
-        dict: Contact states for each foot {foot_name: contact_tensor}
-    """
-    # Get contact sensor
-    contact_sensor = env.scene.sensors["contact_forces"]
-    contact_forces = contact_sensor.data.net_forces_w  # [num_envs, num_bodies, 3]
-    
-    # Get foot body indices correctly
-    foot_ids, foot_names = contact_sensor.find_bodies(".*_foot")
-    
-    # Calculate force magnitudes for feet
-    foot_forces = contact_forces[:, foot_ids, :]  # [num_envs, num_feet, 3]
-    force_magnitudes = foot_forces.norm(dim=-1)  # [num_envs, num_feet]
-    
-    # Create contact dict with foot names
-    foot_contacts = {}
-    for i, foot_name in enumerate(foot_names):
-        foot_contacts[foot_name] = force_magnitudes[:, i] > force_threshold
-    
-    return foot_contacts
-
-# Utility Functions for Isaac Lab Reward Development
-def get_base_orientation_error(robot_data):
-    """Calculate orientation error from upright pose."""
-    # robot_data.root_quat_w is [num_envs, 4] quaternion (w,x,y,z)
-    # Calculate rotation from upright pose (identity quaternion)
-    pass
+# G1 Body parts for reference (UPDATED to Isaac Lab G1 EDU U4)
+G1_BODY_PARTS = {
+    "torso": ["torso_joint"],
+    "legs": [
+        "left_hip_yaw_joint", "left_hip_roll_joint", "left_hip_pitch_joint", 
+        "left_knee_joint", "left_ankle_pitch_joint", "left_ankle_roll_joint",
+        "right_hip_yaw_joint", "right_hip_roll_joint", "right_hip_pitch_joint", 
+        "right_knee_joint", "right_ankle_pitch_joint", "right_ankle_roll_joint"
+    ],
+    "arms": [
+        "left_shoulder_pitch_joint", "left_shoulder_roll_joint", "left_shoulder_yaw_joint",
+        "left_elbow_pitch_joint", "left_elbow_roll_joint",
+        "right_shoulder_pitch_joint", "right_shoulder_roll_joint", "right_shoulder_yaw_joint",
+        "right_elbow_pitch_joint", "right_elbow_roll_joint"
+    ],
+    "hands": [
+        "left_five_joint", "left_three_joint", "left_six_joint", "left_four_joint",
+        "left_zero_joint", "left_one_joint", "left_two_joint",
+        "right_five_joint", "right_three_joint", "right_six_joint", "right_four_joint",
+        "right_zero_joint", "right_one_joint", "right_two_joint"
+    ],
+    "feet": ["left_ankle_roll_link", "right_ankle_roll_link"]  # Contact points (links not joints)
+}
 
 def get_velocity_tracking_error(robot_data, commands):
     """Calculate error between desired and actual velocity."""
     # robot_data.root_lin_vel_b is [num_envs, 3] 
     # commands is [num_envs, 3] (vx, vy, omega_z)
-    pass
+    lin_vel_error = torch.norm(robot_data.root_lin_vel_b[:, :2] - commands[:, :2], dim=1)
+    ang_vel_error = torch.abs(robot_data.root_ang_vel_b[:, 2] - commands[:, 2])
+    return lin_vel_error, ang_vel_error
 
-def calculate_joint_power(robot_data):
-    """Calculate mechanical power consumption."""
-    # Power = torque * velocity (estimated from joint accelerations)
-    pass
+def get_foot_contacts(contact_sensor, threshold=50.0):
+    """Get binary foot contacts for G1 humanoid using CORRECTED link-based detection."""
+    # Isaac Lab contact sensor detects forces on body links (not joints)
+    # Get contact forces for ankle roll links (G1 foot contact bodies)
+    contact_forces = contact_sensor.data.net_forces_w  # [num_envs, num_bodies, 3]
+    
+    # Find foot contact bodies using the correct Isaac Lab pattern
+    foot_ids, foot_names = contact_sensor.find_bodies(".*_ankle_roll_link")  # Link names for contact sensor
+    
+    if len(foot_ids) == 0:
+        # Fallback pattern if ankle_roll_link not found
+        foot_ids, foot_names = contact_sensor.find_bodies(".*foot.*")
+        if len(foot_ids) == 0:
+            # Final fallback - try any ankle-related bodies
+            foot_ids, foot_names = contact_sensor.find_bodies(".*ankle.*")
+    
+    foot_forces = contact_forces[:, foot_ids, :]  # [num_envs, num_feet, 3]
+    force_magnitudes = foot_forces.norm(dim=-1)  # [num_envs, num_feet]
+    foot_contacts = (force_magnitudes > threshold).float()  # [num_envs, num_feet]
+    
+    # Ensure we have exactly 2 feet (left, right)
+    if foot_contacts.shape[-1] != 2:
+        # Pad or trim to 2 feet
+        num_envs = foot_contacts.shape[0]
+        new_contacts = torch.zeros((num_envs, 2), device=foot_contacts.device)
+        if foot_contacts.shape[-1] > 0:
+            new_contacts[:, :min(2, foot_contacts.shape[-1])] = foot_contacts[:, :min(2, foot_contacts.shape[-1])]
+        foot_contacts = new_contacts
+    
+    return foot_contacts  # Returns [left_foot_contact, right_foot_contact]
 
-# Example Isaac Lab Reward Function Template
-"""
-def sds_custom_reward(env: ManagerBasedRLEnv, **kwargs) -> torch.Tensor:
-    '''Custom SDS reward for Isaac Lab locomotion - GPT will generate all logic.'''
+def get_foot_contact_analysis(contact_sensor, threshold=50.0):
+    """Enhanced foot contact analysis for G1 humanoid gait patterns."""
+    foot_contacts = get_foot_contacts(contact_sensor, threshold)
     
-    # Access robot and sensor data
-    robot = env.scene["robot"]
-    contact_sensor = env.scene.sensors["contact_forces"]
-    commands = env.command_manager.get_command("base_velocity")
+    # Humanoid gait phase detection (CORRECTED for bipedal locomotion)
+    left_contact = foot_contacts[:, 0]  # Left foot
+    right_contact = foot_contacts[:, 1]  # Right foot
     
-    # Initialize reward tensor
-    reward = torch.zeros(env.num_envs, device=env.device)
+    # Bipedal gait phases (FIXED from quadruped)
+    double_support = (left_contact > 0.5) & (right_contact > 0.5)  # Both feet down
+    single_support_left = (left_contact > 0.5) & (right_contact < 0.5)  # Only left down
+    single_support_right = (left_contact < 0.5) & (right_contact > 0.5)  # Only right down  
+    flight_phase = (left_contact < 0.5) & (right_contact < 0.5)  # Both feet up (running)
     
-    # GPT will generate all reward components here
-    # Available data examples:
-    # - robot.data.root_lin_vel_b[:, :2]  # Linear velocity in body frame
-    # - robot.data.root_quat_w            # Quaternion orientation (w,x,y,z)
-    # - robot.data.joint_pos              # Joint positions
-    # - commands[:, :2]                   # Velocity commands (vx, vy)
-    
-    # Contact analysis example (GPT can use or modify):
-    # foot_ids, foot_names = contact_sensor.find_bodies(".*_foot")
-    # contact_forces = contact_sensor.data.net_forces_w[:, foot_ids, :]  # [num_envs, 4, 3]
-    # contact_magnitudes = torch.norm(contact_forces, dim=-1)  # [num_envs, 4]
-    # foot_contacts = contact_magnitudes > 2.0  # Use consistent threshold
-    
-    return reward
-"""
+    return {
+        "foot_contacts": foot_contacts,
+        "gait_phases": {
+            "double_support": double_support,
+            "single_support_left": single_support_left, 
+            "single_support_right": single_support_right,
+            "flight_phase": flight_phase
+        },
+        "contact_count": foot_contacts.sum(dim=-1)  # Number of feet in contact
+    }
 
-# Detailed Contact Analysis for SDS Reward Functions
-def get_foot_contact_analysis(env, contact_threshold=0.5):
+def extract_foot_contacts(env, contact_threshold=50.0):
     """
-    Comprehensive foot contact analysis for reward function development.
+    Extract foot contact information for G1 humanoid reward functions.
     
-    Returns detailed contact information including force magnitudes,
-    contact states, gait patterns, and temporal analysis.
+    This is the main function used by SDS reward functions to get contact data.
     
     Args:
         env: Isaac Lab environment instance
-        contact_threshold: Force threshold for contact detection (N) - default 0.5N
+        contact_threshold: Force threshold for contact detection (N)
+        
+    Returns:
+        dict: Contact analysis data including binary contacts, forces, and gait metrics
     """
-    contact_sensor = env.scene.sensors["contact_forces"]
-    
-    # Get foot indices and names
-    foot_ids, foot_names = contact_sensor.find_bodies(".*_foot")
-    
-    # Extract contact forces
-    contact_forces = contact_sensor.data.net_forces_w[:, foot_ids, :]  # [num_envs, 4, 3]
-    force_magnitudes = torch.norm(contact_forces, dim=-1)  # [num_envs, 4]
-    
-    # Binary contact detection
-    in_contact = force_magnitudes > contact_threshold  # [num_envs, 4]
-    
-    # Gait pattern analysis
-    fl, fr, rl, rr = in_contact[:, 0], in_contact[:, 1], in_contact[:, 2], in_contact[:, 3]
-    
-    # Trotting: diagonal pairs alternate
-    trot_diagonal1 = fl & rr & ~fr & ~rl  # FL+RR, no FR+RL
-    trot_diagonal2 = ~fl & ~rr & fr & rl  # FR+RL, no FL+RR  
-    trot_pattern = trot_diagonal1 | trot_diagonal2
-    
-    # Pace: lateral pairs
-    pace_left = fl & rl & ~fr & ~rr   # Left legs
-    pace_right = ~fl & ~rl & fr & rr  # Right legs
-    pace_pattern = pace_left | pace_right
-    
-    # Bound: front/rear pairs  
-    bound_front = fl & fr & ~rl & ~rr  # Front legs
-    bound_rear = ~fl & ~fr & rl & rr   # Rear legs
-    bound_pattern = bound_front | bound_rear
-    
-    # Contact count and stability
-    num_contacts = torch.sum(in_contact, dim=-1)  # [num_envs]
-    stable_contact = (num_contacts >= 2) & (num_contacts <= 3)  # Good stability
-    
-    return {
-        'foot_names': foot_names,
-        'foot_ids': foot_ids,
-        'force_magnitudes': force_magnitudes,
-        'in_contact': in_contact,
-        'trot_pattern': trot_pattern,
-        'pace_pattern': pace_pattern, 
-        'bound_pattern': bound_pattern,
-        'num_contacts': num_contacts,
-        'stable_contact': stable_contact,
-        'contact_forces_raw': contact_forces
-    } 
+    return get_foot_contact_analysis(env.scene.sensors["contact_forces"], contact_threshold) 

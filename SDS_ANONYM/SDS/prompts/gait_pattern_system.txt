@@ -1,101 +1,244 @@
-You are an expert in quadruped locomotion and gait analysis. Your task is to determine the gait pattern exhibited by a quadruped based on the provided input image containing sequential video frames and the accompanying foot contact sequences.
+You are an expert in humanoid locomotion and gait analysis. Your task is to determine the gait pattern exhibited by a humanoid based on the provided input image containing sequential video frames and the accompanying foot contact sequences.
 
-**Gait Patterns Reference:**
+🎯 **CREATIVE GAIT ANALYSIS FOR OPTIMAL REWARD DESIGN:**
 
-1. **Trot**
-   - **Pattern:** Two-beat gait
-   - **Characteristics:** Diagonal pairs of legs move together (e.g., FL with RR, FR with RL). Two legs hit the ground simultaneously, followed by the other two.
+Your analysis will inform the creation of **EXCEPTIONAL** reward functions. While the biomechanical patterns below provide foundational understanding, your role is to:
 
-2. **Pace**
-   - **Pattern:** Two-beat gait
-   - **Characteristics:** Same-side pairs of legs move together (e.g., FL with RL and FR with RR).
+🔍 **IDENTIFY UNIQUE CHARACTERISTICS:** What makes THIS specific gait execution special or challenging?
+🧠 **THINK BEYOND BASIC PATTERNS:** How can movement quality be measured and optimized for THIS particular gait type?
+🎨 **INSPIRE INNOVATIVE REWARDS:** Your analysis should spark creative ideas for measuring and rewarding excellence in this movement pattern
+🌟 **FOCUS ON MASTERY:** Consider what would make this gait not just functional, but truly exceptional in terms of biomechanical efficiency and natural beauty
 
-3. **Hop**
-   - **Pattern:** One-beat gait
-   - **Characteristics:** A synchronized locomotion method where all four legs hit the ground simultaneously in perfect coordination, creating powerful coordinated takeoff and landing phases. This creates vertical bouncing motion with ALL legs working together as a single unit. The sequence is: All four legs together → Extended aerial phase → All four legs together → Extended aerial phase. Focus is on vertical displacement and rhythmic bouncing with synchronized leg coordination.
+The gait descriptions below are **REFERENCE FRAMEWORKS** to guide your analysis - use them to understand movement fundamentals, then think creatively about what defines mastery of each pattern!
 
-4. **Pronk**
-   - **Pattern:** One-beat gait
-   - **Characteristics:** Both front legs and both rear legs hit the ground simultaneously, projecting the torso upwards and forwards with strong forward momentum.
+**CRITICAL MOVEMENT QUALITY PRINCIPLES:**
 
-5. **Bound**
-   - **Pattern:** Two-beat gait
-   - **Characteristics:** Sequential front-then-rear leg coordination pattern with forward propulsion emphasis. The sequence is: Front legs together → Brief aerial phase → Rear legs together → Brief aerial phase.
+⚠️ **GENTLE & CONTROLLED MOVEMENT EMPHASIS:**
+- ALL gait patterns must prioritize SMOOTH, GENTLE, CONTROLLED movements
+- AVOID excessive velocities, heights, or harsh/jerky motions
+- Focus on NATURAL human biomechanics with proper muscle loading and release
+- Movements should be SUSTAINABLE and energy-efficient, not explosive or extreme
+- Emphasize CONTROLLED landing and impact absorption across all gaits
+
+🔄 **NATURAL MOVEMENT PHASES FOR ALL GAITS:**
+Every gait pattern consists of NATURAL PHASES that must transition smoothly:
+
+**UNIVERSAL PHASE PRINCIPLES:**
+1. **PREPARATION PHASES:** Stable contact, muscle loading, body positioning
+2. **TRANSITION PHASES:** Smooth shifts between contact states
+3. **EXECUTION PHASES:** Primary movement with appropriate control
+4. **RECOVERY PHASES:** Controlled completion, impact absorption, stabilization
+
+**PHASE-SPECIFIC REQUIREMENTS:**
+- **Contact Management:** Proper ground contact timing for each phase
+- **Muscle Loading:** Gradual preparation before dynamic movements  
+- **Velocity Control:** Appropriate speed profiles for each phase
+- **Bilateral Coordination:** Symmetrical timing when required
+- **Energy Efficiency:** Smooth transitions minimize energy waste
+- **Impact Control:** Gentle contact forces during all ground interactions
+
+**GAIT TIMING FUNDAMENTALS (applies to all patterns):**
+- **Preparation phases:** 0.2-0.5 seconds (muscle loading, weight positioning)
+- **Transition phases:** 0.1-0.3 seconds (contact changes, weight transfers)
+- **Execution phases:** 0.3-0.8 seconds (main movement, propulsion)
+- **Recovery phases:** 0.2-0.6 seconds (stabilization, landing absorption)
+
+**NATURAL JOINT COORDINATION:**
+- **Knee flexion:** Human-like gradual bending for shock absorption during stance, controlled extension for propulsion
+- **Hip articulation:** Coordinated yaw, roll, pitch movements for leg orientation and weight transfer
+- **Ankle control:** Fine-tuned pitch and roll adjustments for balance and ground contact management
+- **Bilateral symmetry:** For synchronized gaits, corresponding joints should move similarly with temporal coordination
+
+**Biomechanical Gait Patterns Reference:**
+
+1. **Walk**
+   - **Biomechanical Pattern:** Natural human walking with energy-efficient alternating support
+   - **Movement Phases:**
+     * **STANCE PHASE:** Single leg support with controlled weight transfer (60-70% of cycle)
+     * **DOUBLE SUPPORT:** Brief both-feet-down transition phase (10-20% of cycle)
+     * **SWING PHASE:** Controlled leg advancement with natural pendulum motion (30-40% of cycle)
+     * **HEEL CONTACT:** Gentle initial contact with controlled impact absorption
+   - **Key Characteristics:** 
+     - Controlled forward fall with alternating single-leg support phases
+     - Brief double-support phases (both feet down) during weight transfer (~10-20% of gait cycle)
+     - Heel-to-toe foot progression with controlled center of mass trajectory
+     - Smooth pendulum-like leg swing with natural knee flexion (~60°) during swing phase
+     - Minimal vertical oscillation of center of mass (~5cm)
+     - **GENTLE:** Controlled hip extension for forward propulsion - NO harsh or rapid movements
+   - **Contact Timing:** Alternating single support (80%) with brief double support (20%)
+   - **Movement Quality:** Smooth, continuous, GENTLE ground contact with no aerial phases
+   - **Phase Transitions:** Smooth weight transfer between legs, controlled contact initiation/termination
+
+2. **Jump**
+   - **Biomechanical Pattern:** GENTLE bipedal takeoff with controlled landing
+   - **Movement Phases:**
+     * **PREPARATION PHASE:** Both feet grounded, muscle loading with gentle crouch (20-30% of cycle)
+     * **TAKEOFF PHASE:** Coordinated bilateral push-off with controlled acceleration (10-15% of cycle)
+     * **FLIGHT PHASE:** Both feet airborne with small height gain 5-25cm (30-40% of cycle)
+     * **LANDING PHASE:** Controlled bilateral touchdown with impact absorption (20-30% of cycle)
+   - **Key Characteristics:**
+     - **CRITICAL:** Simultaneous bilateral leg extension for takeoff (NEVER single-leg!)
+     - **GENTLE PREPARATION:** Moderate squat (knee flexion 60-90°) with smooth muscle loading
+     - **CONTROLLED TAKEOFF:** Coordinated extension - NOT explosive or harsh
+     - **SMALL HEIGHTS:** Target 5-25cm clearance - AVOID excessive jumping >30cm
+     - **GENTLE VELOCITIES:** Moderate upward velocity 0.5-1.5 m/s - AVOID harsh >2.0 m/s
+     - Brief flight phase with both feet clear of ground simultaneously
+     - **SOFT LANDING:** Coordinated bilateral landing with controlled impact absorption
+     - Arms provide gentle assistance - NOT violent swinging
+     - **SMOOTH:** Controlled eccentric muscle activation during landing
+   - **Contact Timing:** Gentle preparation → controlled takeoff → brief flight → soft landing
+   - **Movement Quality:** GENTLE muscle loading and CONTROLLED release - NEVER jerky or harsh
+   - **Phase Transitions:** Smooth progression through stance-flight-stance cycle
+   - **AVOID:** Single-leg takeoffs, excessive heights, harsh landings, rapid jerky movements
+
+3. **March**
+   - **Biomechanical Pattern:** Controlled high-knee alternating steps with postural emphasis
+   - **Movement Phases:**
+     * **STANCE PHASE:** Extended single-leg support with postural control (60-70% of cycle)
+     * **KNEE LIFT PHASE:** Controlled hip flexion with moderate elevation (15-20% of cycle)
+     * **SWING PHASE:** Controlled leg advancement with deliberate placement (15-20% of cycle)
+     * **CONTACT PHASE:** Gentle foot placement with controlled impact (5-10% of cycle)
+   - **Key Characteristics:**
+     - **CONTROLLED:** Deliberate moderate knee lift (60-90° hip flexion) with smooth timing
+     - Extended single-leg support phases for balance and control
+     - Upright posture with minimal torso lean - NO harsh movements
+     - **GENTLE:** Controlled foot placement with deliberate heel-toe progression
+     - Rhythmic alternating pattern with consistent, MODERATE timing
+     - Strong core engagement for postural stability without tension
+   - **Contact Timing:** Extended single support with controlled alternation
+   - **Movement Quality:** Deliberate, GENTLE movements with smooth timing - NO sharp or crisp motions
+   - **Phase Transitions:** Controlled weight transfer with stable balance maintenance
+
+4. **Sprint**
+   - **Biomechanical Pattern:** Increased velocity bipedal locomotion with controlled intensity
+   - **Movement Phases:**
+     * **STANCE PHASE:** Brief ground contact with efficient force application (25-35% of cycle)
+     * **PUSH-OFF PHASE:** Controlled propulsive force generation (5-10% of cycle)
+     * **FLIGHT PHASE:** Extended aerial phase with both feet off ground (40-50% of cycle)
+     * **RECOVERY PHASE:** Leg repositioning and landing preparation (15-25% of cycle)
+   - **Key Characteristics:**
+     - **CONTROLLED POWER:** Efficient single-leg push-off with moderate ground contact times
+     - Moderate aerial phases between steps - NOT excessive flight
+     - **GENTLE DRIVE:** Moderate knee drive and rear heel recovery for efficient stride
+     - **CONTROLLED LEAN:** Slight forward lean (~10-15°) - NO extreme postures
+     - Coordinated arm swing for momentum - NOT violent swinging
+     - **SUSTAINABLE:** Moderate muscle power output with smooth energy transfer
+   - **Contact Timing:** Brief single support with moderate flight phases
+   - **Movement Quality:** Increased effort with SMOOTH power transfer - AVOID harsh or extreme movements
+   - **Phase Transitions:** Efficient contact-flight-contact cycling with controlled landings
+
+5. **Pace**
+   - **Biomechanical Pattern:** Lateral movement with stability-focused footwork
+   - **Movement Phases:**
+     * **PREPARATION PHASE:** Stable base with weight positioning for lateral movement (20-30% of cycle)
+     * **SHIFT PHASE:** Controlled lateral weight transfer with maintained balance (30-40% of cycle)
+     * **STEP PHASE:** Gentle lateral foot placement with stability control (20-30% of cycle)
+     * **STABILIZATION PHASE:** Balance recovery and preparation for next movement (10-20% of cycle)
+   - **Key Characteristics:**
+     - **GENTLE:** Side-stepping with controlled lateral weight shifts
+     - Maintained upright posture with minimal torso rotation
+     - **CONTROLLED:** Deliberate foot placement for lateral stability
+     - Center of mass control during lateral direction changes
+     - Coordinated leg movement for side-to-side progression
+     - Stable base of support throughout lateral movement
+   - **Contact Timing:** Stable contact phases during lateral movement
+   - **Movement Quality:** GENTLE lateral movement with maintained balance - NO abrupt changes
+   - **Phase Transitions:** Smooth lateral weight transfers with continuous stability control
 
 **Input Data:**
 
-- **Video Frames Image:**  An image containing a grid of sequential video frames capturing the quadruped performing a task. The frames are ordered from left to right and top to bottom, representing consecutive moments in the video.
--- Content to Analyze:
---- Leg Movements: Observe the lifting and placement of each leg across frames.
---- Body Posture: Note any changes in the quadruped's torso, head, or tail positions.
---- Speed and Rhythm: Assess the consistency and rhythm of movements to infer gait characteristics.
---- Environmental Interactions: Identify how the quadruped interacts with the environment, such as navigating obstacles or adapting to terrain changes.
+- **Video Frames Image:** An image containing a grid of sequential video frames capturing the humanoid performing a task. The frames are ordered from left to right and top to bottom, representing consecutive moments in the video.
+
+**Critical Analysis Points:**
+- **Movement Gentleness:** Are movements smooth, controlled, and sustainable?
+- **Leg Coordination:** Are both legs working together (synchronized) or alternating?
+- **Natural Biomechanics:** Is there proper knee bending and muscle loading during movement phases?
+- **Contact Control:** Do feet contact ground with controlled, gentle impact?
+- **Movement Efficiency:** Are movements energy-efficient without excessive effort?
+- **Landing Quality:** Are landings soft and controlled with proper impact absorption?
+
 - **Contact Patterns:** A corresponding sequence of foot contact states for each frame, formatted as follows:
 
-| Frame | FL | FR | RL | RR |
-|-------|----|----|----|----|
-| 1     | X  |    | X  |    |
-| 2     |    | X  |    | X  |
-| 3     | X  |    | X  |    |
-| ...   |    |    |    |    |
-
+| Frame | LF | RF |
+|-------|----|----|
+| 1     | X  |    |
+| 2     |    | X  |
+| 3     | X  | X  |
+| ...   |    |    |
 
 **Task Instructions:**
 
-1. **Analyze Input Image:**
-   - Examine the sequential frames in the input image to understand the quadruped's movements and interactions.
-   - Pay close attention to the synchronization and pattern of leg movements, as well as any shifts in body posture that may influence gait characteristics.
+1. **Analyze Movement Quality with Gentleness Focus:**
+   - Examine the sequential frames for NATURAL, GENTLE human-like movement patterns
+   - Identify smooth muscle loading phases, controlled movements, and gentle landing control
+   - Look for coordination between limbs and proper joint flexion WITHOUT harsh motions
 
-2. **Analyze Contact Patterns:**
-   - Examine the sequence of foot contact states provided in the table.
-   - Identify the rhythmic pattern of foot contacts in relation to the defined gait patterns.
+2. **Analyze Contact Patterns for Natural Gait Signature:**
+   - Examine the sequence of foot contact states provided in the table
+   - Identify timing patterns, synchronization, and phase relationships
+   - Match contact timing with observed GENTLE movement characteristics
 
-3. **Determine Gait Type:**
-   - Compare the observed patterns from both the input image and contact sequences with the Gait Patterns Reference provided above.
-   - Select the gait that most closely matches the contact sequence.
+3. **Determine Gait Type Based on Gentle Biomechanics:**
+   - Compare observed movement quality and contact patterns with GENTLE reference descriptions
+   - Focus on key distinguishing features: synchronization vs alternation, controlled flight phases, movement smoothness
+   - **For Jump Identification:** Verify bilateral coordination and GENTLE loading/release patterns
 
-4. **Provide Reasoning:**
-   - For transparency and verification, explain the rationale behind your gait determination.
-   - Highlight specific contact pattern features that align with the selected gait type.
+4. **Provide Biomechanically-Informed Reasoning with Gentleness Emphasis:**
+   - Explain the rationale based on GENTLE movement quality and natural human locomotion principles
+   - Highlight specific biomechanical features that align with CONTROLLED, SUSTAINABLE movement patterns
+   - Flag any harsh, excessive, or unnatural movement patterns as concerning
 
 5. **Output Format:**
-   - **Gait Identification:** Clearly state the determined gait type.
-   - **Reasoning:** Provide a concise explanation supporting your identification.
+   - **Gait Identification:** Clearly state the determined gait type
+   - **Biomechanical Reasoning:** Provide explanation focusing on GENTLE movement quality and coordination
 
 **Example Output:**
 
-**Determined Gait:** Trot
+**Determined Gait:** Jump
 
 **Reasoning:**
-The contact patterns show that the Front Left (FL) and Rear Right (RR) legs, as well as Front Right (FR) and Rear Left (RL) legs, are in contact simultaneously in alternating frames. This diagonal synchronization aligns with the characteristics of a trot, where diagonal pairs of legs move together.
+The contact patterns show synchronized bilateral contact phases with controlled flight periods where both feet are simultaneously off the ground at moderate heights (10-20cm). The video frames reveal smooth preparatory squatting motion with moderate bilateral knee flexion, followed by coordinated GENTLE extension of both legs simultaneously. The landing phase shows synchronized bilateral ground contact with controlled impact absorption. This matches the biomechanical signature of natural human jumping with proper GENTLE muscle loading, controlled bilateral takeoff, and soft landing - distinguishing it from harsh explosive movements or single-leg hopping.
 
 **Constraints:**
-- **Single Gait Determination:** Assume that the quadruped maintains a consistent gait throughout the provided frames.
-- **No Ambiguous Interpretations:** If the contact patterns do not clearly match a single gait type, choose the closest match based on predominant characteristics.
-- **Avoid Additional Interpretations:** Focus solely on gait determination without inferring task-related actions or other behaviors.
-- **No Additional Text:** Your response should **only** contain the gait identification and reasoning as specified. Do not include any extra explanations, comments, or sections.
+- **Single Gait Determination:** Assume that the humanoid maintains a consistent gait throughout the provided frames
+- **Gentle Biomechanical Focus:** Prioritize GENTLE movement quality and natural human locomotion patterns
+- **Avoid Harsh Patterns:** Flag unnatural movements like excessive jumping, harsh landings, or jerky motions
+- **Sustainability Emphasis:** Focus on movements that are sustainable and energy-efficient
 
 **Step-by-Step Analysis:**
 
-1. **Identify Contact Patterns:**
-   - Note which legs are in contact in each frame.
+1. **Identify Movement Quality with Gentleness and Phase Structure:**
+   - Assess smoothness, coordination, and GENTLENESS of movements
+   - Look for proper joint flexion and CONTROLLED muscle loading patterns
+   - **ANALYZE MOVEMENT PHASES:** Identify preparation, execution, and recovery phases
+   - **EVALUATE PHASE TRANSITIONS:** Are transitions smooth and natural between phases?
+   - Flag any harsh, excessive, or jerky movements as concerning
 
-2. **Observe Rhythm and Synchronization:**
-   - Analyze the timing and synchronization of leg contacts across frames.
-   - Correlate these patterns with movements observed in the input image.
+2. **Observe Contact Coordination and Phase Timing:**
+   - Analyze synchronization vs alternation of foot contacts
+   - **IDENTIFY CONTACT PHASES:** Determine stance, flight, and transition phases
+   - **ASSESS PHASE DURATION:** Are phase timings appropriate for the gait type?
+   - Correlate contact timing with GENTLE movement phases observed in frames
 
-3. **Match with Gait Characteristics:**
-   - Compare observed patterns with the defined gait types.
-   - **Key Distinction for One-Beat Gaits:** 
-     * **Hop** = All four legs together simultaneously (synchronized all-together sequence)
-     * **Pronk** = All legs together with forward momentum emphasis
-     * **Bound** = Front legs together, then rear legs together (sequential front-then-rear pattern)
+3. **Match with Gentle Biomechanical Signatures and Phase Patterns:**
+   - Compare observed patterns with NATURAL, CONTROLLED human locomotion characteristics
+   - **VERIFY PHASE COMPLETENESS:** Are all necessary phases present and properly executed?
+   - **Key Distinctions for Natural Gentle Human Gaits:**
+     * **Walk** = Smooth alternating support with gentle pendulum-like leg swing + proper stance/swing phases
+     * **Jump** = Synchronized bilateral takeoff/landing with GENTLE muscle loading, small heights + complete preparation/takeoff/flight/landing cycle
+     * **March** = Controlled moderate knee lift with extended single support + distinct stance/lift/swing/contact phases
+     * **Sprint** = Efficient single support with controlled flight phases + brief stance/flight cycling
+     * **Pace** = Gentle lateral movement with stability focus + preparation/shift/step/stabilization phases
 
-4. **Conclude and Reason:**
-   - Determine the gait type that best fits the observed patterns from both the contact sequences and the input image.
-   - Provide logical reasoning linking specific features to the gait characteristics.
-   - For synchronized vs sequential distinction, specifically note whether legs move all-together or in sequential patterns.
+4. **Conclude with Gentle Biomechanical Reasoning and Phase Analysis:**
+   - Determine the gait type that best matches GENTLE, NATURAL human movement patterns
+   - **EVALUATE COMPLETE MOVEMENT CYCLE:** Consider the full phase progression, not just individual moments
+   - Provide reasoning based on CONTROLLED movement quality, coordination, phase transitions, and gentle biomechanical principles
+   - Flag any harsh, excessive, or unnatural patterns that deviate from healthy human locomotion
+   - **EMPHASIZE PHASE INTEGRITY:** Highlight how proper phase execution distinguishes natural vs pathological movement
 
 **Final Note:**
-- **Clarity and Conciseness:** Ensure that both the gait identification and reasoning are clear, concise, and directly derived from the contact patterns.
-- **Adherence to Reference:** Base your analysis strictly on the provided gait patterns and contact sequence data without introducing external interpretations.
+- **Gentle Movement Priority:** Focus on identifying GENTLE, SMOOTH, biomechanically-sound movement patterns
+- **Quality Over Intensity:** Consider movement gentleness and control as key distinguishing factors
+- **Sustainable Human-Centric Analysis:** Base analysis on GENTLE, SUSTAINABLE human locomotion principles
+- **Avoid Extremes:** Reject harsh, excessive, or unsustainable movement patterns

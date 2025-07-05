@@ -3,17 +3,38 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-from isaaclab.managers import SceneEntityCfg
-from isaaclab.utils import configclass
+"""
+SDS G1 Flat Environment Configuration.
 
-from .rough_env_cfg import G1RoughEnvCfg
+This configuration is specifically designed for the SDS project
+using Unitree G1 humanoid robot on flat terrain.
+"""
+
+from isaaclab.utils import configclass
+from isaaclab.envs import ViewerCfg
+import isaaclab_assets
+
+from .rough_env_cfg import SDSG1RoughEnvCfg  # Updated class name
 
 
 @configclass
-class G1FlatEnvCfg(G1RoughEnvCfg):
+class SDSG1FlatEnvCfg(SDSG1RoughEnvCfg):
+    """SDS Unitree G1 flat terrain environment configuration."""
     def __post_init__(self):
         # post init of parent
         super().__post_init__()
+
+        # Viewer - updated for G1 CORRECTED height (1.27m)
+        self.viewer.eye = (0.0, -3.0, 0.2)  # Raised from 0.9m to 1.8m for 1.27m robot
+        self.viewer.lookat = (0.0, 0.0, 0.2)  # Raised from 0.5m to 1.0m (G1 torso level)
+
+        # CRITICAL: For SDS, use ONLY GPT-generated sds_custom reward
+        # self.rewards.sds_custom is already configured in the base class
+
+        # Commands - focused on forward movement with minimal lateral movement
+        self.commands.base_velocity.ranges.lin_vel_x = (0.0, 0.1)  # Keep higher forward velocity for flat terrain (jumping/sprinting gaits)
+        self.commands.base_velocity.ranges.lin_vel_y = (-0.05, 0.05)  # Minimal lateral movement (just a bit of side movement)
+        self.commands.base_velocity.ranges.ang_vel_z = (-0.05, 0.05)  # Reduced turning for forward-focused training
 
         # change terrain to flat
         self.scene.terrain.terrain_type = "plane"
@@ -24,33 +45,29 @@ class G1FlatEnvCfg(G1RoughEnvCfg):
         # no terrain curriculum
         self.curriculum.terrain_levels = None
 
-        # Rewards
-        self.rewards.track_ang_vel_z_exp.weight = 1.0
-        self.rewards.lin_vel_z_l2.weight = -0.2
-        self.rewards.action_rate_l2.weight = -0.005
-        self.rewards.dof_acc_l2.weight = -1.0e-7
-        self.rewards.feet_air_time.weight = 0.75
-        self.rewards.feet_air_time.params["threshold"] = 0.4
-        self.rewards.dof_torques_l2.weight = -2.0e-6
-        self.rewards.dof_torques_l2.params["asset_cfg"] = SceneEntityCfg(
-            "robot", joint_names=[".*_hip_.*", ".*_knee_joint"]
-        )
-        # Commands
-        self.commands.base_velocity.ranges.lin_vel_x = (0.0, 1.0)
-        self.commands.base_velocity.ranges.lin_vel_y = (-0.5, 0.5)
-        self.commands.base_velocity.ranges.ang_vel_z = (-1.0, 1.0)
 
-
-class G1FlatEnvCfg_PLAY(G1FlatEnvCfg):
+@configclass
+class SDSG1FlatEnvCfg_PLAY(SDSG1FlatEnvCfg):
+    """SDS Unitree G1 flat terrain environment configuration for play/testing."""
+    
+    # G1 Humanoid tracking - Bipedal optimized camera (lowered further for optimal framing)
+    viewer = ViewerCfg(
+        origin_type="asset_root",    # Automatically follow humanoid torso
+        asset_name="robot",          # Track the humanoid robot asset
+        env_index=0,                # Environment 0 (single humanoid)
+        eye=(0.0, -3.0, 0.15),       # Side view for humanoid - further lowered camera for optimal body framing
+        lookat=(0.0, 0.0, 0.2),     # Look at humanoid waist level (optimal for 0.74m height robot)
+    )
+    
     def __post_init__(self) -> None:
         # post init of parent
         super().__post_init__()
 
         # make a smaller scene for play
-        self.scene.num_envs = 50
+        self.scene.num_envs = 1  # Single humanoid for close tracking
         self.scene.env_spacing = 2.5
         # disable randomization for play
         self.observations.policy.enable_corruption = False
-        # remove random pushing
+        # remove random pushing event
         self.events.base_external_force_torque = None
         self.events.push_robot = None

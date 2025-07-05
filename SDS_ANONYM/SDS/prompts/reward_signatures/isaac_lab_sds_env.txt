@@ -1,0 +1,230 @@
+Isaac Lab Reward Function Format:
+
+Your reward function must follow this exact structure with proper 4-space indentation:
+
+def sds_custom_reward(env) -> torch.Tensor:
+    """Your reward function description here."""
+    # Access environment data (4-space indent)
+    robot = env.scene["robot"]
+    contact_sensor = env.scene.sensors["contact_forces"]
+    commands = env.command_manager.get_command("base_velocity")
+    
+    # Initialize reward (4-space indent)
+    reward = torch.zeros(env.num_envs, device=env.device)
+    
+    # IMPORTANT: For contact analysis, use this inline approach:
+    # Get foot contact forces for G1 humanoid
+    contact_forces = contact_sensor.data.net_forces_w  # [num_envs, num_bodies, 3]
+    foot_ids, foot_names = contact_sensor.find_bodies(".*_ankle_roll_link")
+    foot_forces = contact_forces[:, foot_ids, :]  # [num_envs, 2, 3] - 2 feet for humanoid
+    force_magnitudes = foot_forces.norm(dim=-1)  # [num_envs, 2]
+    
+    # Contact detection - analyze video to determine appropriate threshold
+    # G1 humanoid requires higher thresholds: gentle gaits (20-50N), dynamic gaits (50-100N)
+    # Evidence: G1 standing forces ~150-250N, much higher than quadrupeds
+    contact_threshold = 50.0  # Default for G1 humanoid - adjust based on observed contact forces in video
+    foot_contacts = (force_magnitudes > contact_threshold).float()  # Convert to float for partial credit
+    
+    # Note: Design contact rewards based on the observed gait pattern in the video
+    # G1 humanoid bipedal locomotion: left_ankle_roll_link, right_ankle_roll_link
+    
+    # Available robot data:
+    # robot.data.root_pos_w[:, 2] - height (z-coordinate, nominal 0.74m for G1)
+    # robot.data.root_lin_vel_b[:, 0] - forward velocity (x-axis in body frame)
+    # robot.data.root_lin_vel_w - linear velocity in world frame [num_envs, 3]
+    # robot.data.root_ang_vel_b - angular velocity in body frame [num_envs, 3]
+    # robot.data.root_ang_vel_w - angular velocity in world frame [num_envs, 3]
+    # robot.data.root_quat_w - orientation quaternion [w,x,y,z]
+    # robot.data.joint_pos - joint positions [num_envs, 37] for G1 EDU U4 with dexterous hands (VERIFIED)
+    # robot.data.joint_vel - joint velocities [num_envs, 37] (VERIFIED)
+    # robot.data.root_pos_w[:, 2] - robot height [num_envs] - should be around 0.74m for G1 in Isaac Lab (VERIFIED)
+    # robot.data.root_lin_vel_b - linear velocity in body frame [num_envs, 3]
+    # robot.data.root_quat_w - quaternion orientation [num_envs, 4]
+    # commands[:, :3] - [forward_vel, lateral_vel, yaw_rate] commands
+    
+    # Available command data:
+    # commands[:, 0] - desired forward velocity (vx)
+    # commands[:, 1] - desired lateral velocity (vy) 
+    # commands[:, 2] - desired angular velocity (omega_z)
+    
+    # HUMANOID-SPECIFIC CONSIDERATIONS:
+    # - Bipedal stability is critical: balance and contact pattern rewards
+    # - Height maintenance: G1 initial height is 0.74m in Isaac Lab (VERIFIED)
+    # - Upper body stability: minimize arm swing, maintain upright torso
+    # - Gait patterns: Walk (alternating with double support), Jump (synchronized takeoff/landing), March (controlled single support), Sprint (extended flight), Pace (lateral movement)
+    # - Isaac Lab G1 joint structure: 37 DOF total (9 legs + 4 ankles + 10 arms + 14 hands)
+    # - Joint naming: hip_[yaw/roll/pitch]_joint, knee_joint, ankle_[pitch/roll]_joint, 
+    #   shoulder_[pitch/roll/yaw]_joint, elbow_[pitch/roll]_joint, [zero-six]_joint (hands)
+    
+    # HUMAN-LIKE LOCOMOTION DESIGN PRINCIPLES:
+    # 1. Dynamic Balance: Humanoids require continuous balance management (not static stability)
+    #    Consider torso orientation, roll/pitch control, and center of mass dynamics
+    # 2. Movement Efficiency: Natural locomotion minimizes energy expenditure
+    #    Consider smooth joint motion, appropriate muscle activation patterns
+    # 3. Directional Preference: Forward movement often has higher priority than lateral/backward
+    #    Consider command-dependent weighting based on intended movement direction
+    # 4. Temporal Coordination: Natural gaits involve timing and rhythm
+    #    Consider phase relationships between limbs, contact duration, and step timing
+    # 5. Upper Body Integration: Arms and torso contribute to locomotion stability
+    #    Consider how upper body motion supports or disrupts locomotion goals
+    # 6. Adaptive Contact Patterns: Different gaits require different contact strategies
+    #    Analyze video to determine appropriate contact timing and patterns for the demonstrated behavior
+    
+    # Contact sensor access pattern for Isaac Lab
+    foot_ids, foot_names = contact_sensor.find_bodies(".*_ankle_roll_link")  # G1 uses ankle_roll_link for contact
+    contact_forces = contact_sensor.data.net_forces_w[:, foot_ids, :]  # [num_envs, 2, 3] for G1 bipedal
+    contact_magnitudes = torch.norm(contact_forces, dim=-1)  # [num_envs, 2]
+    foot_contacts = contact_magnitudes > contact_threshold  # Binary contact detection
+    
+    # HUMANOID GAIT PATTERNS (not quadruped!)
+    # G1 is BIPEDAL - only 2 feet: left_foot (index 0), right_foot (index 1)
+    left_contact = foot_contacts[:, 0]   # Left foot contact
+    right_contact = foot_contacts[:, 1]  # Right foot contact
+    
+    # Bipedal locomotion phases (CORRECTED - not quadruped patterns)
+    double_support = left_contact & right_contact        # Both feet down (Walk/Jump)
+    single_support_left = left_contact & ~right_contact  # Only left foot down (Walk/March/Sprint)
+    single_support_right = ~left_contact & right_contact # Only right foot down (Walk/March/Sprint)
+    flight_phase = ~left_contact & ~right_contact        # Both feet up (Jump/Sprint)
+    
+    # Key differences from quadruped robots:
+    # - G1 height: 0.74m in Isaac Lab configuration - CRITICAL for height-based rewards
+    # - Only 2 contact points (not 4)
+    # - Bipedal gait patterns (alternating support, not complex quadruped gaits)
+    # - Higher contact forces due to full body weight on fewer feet
+    # - Dynamic balance required (not static stability like quadrupeds)
+    # - Dexterous hands: 37 total DOF with advanced manipulation capabilities
+    
+    # DESIGN YOUR REWARD COMPONENTS HERE
+    
+    # COMMON REWARD BIASES TO AVOID:
+    # 1. Equal Directional Treatment: Human locomotion is forward-biased, not omnidirectional
+    #    Consider: command-dependent weighting (higher weight for forward vs lateral movement)
+    # 2. Inappropriate Gait Metrics: Air time consistency is for Jump/Sprint, not Walk/March/Pace
+    #    Consider: Contact alternation patterns, step timing, ground contact duration for Walk/March
+    # 3. Missing Upper Body: Humanoids require torso stability for natural locomotion
+    #    Consider: Roll/pitch angular velocity, upper body orientation stability
+    # 4. Rigid Height Control: Overly aggressive height penalties create stiff, unnatural movement
+    #    Consider: Moderate height maintenance that allows natural locomotion dynamics
+    # 5. Contact Pattern Oversimplification: "1 or 2 contacts" doesn't ensure proper alternation
+    #    Consider: Left-right alternation rewards, contact transition patterns
+    # 6. Energy Neglect: No consideration of movement efficiency or smoothness
+    #    Consider: Joint velocity magnitudes, movement smoothness metrics
+    # 7. Static Thresholds: Fixed contact forces may not adapt to different movement intensities
+    #    Consider: Adaptive thresholds based on movement commands or robot state
+    
+    # UNIVERSAL LOCOMOTION SCIENCE PRINCIPLES:
+    # These principles apply to all bipedal locomotion patterns - Walk, Jump, March, Sprint, Pace.
+    
+    # 1. TEMPORAL DYNAMICS (Ground Contact Timing):
+    #    Natural locomotion involves rhythmic ground interaction patterns
+    #    Consider: contact duration, lift-off timing, ground interaction phases
+    #    Contact timing creates locomotion rhythm and forward progression
+    
+    # 2. MOTION QUALITY (Smoothness and Continuity):
+    #    Biological locomotion minimizes abrupt changes and maintains flow
+    #    Consider: action continuity between timesteps, joint motion smoothness
+    #    Jerky movements waste energy and appear unnatural
+    
+    # 3. STABILITY DYNAMICS (Multi-Axis Balance):
+    #    Bipedal systems require continuous balance management across all axes
+    #    Consider: vertical motion control, rotational stability (roll/pitch/yaw separately)
+    #    Different locomotion patterns have different stability requirements
+    
+    # 4. ENERGY OPTIMIZATION (Efficiency Principles):
+    #    Natural movements minimize energy expenditure while achieving goals
+    #    Consider: force/torque efficiency, unnecessary motion reduction
+    #    Target efficiency where it matters most for the demonstrated movement
+    
+    # 5. TASK-APPROPRIATE WEIGHTING (Context-Dependent Priorities):
+    #    Different locomotion patterns prioritize different aspects
+    #    Consider: movement command intensity, directional preferences, speed adaptation
+    #    Reward structure should match the demonstrated behavior characteristics
+    
+    return reward
+
+CRITICAL: Do NOT call external functions like extract_foot_contacts() or get_foot_contact_analysis().
+Use the inline contact analysis code shown above.
+
+CRITICAL: Always specify dtype=torch.float32 and device=env.device for tensor creation!
+
+STABLE MATHEMATICAL PATTERNS (Use these for numerical stability):
+Pattern 1 - Exponential Decay (for tracking targets):
+# error = (robot.data.root_lin_vel_b[:, 0] - target_value).abs()
+# reward_component = torch.exp(-scale_factor * error)  # scale_factor: 0.5 to 10.0
+
+Pattern 2 - Bounded Linear (for contact rewards):
+# num_contacts = foot_contacts.sum(dim=-1).float()
+# contact_reward = (1.0 - (num_contacts - target_count).abs() / tolerance).clamp(min=0.0, max=1.0)
+
+Pattern 3 - Boolean Masks (for gait patterns):
+# gait_reward = ((num_contacts >= min_contacts) & (num_contacts <= max_contacts)).float()
+
+Pattern 4 - Final Bounds (CRITICAL for PPO stability):
+# return reward.clamp(min=0.0, max=10.0)  # Prevents training crashes
+
+Pattern 5 - Division Safety (CRITICAL to prevent crashes):
+# For literal numbers: safe_ratio = numerator / max(denominator_value, 1e-6)  # denominator_value is literal
+# For tensor variables: safe_ratio = numerator / torch.clamp(tensor_var, min=1e-6)  # tensor_var computed from robot data
+
+TIP: Normalize reward components to similar scales (0-1 range) for balanced learning.
+TIP: Analyze video frames to understand the specific locomotion pattern before setting thresholds.
+
+FORMATTING REQUIREMENTS:
+- Use EXACTLY 4 spaces for each indentation level
+- NEVER use 8 spaces, tabs, or inconsistent spacing
+- Always add safety checks before any division operations
+- Specify dtype=torch.float32 for all tensor creations
+
+Isaac Lab SDS Environment - G1 Humanoid Locomotion
+
+## Robot Configuration (VERIFIED & CORRECTED)
+- **Robot**: Unitree G1 EDU U4 Humanoid (37 DOF total)
+- **Action Space**: 23 DOF controlled for locomotion (hands excluded)
+- **Height**: 0.74m (Isaac Lab verified)
+- **Mass**: ~35kg humanoid
+
+## Action Configuration (SIMPLIFIED)
+**Controlled Joints (13 DOF for locomotion):**
+- Legs: 8 DOF (4 per leg: hip_yaw, hip_roll, hip_pitch, knee)
+- Ankles: 4 DOF (2 per foot: ankle_pitch, ankle_roll) 
+- Torso: 1 DOF (torso_joint)
+
+**Fixed Joints (24 DOF):**
+- Arms: 10 DOF maintain default poses for stability
+- Hands: 14 DOF maintain default poses for locomotion stability
+
+## Contact Detection (VERIFIED WORKING)
+**Foot Bodies**: `left_ankle_roll_link`, `right_ankle_roll_link`
+**Detection Pattern**: `contact_sensor.find_bodies(".*_ankle_roll_link")`
+**Contact Threshold**: 50.0N (corrected for humanoid mass)
+
+## Key Functions for Reward Generation
+```python
+# Foot contact detection (VERIFIED WORKING)
+contact_forces = env.scene.sensors["contact_forces"].data.net_forces_w
+foot_ids, _ = env.scene.sensors["contact_forces"].find_bodies(".*_ankle_roll_link")
+foot_forces = contact_forces[:, foot_ids, :]
+foot_contacts = (foot_forces.norm(dim=-1) > 50.0).float()
+
+# Velocity tracking
+robot = env.scene["robot"]
+commands = env.command_manager.get_command("base_velocity")
+vel_error = robot.data.root_lin_vel_b[:, :2] - commands[:, :2]
+ang_error = robot.data.root_ang_vel_b[:, 2] - commands[:, 2]
+
+# Height maintenance  
+height = robot.data.root_pos_w[:, 2]
+height_error = (height - 0.74).abs()
+
+# Bipedal gait patterns
+left_contact = foot_contacts[:, 0]
+right_contact = foot_contacts[:, 1] 
+single_support = ((left_contact > 0.5) & (right_contact < 0.5)) | ((left_contact < 0.5) & (right_contact > 0.5))
+double_support = (left_contact > 0.5) & (right_contact > 0.5)
+```
+
+## Successful Training Metrics
+- **Episode Rewards**: 0.01-0.02 range (working)
+- **Action Scale**: 1.0 (allows proper joint movement)
+- **Training Progress**: Mean rewards ~0.2-0.23, episode length 28-32 steps

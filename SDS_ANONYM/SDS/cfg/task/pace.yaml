@@ -1,4 +1,5 @@
-description: Horce in pacing gait
+
+description: "Humanoid Robot Pacing"
 video: pace.mp4
 crop: False
 crop_option: None

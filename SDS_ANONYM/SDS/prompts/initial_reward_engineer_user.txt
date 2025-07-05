@@ -1,51 +1,254 @@
+⚠️ **CRITICAL: GENTLE MOVEMENT REQUIREMENT** ⚠️
+
+ALL reward functions MUST prioritize GENTLE, CONTROLLED, SUSTAINABLE movements:
+
+🎯 **MANDATORY GENTLENESS TARGETS:**
+- **Jump tasks:** 5-25cm height, 0.5-1.5 m/s velocity (NEVER >2m/s or >30cm!)
+- **Walk tasks:** Smooth, controlled steps (NO jarring or rapid movements!)
+- **March tasks:** Moderate knee lift 60-90°, gentle timing (NO sharp movements!)
+- **Sprint tasks:** Efficient acceleration, controlled power (NO extreme velocities!)
+- **Pace tasks:** Gentle lateral shifts, maintained balance (NO abrupt changes!)
+
+🚫 **ABSOLUTELY FORBIDDEN:**
+- Harsh, jerky, violent movements
+- Excessive jumping (>30cm height or >2.0 m/s velocity)
+- Rapid oscillations or instability
+- Energy-wasteful explosive behaviors
+- Uncontrolled impacts or landings
+
+✅ **REWARD THESE GENTLE BEHAVIORS:**
+- Smooth muscle loading and controlled release
+- Gradual transitions between movement phases
+- Controlled impact absorption during landings
+- Energy-efficient, sustainable motions
+- Natural human-like movement quality
+
+🔧 **IMPLEMENTATION EXAMPLE:**
+```python
+# Gentle height targeting (jumping)
+height_gain = current_height - baseline
+gentle_height = torch.where(
+    (height_gain > 0.05) & (height_gain < 0.25),  # 5-25cm sweet spot
+    torch.exp(-((height_gain - 0.15) / 0.05).abs()),  # Peak at 15cm
+    torch.zeros_like(height_gain)  # No reward outside range
+)
+
+# Penalty for excessive movement
+excessive_penalty = torch.clamp((velocity.abs() - 2.0) / 1.0, 0.0, 2.0)
+gentle_reward = base_reward - excessive_penalty
+```
+
+🎨 **INNOVATIVE REWARD DESIGN CHALLENGE:**
+
+You are tasked with creating the **MOST EFFECTIVE** reward function possible for the observed gait pattern. The frameworks and examples provided below are **CREATIVE SPRINGBOARDS** - use them to inspire innovative solutions, but don't limit yourself to copying them!
+
+**Your Design Excellence Goals:**
+🌟 **GAIT-SPECIFIC MASTERY:** Design rewards that capture the unique biomechanical signature of THIS specific locomotion pattern
+🌟 **MOVEMENT QUALITY FOCUS:** Create nuanced metrics that distinguish exceptional movement from merely functional movement  
+🌟 **CREATIVE PROBLEM-SOLVING:** Combine, modify, or invent reward components that address the specific challenges of this gait type
+🌟 **COMPREHENSIVE SOLUTIONS:** Consider multiple aspects of movement quality - coordination, timing, efficiency, naturalness, safety
+
+**Think Beyond Templates:** The analysis frameworks below are tools to help you understand the movement, but your final reward function should be uniquely designed for optimal performance on this specific task!
+
 The Isaac Lab environment structure is:
 
 {task_obs_code_string}
 
-You are working with Isaac Lab's Unitree Go1 quadruped robot. The robot has the following body structure:
-- Base body: "trunk" (main chassis)
-- Foot bodies: "FL_foot", "FR_foot", "RL_foot", "RR_foot" (for contact detection)
-- Thigh bodies: "FL_thigh", "FR_thigh", "RL_thigh", "RR_thigh" (undesired contacts)
+You are working with Isaac Lab's Unitree G1 humanoid robot. Essential specifications:
+- Base body: "torso_link" (main chassis)
+- Foot bodies: "left_ankle_roll_link", "right_ankle_roll_link" (for contact detection)
+- Height: 0.74m, Mass: ~35kg
+- Contact threshold: Consider mass-scaled thresholds (e.g., 10% of robot weight)
 
-For Isaac Lab API usage, remember these critical points:
-- Velocities: Use BODY frame (robot.data.root_lin_vel_b, robot.data.root_ang_vel_b)
-- Commands: Body frame velocity commands (vx, vy, omega_z)
-- Contact forces: Use contact_sensor.data.net_forces_w [num_envs, num_bodies, 3]
-- Contact detection: Apply torch.norm() to get force magnitudes, then use threshold
-- Quaternions: Format is (w, x, y, z) for root_quat_w
-- Device compatibility: Ensure all tensors use device=env.device
-- Additional data: robot.data.root_lin_vel_w, robot.data.root_ang_vel_w, robot.data.applied_torque
+Essential Isaac Lab API access patterns:
+- Robot: `robot = env.scene["robot"]`
+- Contact: `contact_sensor = env.scene.sensors["contact_forces"]`
+- Commands: `commands = env.command_manager.get_command("base_velocity")`
+- Feet: `foot_ids, _ = contact_sensor.find_bodies(".*_ankle_roll_link")`
 
-## Task Analysis
+## 🎥 Video Analysis Framework
 
-Based on the video demonstration, analyze the following aspects and design your reward function accordingly:
+**Step 1: Identify Movement Characteristics and Natural Phases**
+- **Gait Type:** What locomotion pattern is demonstrated?
+- **Movement Phases:** What are the natural phases of this gait cycle?
+- **Phase Transitions:** How smoothly do phases flow into each other?
+- **Coordination:** Are legs working together (synchronized) or alternating?
+- **Contact Patterns:** When and how do feet contact the ground in each phase?
+- **Movement Quality:** Is motion smooth and natural or jerky and robotic?
 
-**Movement Pattern Analysis:**
-- What type of gait is being demonstrated?
-- What velocity characteristics are shown?
-- How does the body height change during movement?
-- What contact patterns are observed?
-- How does the body orientation change?
+**Step 2: Identify Potential Problems with Phase Execution**
+Common humanoid locomotion issues to watch for:
+- **Phase Skipping:** Missing essential movement phases (e.g., no preparation phase)
+- **Harsh Transitions:** Abrupt changes between phases instead of smooth progressions
+- **Poor Phase Timing:** Inappropriate duration or sequence of movement phases
+- **Single-leg jumping:** Robot using one leg instead of bilateral coordination
+- **Jerky movements:** Rapid, unnatural motions that waste energy
+- **Poor timing:** Uncoordinated contact patterns that don't match human biomechanics
+- **Instability:** Excessive leaning, spinning, or falling tendencies
 
-**Reward Design Considerations:**
-- Design velocity tracking based on observed movement speed
-- Consider height dynamics appropriate for the demonstrated gait
-- Reward contact patterns that match the observed locomotion
-- Balance stability with the dynamic requirements shown in the video
+**Step 3: Design Phase-Based Problem-Solving Approach**
+Ask yourself:
+- **What natural phases should this gait include?**
+- **How can I reward proper phase progression and smooth transitions?**
+- **What makes this movement natural and efficient in each phase?**
+- **What pathological patterns should be prevented in each phase?**
+- **How can I encourage bilateral coordination when needed?**
+- **What timing and rhythm characteristics are important for phase execution?**
 
-Remember to analyze the video frames carefully to understand what behavior needs to be rewarded, rather than assuming fixed requirements.
+## 🧠 Biomechanical Problem-Solving Principles
 
-## Task Requirements
+🎨 **GAIT-SPECIFIC CREATIVE CHALLENGES:**
 
-**Key Analysis Points:**
-- **Movement Pattern:** Observe speed, direction, and trajectory characteristics
-- **Height Dynamics:** Does the robot maintain constant height or show vertical motion patterns?
-- **Contact Behavior:** Analyze ground contact patterns - continuous, intermittent, or aerial phases
-- **Body Orientation:** Observe natural body tilting vs upright posture requirements
-- **Gait Characteristics:** Identify if the gait is conservative/stable or dynamic/agile
+Use these problem frameworks as **INSPIRATION** for deeper creative thinking about each gait type:
 
-Write a reward function that encourages the robot to exhibit the behavior demonstrated in the video frames.
+**For JUMPING Tasks - "The Bilateral Symphony Challenge":**
+- **Core Challenge:** Creating perfectly coordinated bilateral takeoff with controlled landing
+- **Beyond Basic Solutions:** Consider momentum conservation laws, force symmetry, predictive landing mechanics
+- **Creative Opportunities:** How can you reward the "explosive grace" of perfect jumping? Think about energy efficiency, spatial accuracy, temporal precision
+- **Innovation Ideas:** Multi-scale symmetry (joint-level + force-level), preparatory tension measurement, landing impact prediction
+- **Mastery Metrics:** What distinguishes an "adequate" jump from a "beautiful" jump in terms of measurable biomechanics?
 
-Your reward function must return a single torch.Tensor with shape [num_envs] containing the total reward for each environment.
+**For WALKING Tasks - "The Pendulum Elegance Challenge":**
+- **Core Challenge:** Capturing the natural efficiency of human walking's inverted pendulum mechanics
+- **Beyond Basic Solutions:** Think about energy recycling between steps, optimal cadence discovery, natural rhythm emergence
+- **Creative Opportunities:** How do you reward the effortless flow of great walking? Consider momentum conservation, minimal energy expenditure, graceful weight transfer
+- **Innovation Ideas:** Pendulum motion analysis, energy efficiency metrics, gait rhythm consistency, natural step prediction
+- **Mastery Metrics:** What makes walking look "natural" vs "robotic"? How can you measure walking elegance?
+
+**For MARCHING Tasks - "The Controlled Precision Challenge":**
+- **Core Challenge:** Balancing deliberate high knee lift with stability and rhythmic precision
+- **Beyond Basic Solutions:** Consider dynamic balance control, postural authority, movement intentionality
+- **Creative Opportunities:** How do you reward crisp, military-style precision while maintaining naturalness? Think about movement decisiveness, spatial accuracy, temporal consistency
+- **Innovation Ideas:** Balance authority metrics, movement crispness measurement, postural control assessment, rhythmic precision tracking
+- **Mastery Metrics:** What distinguishes "precise" from "rigid"? How do you measure controlled dynamism?
+
+**For SPRINTING Tasks - "The Efficient Power Challenge":**
+- **Core Challenge:** Maximizing forward propulsion while maintaining sustainability and control
+- **Beyond Basic Solutions:** Think about optimal energy expenditure, sustainable power output, efficient stride mechanics
+- **Creative Opportunities:** How do you reward explosive speed that doesn't waste energy? Consider power efficiency, stride optimization, controlled acceleration
+- **Innovation Ideas:** Energy-to-speed ratios, stride efficiency metrics, sustainable power assessment, controlled speed progression
+- **Mastery Metrics:** What makes sprinting "efficient" vs just "fast"? How do you measure controlled explosiveness?
+
+**For PACING Tasks - "The Lateral Grace Challenge":**
+- **Core Challenge:** Maintaining stability and efficiency during lateral direction changes
+- **Beyond Basic Solutions:** Consider spatial efficiency, dynamic balance control, directional transition smoothness
+- **Creative Opportunities:** How do you reward graceful lateral movement that maintains forward momentum? Think about minimal stability disruption, efficient direction changes
+- **Innovation Ideas:** Lateral efficiency metrics, stability maintenance assessment, directional transition analysis, spatial precision tracking
+- **Mastery Metrics:** What makes lateral movement "fluid" vs "choppy"? How do you measure directional elegance?
+
+## 🔧 Reward Engineering Best Practices
+
+**1. Normalize Components to [0,1] Range:**
+```python
+# Example: Height gain normalized
+height_norm = ((current_height - baseline) / max_gain).clamp(0.0, 1.0)
+```
+
+**2. Use Principled Thresholds:**
+```python
+# Example: Mass-scaled contact detection  
+contact_threshold = robot_mass * 9.81 * 0.1  # 10% of weight
+```
+
+**3. Address Specific Problems with Targeted Metrics:**
+```python
+# Example: Bilateral coordination for jumping
+air_time_diff = (left_air_time - right_air_time).abs()
+symmetry = (1.0 - air_time_diff / max_air_time).clamp(0.0, 1.0)
+```
+
+**4. Combine Multiple Objectives with Appropriate Weights:**
+- Primary goals (task achievement): 2.0-3.0x weight
+- Safety/stability: 1.0-1.5x weight  
+- Movement quality: 0.5-1.0x weight
+- Efficiency penalties: -0.5 to -1.0x weight
+
+**5. Final Scaling and Bounds:**
+```python
+# Normalize total reward, then scale to [0,10]
+normalized = total_reward.clamp(0.0, 1.0)
+return (normalized * 10.0).to(device)
+```
+
+## 🎯 Movement Quality Focus Areas
+
+**Phase-Based Movement Design:**
+- **Complete Cycles:** Reward full movement cycles with all necessary phases
+- **Phase Transitions:** Encourage smooth, natural transitions between movement phases
+- **Phase Duration:** Ensure appropriate timing for each phase of the movement cycle
+- **Phase Quality:** Assess movement quality within each specific phase
+
+**Smoothness and Naturalness:**
+- Reward controlled muscle loading before explosive movements
+- Penalize jerky, high-frequency motions
+- Encourage appropriate preparation phases
+- **Phase-Specific Smoothness:** Different smoothness requirements for different phases
+
+**Coordination and Symmetry:**
+- For bilateral tasks: Ensure both limbs work together
+- For alternating tasks: Reward proper phase relationships
+- Consider temporal coordination, not just spatial patterns
+- **Phase-Synchronized Coordination:** Proper bilateral timing within each movement phase
+
+**Energy Efficiency:**
+- Penalize unnecessary torque and power consumption
+- Reward movements that achieve goals with minimal effort
+- Consider joint velocity smoothness over time
+- **Phase-Appropriate Energy:** Different energy requirements for different movement phases
+
+**Safety and Stability:**
+- Maintain dynamic balance appropriate for the gait
+- Prevent extreme joint positions or dangerous impacts
+- Encourage controlled landings and transitions
+- **Phase-Specific Safety:** Different stability requirements for stance vs flight phases
+
+## 📋 Design Process Checklist
+
+Before coding, ask yourself:
+1. **What specific behavior does the video demonstrate?**
+2. **What are the natural phases of this movement cycle?**
+3. **How should I reward complete phase progression vs individual phase quality?**
+4. **What problems might prevent natural execution of each phase?**
+5. **How can I measure bilateral coordination if needed within each phase?**
+6. **What timing patterns are characteristic of this movement's phase structure?**
+7. **How should I balance task achievement vs movement quality vs phase completeness?**
+8. **What safety constraints are important for each phase of this robot movement?**
+9. **Are phase transitions smooth and natural, or do they need specific rewards?**
+10. **How can I prevent phase skipping or rushing through essential movement phases?**
+
+## 🚫 Avoid These Pitfalls
+
+**Template Following:** Don't copy existing reward patterns blindly - the examples are inspiration, not constraints!
+**Binary Thinking:** Consider gradual rewards, not just on/off states  
+**Ignoring Timing:** Movement quality depends on when things happen, not just what happens
+**Missing Coordination:** For bilateral tasks, explicitly measure and reward symmetry
+**Poor Scaling:** Normalize components before combining to ensure balanced learning
+
+## 💡 Innovation Encouragement
+
+**Think creatively about:**
+- **Phase-based reward structures:** Different reward components for different movement phases
+- **Phase transition rewards:** Novel ways to encourage smooth progressions between phases
+- **Temporal phase relationships:** How phases should relate to each other in timing and quality
+- Novel ways to measure movement quality within specific phases
+- Different mathematical functions for different phases and objectives
+- **Complete movement cycle assessment:** Evaluating entire phase progressions vs individual moments
+- **Phase-specific thresholds:** Adaptive requirements based on current movement phase
+- Multi-phase rewards that change based on movement stage and phase progression
+- **Phase integrity measures:** Ensuring all necessary phases are present and properly executed
+
+**Your goal:** Create a reward function that produces natural, efficient, biomechanically-sound movement that follows proper phase progression, resembles the demonstrated behavior while avoiding pathological patterns, and ensures complete movement cycles with smooth phase transitions.
+
+🎨 **FINAL CREATIVE MANDATE:**
+
+**Remember:** You are not just implementing a template - you are **ENGINEERING MOVEMENT EXCELLENCE!** 
+
+✨ Use these guidelines as **CREATIVE INSPIRATION**, not rigid rules
+✨ Design the **BEST POSSIBLE** reward function for THIS specific gait pattern
+✨ Think deeply about what makes movement exceptional, not just functional
+✨ **INNOVATE** beyond the provided examples while considering their biomechanical wisdom
+✨ Your goal is **GAIT-SPECIFIC MASTERY** - capture the unique essence of this movement pattern
+
+**Your reward function should be a work of biomechanical art that produces naturally beautiful, efficient movement!**
 
 IMPORTANT: Provide ONLY the Python code wrapped in ```python ``` blocks. Do NOT include explanations, analysis, or commentary. The system will automatically extract your code.

@@ -1,22 +1,22 @@
-You are an expert in quadrupedal robotics and task specification generation. Your objective is to compile the analyzed data into a comprehensive task requirement paragraph that can be used to train or program a quadruped to imitate the demonstrated task.
+You are an expert in humanoid robotics and task specification generation. Your objective is to compile the analyzed data into a comprehensive task requirement paragraph that can be used to train or program a humanoid to imitate the demonstrated task.
 
 **Inputs Provided:**
 
 1. **Task Description:**
-   - A detailed description of the task being demonstrated by the quadruped.
+   - A detailed description of the task being demonstrated by the humanoid.
    - Example: "navigating a rocky terrain with scattered obstacles."
 
 2. **Task Requirements:**
    - Specific parameters and conditions necessary to successfully perform the task.
-   - Example: "maintain a velocity of approximately 1.5 m/s in the positive x direction and adjust torso height to 0.6 meters."
+   - Example: "maintain a velocity of approximately 1.2 m/s in the positive x direction and maintain torso height at 0.74 meters."
 
 3. **Gait Type:**
-   - The identified gait pattern that the quadruped should replicate.
-   - Example: "Trot"
+   - The identified gait pattern that the humanoid should replicate.
+   - Example: "Walk"
 
 4. **Gait Description:**
    - A brief description of the gait pattern's characteristics.
-   - Example: "diagonal pairs of legs move together, with two legs hitting the ground simultaneously in alternating frames."
+   - Example: "alternating single-support phases with double-support phases during weight transfer between feet."
 
 **Task Instructions:**
 
@@ -27,7 +27,7 @@ You are an expert in quadrupedal robotics and task specification generation. You
 2. **Compose the Paragraph:**
    - Follow this structure:
      ```
-     First, you are tasked to imitate a quadruped {task_description}. {task_requirements}. Furthermore, ensure that the contact pattern replicates a {gait_type}, where {gait_description}.
+     First, you are tasked to imitate a humanoid {task_description}. {task_requirements}. Furthermore, ensure that the contact pattern replicates a {gait_type}, where {gait_description}.
      ```
 
 3. **Maintain Clarity and Conciseness:**
@@ -40,7 +40,7 @@ You are an expert in quadrupedal robotics and task specification generation. You
 
 **Example Output:**
 
-First, you are tasked to imitate a quadruped navigating a rocky terrain with scattered obstacles. Maintain a velocity of approximately 1.5 m/s in the positive x direction and adjust torso height to 0.6 meters. Furthermore, ensure that the contact pattern replicates a Trot, where diagonal pairs of legs move together, with two legs hitting the ground simultaneously in alternating frames.
+First, you are tasked to imitate a humanoid navigating a rocky terrain with scattered obstacles. Maintain a velocity of approximately 1.2 m/s in the positive x direction and maintain torso height at 0.74 meters. Furthermore, ensure that the contact pattern replicates a Walk, where alternating single-support phases occur with double-support phases during weight transfer between feet.
 
 
 **Constraints:**

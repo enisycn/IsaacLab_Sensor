@@ -4,10 +4,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """
-SDS Environment Configuration for Unitree Go1.
+SDS Environment Configuration for Unitree G1 Humanoid.
 
 This configuration is based on the locomotion velocity environment but customized
-for SDS research using the Unitree Go1 quadruped.
+for SDS research using the Unitree G1 humanoid robot.
 """
 
 import math
@@ -47,7 +47,7 @@ from isaaclab.sensors import patterns  # isort: skip
 
 @configclass
 class MySceneCfg(InteractiveSceneCfg):
-    """Configuration for the SDS terrain scene with Unitree Go1 robot."""
+    """Configuration for the SDS terrain scene with Unitree G1 humanoid robot."""
 
     # ground terrain
     terrain = TerrainImporterCfg(
@@ -69,20 +69,20 @@ class MySceneCfg(InteractiveSceneCfg):
         ),
         debug_vis=False,
     )
-    # robots - will be configured for Go1 specifically
+    # robots - will be configured for G1 humanoid specifically
     robot: ArticulationCfg = MISSING
-    # sensors - height scanner configured for Go1 trunk
+    # sensors - height scanner configured for G1 torso
     height_scanner = RayCasterCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/trunk",  # Updated for Go1 base body name
+        prim_path="{ENV_REGEX_NS}/Robot/torso_link",  # Updated for G1 humanoid torso body name
         offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
         attach_yaw_only=True,
         pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6, 1.0]),
         debug_vis=False,
         mesh_prim_paths=["/World/ground"],
     )
-    contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*_foot", history_length=3, track_air_time=True)
-    # Separate contact sensor for trunk/body contact detection
-    trunk_contact = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/trunk", history_length=3, track_air_time=False)
+    contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*_ankle_roll_link", history_length=3, track_air_time=True)
+    # Separate contact sensor for torso/body contact detection
+    torso_contact = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/torso_link", history_length=3, track_air_time=False)
     # lights
     sky_light = AssetBaseCfg(
         prim_path="/World/skyLight",
@@ -111,7 +111,10 @@ class CommandsCfg:
         heading_control_stiffness=0.5,
         debug_vis=False,  # Disabled to remove arrows from training footage
         ranges=mdp.UniformVelocityCommandCfg.Ranges(
-            lin_vel_x=(0.5, 2.6), lin_vel_y=(-0.01, 0.01), ang_vel_z=(-0.01, 0.01), heading=(-math.pi, math.pi)
+            lin_vel_x=(0.0, 1.2),     # Max 1.2 m/s forward (reasonable walking/jogging)
+            lin_vel_y=(-0.3, 0.3),    # Limited lateral movement for bipedal stability  
+            ang_vel_z=(-0.5, 0.5),    # Conservative turning for balance
+            heading=(-math.pi, math.pi)
         ),
     )
 
@@ -120,7 +123,24 @@ class CommandsCfg:
 class ActionsCfg:
     """Action specifications for the MDP."""
 
-    joint_pos = mdp.JointPositionActionCfg(asset_name="robot", joint_names=[".*"], scale=0.5, use_default_offset=True)
+    # FULL BODY CONTROL: All G1 joints except hand/finger joints (23 DOF)
+    # This enables Meta Motivo to control the full humanoid body for natural movements
+    joint_pos = mdp.JointPositionActionCfg(
+        asset_name="robot", 
+        joint_names=[
+            # LEGS (12 DOF) - for locomotion and balance
+            ".*_hip_yaw_joint", ".*_hip_roll_joint", ".*_hip_pitch_joint", 
+            ".*_knee_joint", ".*_ankle_pitch_joint", ".*_ankle_roll_joint",
+            # TORSO (1 DOF) - for upper body posture
+            "torso_joint",
+            # ARMS (10 DOF) - for natural arm swing and gestures
+            ".*_shoulder_pitch_joint", ".*_shoulder_roll_joint", ".*_shoulder_yaw_joint",
+            ".*_elbow_pitch_joint", ".*_elbow_roll_joint"
+        ], 
+        scale=0.25,  # Reduced from 1.0 to prevent awkward excessive joint movements - enables smoother locomotion
+        use_default_offset=True
+    )
+    # NOTE: Hand/finger joints (14 DOF) excluded - maintain default poses for stable locomotion
 
 
 @configclass
@@ -178,7 +198,7 @@ class EventCfg:
         func=mdp.randomize_rigid_body_mass,
         mode="startup",
         params={
-            "asset_cfg": SceneEntityCfg("robot", body_names="trunk"),
+            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
             "mass_distribution_params": (-5.0, 5.0),
             "operation": "add",
         },
@@ -188,7 +208,7 @@ class EventCfg:
         func=mdp.randomize_rigid_body_com,
         mode="startup",
         params={
-            "asset_cfg": SceneEntityCfg("robot", body_names="trunk"),
+            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
             "com_range": {"x": (-0.05, 0.05), "y": (-0.05, 0.05), "z": (-0.01, 0.01)},
         },
     )
@@ -198,7 +218,7 @@ class EventCfg:
         func=mdp.apply_external_force_torque,
         mode="reset",
         params={
-            "asset_cfg": SceneEntityCfg("robot", body_names="trunk"),
+            "asset_cfg": SceneEntityCfg("robot", body_names="torso_link"),
             "force_range": (0.0, 0.0),
             "torque_range": (-0.0, 0.0),
         },
@@ -254,7 +274,7 @@ class TerminationsCfg:
     time_out = DoneTerm(func=mdp.time_out, time_out=True)
     base_contact = DoneTerm(
         func=mdp.illegal_contact,
-        params={"sensor_cfg": SceneEntityCfg("trunk_contact", body_names="trunk"), "threshold": 1.0},
+        params={"sensor_cfg": SceneEntityCfg("torso_contact", body_names="torso_link"), "threshold": 1.0},
     )
 
 
@@ -272,7 +292,7 @@ class CurriculumCfg:
 
 @configclass
 class SDSVelocityRoughEnvCfg(ManagerBasedRLEnvCfg):
-    """Configuration for the SDS velocity-tracking environment with Unitree Go1."""
+    """Configuration for the SDS velocity-tracking environment with Unitree G1 humanoid."""
 
     # Scene settings
     scene: MySceneCfg = MySceneCfg(num_envs=4096, env_spacing=2.5)
@@ -289,7 +309,7 @@ class SDSVelocityRoughEnvCfg(ManagerBasedRLEnvCfg):
     def __post_init__(self):
         """Post initialization."""
         # general settings
-        self.decimation = 4
+        self.decimation = 8  # Decreased control frequency: 200Hz ÷ 8 = 25Hz (was 50Hz)
         self.episode_length_s = 20.0
         # simulation settings
         self.sim.dt = 0.005

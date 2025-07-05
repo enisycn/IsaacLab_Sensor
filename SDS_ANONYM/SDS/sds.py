@@ -31,7 +31,9 @@ def find_isaac_lab_root():
             return str(parent)
     raise FileNotFoundError("Could not find Isaac Lab root directory (isaaclab.sh not found)")
 
-SDS_ROOT_DIR = os.getcwd()
+# Get SDS root directory from script location, not working directory
+# This is important because Hydra changes the working directory
+SDS_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROOT_DIR = f"{SDS_ROOT_DIR}/.."
 
 @hydra.main(config_path="cfg", config_name="config", version_base="1.1")
@@ -275,11 +277,11 @@ def main(cfg):
             rl_filepath = f"env_iter{iter}_response{response_id}.txt"
             isaac_lab_root = find_isaac_lab_root()
             
-            # Use Isaac Lab training command with correct task name
+            # Use Isaac Lab training command with G1 humanoid task
             command = [
                 f"{isaac_lab_root}/isaaclab.sh",
                 "-p", "scripts/reinforcement_learning/rsl_rl/train.py",
-                f"--task=Isaac-SDS-Velocity-Flat-Unitree-Go1-v0",
+                f"--task=Isaac-SDS-Velocity-Flat-G1-v0",
                 f"--num_envs={cfg.num_envs}",
                 f"--max_iterations={cfg.train_iterations}",
                 "--headless"
@@ -340,10 +342,16 @@ def main(cfg):
                 isaac_lab_root = find_isaac_lab_root()
                 logs_dir = os.path.join(isaac_lab_root, "logs", "rsl_rl")
                 
-                # Get the latest experiment directory from Isaac Lab (should be unitree_go1_flat)
-                experiment_dirs = glob.glob(os.path.join(logs_dir, "unitree_go1_flat", "*"))
+                # Get the latest experiment directory from Isaac Lab - find the most recent task directory
+                task_dirs = [d for d in os.listdir(logs_dir) if os.path.isdir(os.path.join(logs_dir, d))]
+                if not task_dirs:
+                    raise RuntimeError(f"No Isaac Lab task directories found in {logs_dir}/")
+                
+                # Get the most recently modified task directory (should be the one we just trained)
+                latest_task_dir = max(task_dirs, key=lambda d: os.path.getmtime(os.path.join(logs_dir, d)))
+                experiment_dirs = glob.glob(os.path.join(logs_dir, latest_task_dir, "*"))
                 if not experiment_dirs:
-                    raise RuntimeError(f"No Isaac Lab experiment directories found in {logs_dir}/unitree_go1_flat/")
+                    raise RuntimeError(f"No Isaac Lab experiment directories found in {logs_dir}/{latest_task_dir}/")
                 
                 latest_experiment = max(experiment_dirs, key=os.path.getmtime)
                 logging.info(f"Using latest experiment directory: {latest_experiment}")
@@ -360,7 +368,7 @@ def main(cfg):
                 eval_command = [
                     f"{isaac_lab_root}/isaaclab.sh",
                     "-p", "scripts/reinforcement_learning/rsl_rl/play.py",
-                    "--task=Isaac-SDS-Velocity-Flat-Unitree-Go1-Play-v0",
+                    "--task=Isaac-SDS-Velocity-Flat-G1-Play-v0",
                     "--num_envs=1",
                     f"--checkpoint={latest_checkpoint}",
                     "--video",
@@ -393,12 +401,13 @@ def main(cfg):
                 contact_command = [
                     f"{isaac_lab_root}/isaaclab.sh",
                     "-p", "scripts/reinforcement_learning/rsl_rl/play_with_contact_plotting.py",
-                    "--task=Isaac-SDS-Velocity-Flat-Unitree-Go1-Play-v0",
+                    "--task=Isaac-SDS-Velocity-Flat-G1-Play-v0",
                     "--num_envs=1",
                     f"--checkpoint={latest_checkpoint}",
                     f"--plot_steps={cfg.video_length}",
-                    "--contact_threshold=2.0",
+                    "--contact_threshold=50.0",
                     "--warmup_steps=50",
+                    "--save_contacts",
                     "--headless"
                 ]
                 
@@ -611,7 +620,7 @@ def main(cfg):
             contact_evaluator_query_content = [
             {
                         "type": "text",
-                        "text": "They have the following corresponding foot contact sequence plots, where FR means Front Right Foot, FL means Front Left Foot, RR means Rear Right Foot and RL means Rear Right Foot"
+                        "text": "They have the following corresponding foot contact sequence plots, where L means Left Foot and R means Right Foot for the humanoid robot"
                     } 
             ]
             
@@ -732,10 +741,17 @@ def main(cfg):
             rl_filepath = f"env_iter{iter}_response{best_sample_idx}.txt"
             isaac_lab_root = find_isaac_lab_root()
             logs_dir = os.path.join(isaac_lab_root, "logs", "rsl_rl")
-            experiment_dirs = glob.glob(os.path.join(logs_dir, "unitree_go1_flat", "*"))
+            
+            # Find the most recent task directory (same logic as in training)
+            task_dirs = [d for d in os.listdir(logs_dir) if os.path.isdir(os.path.join(logs_dir, d))]
+            if not task_dirs:
+                raise RuntimeError(f"No Isaac Lab task directories found in {logs_dir}/")
+            
+            latest_task_dir = max(task_dirs, key=lambda d: os.path.getmtime(os.path.join(logs_dir, d)))
+            experiment_dirs = glob.glob(os.path.join(logs_dir, latest_task_dir, "*"))
             
             if not experiment_dirs:
-                raise RuntimeError(f"No Isaac Lab experiment directories found in {logs_dir}/unitree_go1_flat/")
+                raise RuntimeError(f"No Isaac Lab experiment directories found in {logs_dir}/{latest_task_dir}/")
             
             full_training_log_dir = max(experiment_dirs, key=os.path.getmtime)
             contact_pattern_dir = os.path.join(full_training_log_dir, "contact_analysis", "contact_sequence.png")

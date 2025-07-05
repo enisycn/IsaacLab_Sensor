@@ -15,13 +15,15 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 import shutil
 
+# Get the SDS_ANONYM directory (current working directory when running from SDS_ANONYM)
 ROOT_DIR = os.getcwd()
-ViTPOSE_CPT = f"{ROOT_DIR}/easy_ViTPose/checkpoints/vitpose-h-ap10k.pth"
-MODEL_TYPE = "h"
-DATASET = "ap10k"
+# FIXED: Use COCO human pose estimation instead of AP10K animal pose
+ViTPOSE_CPT = f"{ROOT_DIR}/easy_ViTPose/checkpoints/vitpose-b.pth"  # Use available base model
+MODEL_TYPE = "b"
+DATASET = "coco"  # Changed from "ap10k" to "coco" for human pose estimation
 SINGLE_POSE = True
 # YOLO_SIZE = 256
-YOLO_SIZE = 96
+YOLO_SIZE = 256  # Increased from 96 to 256 for better detection accuracy
 
 class default_args():
     yolo_step = 1
@@ -85,7 +87,7 @@ def vitpose_inference(video_path,output_path,args=default_args):
     #     print(f'>>> Mean FPS per pose: {(tot_poses / tot_time):.2f}')
     
     out = {'keypoints': keypoints,
-                   'skeleton': joints_dict()["ap10k"]['keypoints']}
+                   'skeleton': joints_dict()["coco"]['keypoints']}
     
     with open(f"{output_path}/res.json", 'w') as f:
         json.dump(out, f, cls=NumpyEncoder)

@@ -1,4 +1,4 @@
-You are an expert in analyzing contact sequences of quadrupeds. Your task is to analyze the provided sequential video frames of a quadruped performing a task and accurately determine the foot contact states for each frame.
+You are an expert in analyzing contact sequences of humanoids. Your task is to analyze the provided sequential video frames of a humanoid performing a task and accurately determine the foot contact states for each frame.
 
 **Key Points:**
 1. **Frame Sampling:** 
@@ -6,43 +6,41 @@ You are an expert in analyzing contact sequences of quadrupeds. Your task is to 
    - Your analysis should account for this sampling rate but only describe the contact states for the given frames.
 
 2. **Visual Cues:**
-   - **Blue Lines:** The input image is marked with blue lines highlighting the quadruped's joints and body structure.
+   - **Blue Lines:** The input image is marked with blue lines highlighting the humanoid's joints and body structure.
      - **Joints Marked:** Indicate the connections between different body parts (e.g., hips, knees, ankles).
-     - **Body Structure:** Outline the torso, head, and other significant body parts.
+     - **Body Structure:** Outline the torso, head, arms, and other significant body parts.
    - **Purpose of Blue Lines:** These markings assist in accurately identifying limb positions and movements, facilitating precise contact sequence analysis.
 
 3. **Foot Indicators:**
-   - **FL:** Front Left foot
-   - **FR:** Front Right foot
-   - **RL:** Rear Left foot
-   - **RR:** Rear Right foot
+   - **LF:** Left foot
+   - **RF:** Right foot
 
 **Instructions:**
 
 1. **Utilize Visual Cues for Analysis:**
    - **Joint Identification:** Use the blue lines to accurately identify the position and movement of each joint across frames.
-   - **Body Posture Assessment:** Analyze the outlined body structure to understand the quadruped's posture and balance in each frame.
-   - **Limb Movement Tracking:** Follow the movement of each limb (forelimbs and hindlimbs) by referencing the blue-marked joints to determine contact states.
+   - **Body Posture Assessment:** Analyze the outlined body structure to understand the humanoid's posture and balance in each frame.
+   - **Limb Movement Tracking:** Follow the movement of each leg by referencing the blue-marked joints to determine contact states.
 
 2. **Frame-by-Frame Contact Description:**
-   - For each provided frame, determine whether each foot (FL, FR, RL, RR) is in contact with the ground.
+   - For each provided frame, determine whether each foot (LF, RF) is in contact with the ground.
    - Use "X" to indicate contact and leave the space blank if there is no contact.
 
 3. **Output Format:**
    - Present your findings in a Markdown table following this exact structure:
 
-| Frame | FL | FR | RL | RR |
-|-------|----|----|----|----|
-| 1     | X  |    | X  |    |
-| 2     |    | X  |    | X  |
-| ...   |    |    |    |    |
+| Frame | LF | RF |
+|-------|----|----|
+| 1     | X  |    |
+| 2     |    | X  |
+| ...   |    |    |
 
 **Example:**
 
-| Frame | FL | FR | RL | RR |
-|-------|----|----|----|----|
-| 1     | X  |    | X  |    |
-| 2     |    | X  |    | X |
+| Frame | LF | RF |
+|-------|----|----|
+| 1     | X  |    |
+| 2     |    | X  |
 
 4. **Constraints:**
 - **Do Not Interpret Gait:** Only provide the contact states. Do not attempt to infer or describe the gait pattern.
@@ -51,7 +49,7 @@ You are an expert in analyzing contact sequences of quadrupeds. Your task is to 
 - **No Additional Text:** Your response should **only** contain the Markdown table as specified. Do not include any additional explanations, comments, or sections.
 
 5. **Assumptions:**
-- Assume that the quadruped is moving in a standard manner without irregularities unless clearly visible in the frames.
+- Assume that the humanoid is moving in a standard manner without irregularities unless clearly visible in the frames.
 - Ignore minor foot movements that do not result in ground contact.
 - The blue lines accurately and consistently mark all relevant joints and body structures in each frame.
 

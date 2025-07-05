@@ -49,8 +49,8 @@ parser.add_argument(
     help="Number of simulation steps to record for contact plotting."
 )
 parser.add_argument(
-    "--contact_threshold", type=float, default=0.5,
-    help="Force threshold in Newtons for contact detection (default: 0.5)"
+    "--contact_threshold", type=float, default=50.0,
+    help="Force threshold in Newtons for contact detection (default: 50.0, optimized for G1 humanoid)"
 )
 parser.add_argument(
     "--warmup_steps", type=int, default=100,
@@ -142,43 +142,59 @@ def plot_foot_contacts(act_foot_contacts, save_root, title='Contact Sequence', e
         print("[WARNING] No data in the selected window!")
         return
 
+    # Detect if this is humanoid (only first 2 feet have non-zero contact) or quadruped
+    is_humanoid = np.all(foot_contacts[:, 2:] == 0) and np.any(foot_contacts[:, :2] > 0)
+    
+    if is_humanoid:
+        # G1 Humanoid (2 feet)
+        num_feet = 2
+        foot_names = ['L', 'R']
+        foot_colors = ['darkblue', 'darkred']
+        y_positions = [1, 0]
+        y_lim = (-0.5, 1.5)
+        print(f"[INFO] Detected G1 Humanoid contact data")
+    else:
+        # Go1 Quadruped (4 feet)
+        num_feet = 4
+        foot_names = ['FL', 'FR', 'RL', 'RR']
+        very_dark_grey = "#4D4D4D"
+        medium_dark_grey = "#808080"
+        very_dark_brown = "#964B00"
+        medium_dark_brown = "#D2691E"
+        foot_colors = [medium_dark_grey, medium_dark_brown, very_dark_brown, very_dark_grey]
+        y_positions = [3, 2, 1, 0]
+        y_lim = (-0.5, 3.5)
+        print(f"[INFO] Detected Go1 Quadruped contact data")
+    
     # Calculate contact statistics for the window
     contact_percentages = []
-    for i in range(4):
+    for i in range(num_feet):
         contact_pct = np.mean(foot_contacts[:, i]) * 100
         contact_percentages.append(contact_pct)
     
-    print(f"[INFO] Contact percentages in window - FL: {contact_percentages[0]:.1f}%, FR: {contact_percentages[1]:.1f}%, RL: {contact_percentages[2]:.1f}%, RR: {contact_percentages[3]:.1f}%")
-
-    # Isaac Lab standard order: FL, FR, RL, RR (no reordering needed)
-    # Sensor order: FL_foot(0), FR_foot(1), RL_foot(2), RR_foot(3)
-    # Keep standard Isaac Lab order: FL(0), FR(1), RL(2), RR(3)
-    # foot_contacts = foot_contacts[:,[0,2,3,1]]  # REMOVED - incorrect reordering
+    if is_humanoid:
+        print(f"[INFO] Contact percentages in window - L: {contact_percentages[0]:.1f}%, R: {contact_percentages[1]:.1f}%")
+    else:
+        print(f"[INFO] Contact percentages in window - FL: {contact_percentages[0]:.1f}%, FR: {contact_percentages[1]:.1f}%, RL: {contact_percentages[2]:.1f}%, RR: {contact_percentages[3]:.1f}%")
     
     # Create the plot
     fig, ax = plt.subplots(1, 1, figsize=(15, 4))
-    ax.set_ylim((-0.5, 3.5))
+    ax.set_ylim(y_lim)
     
-    very_dark_grey = "#4D4D4D"
-    medium_dark_grey = "#808080"
-    very_dark_brown = "#964B00"
-    medium_dark_brown = "#D2691E"
-    
-    foot_names = ['FL', 'FR', 'RL', 'RR']
-    foot_colors = [medium_dark_grey, medium_dark_brown, very_dark_brown, very_dark_grey]
     default_color = 'darkblue'
         
-    ax.set_yticks([3,2,1,0])
-    ax.set_yticklabels([f"{name} ({contact_percentages[i]:.1f}%)" for i, name in enumerate(foot_names)])
+    ax.set_yticks([y_positions[i] for i in range(num_feet)])
+    ax.set_yticklabels([f"{foot_names[i]} ({contact_percentages[i]:.1f}%)" for i in range(num_feet)])
     
-    for i in range(4):
+    for i in range(num_feet):
         # Select timesteps where foot is on the ground
         ground_idx = foot_contacts[:, i] == 1
-        ax.axhline(y=i+0.5, color='black', linestyle='--', alpha=0.3)
+        y_pos = y_positions[i]
+        ax.axhline(y=y_pos+0.5, color='black', linestyle='--', alpha=0.3)
         if evaluation:
-            ax.fill_between(time, i-0.3, i+0.3, where=ground_idx, color=foot_colors[i], alpha=0.8)
+            ax.fill_between(time, y_pos-0.3, y_pos+0.3, where=ground_idx, color=foot_colors[i], alpha=0.8)
         else:
-            ax.fill_between(time, i-0.3, i+0.3, where=ground_idx, color=default_color, alpha=0.8)
+            ax.fill_between(time, y_pos-0.3, y_pos+0.3, where=ground_idx, color=default_color, alpha=0.8)
     
     # Enhanced title with more information
     window_info = f"Steps {START_TIME}-{END_TIME} ({END_TIME-START_TIME} steps, {((END_TIME-START_TIME)/total_steps)*100:.1f}% of data)"
@@ -322,30 +338,48 @@ def main():
                 
                 if contact_sensor is not None:
                     # Get foot contact data from the sensor
-                    # Go1 foot bodies: FL_foot, FR_foot, RL_foot, RR_foot
-                    foot_ids, foot_names = contact_sensor.find_bodies(".*_foot")
+                    # Try G1 humanoid first (ankle roll links), then Go1 quadruped (foot links)
+                    foot_ids, foot_names = contact_sensor.find_bodies(".*_ankle_roll_link")
                     
-                    if len(foot_ids) >= 4:
-                        # Get contact forces for the feet
-                        net_forces = contact_sensor.data.net_forces_w[:, foot_ids, :]  # Shape: (num_envs, 4, 3)
-                        
-                        # Calculate force magnitudes
-                        force_magnitudes = torch.norm(net_forces, dim=-1)  # Shape: (num_envs, 4)
-                        
-                        # Convert to binary contact (1 if force magnitude > threshold, 0 otherwise)
+                    if len(foot_ids) >= 2:
+                        # G1 Humanoid (2 feet)
+                        net_forces = contact_sensor.data.net_forces_w[:, foot_ids, :]  # Shape: (num_envs, 2, 3)
+                        force_magnitudes = torch.norm(net_forces, dim=-1)  # Shape: (num_envs, 2)
                         contacts = (force_magnitudes > contact_threshold).float()
                         
-                        # For single environment, take the first environment
-                        contact_data.append(contacts[0].cpu().numpy())  # Shape: (4,)
-                        force_data.append(force_magnitudes[0].cpu().numpy())  # Store raw forces for debugging
+                        # Pad to 4 for consistent data format (L, R, 0, 0)
+                        contacts_padded = torch.zeros(1, 4, device=contacts.device)
+                        contacts_padded[0, :2] = contacts[0, :2]  # Copy L, R feet
+                        
+                        force_padded = torch.zeros(1, 4, device=force_magnitudes.device)
+                        force_padded[0, :2] = force_magnitudes[0, :2]  # Copy L, R forces
+                        
+                        contact_data.append(contacts_padded[0].cpu().numpy())  # Shape: (4,) with [L, R, 0, 0]
+                        force_data.append(force_padded[0].cpu().numpy())  # Store forces
                         
                         if (step_count - warmup_steps) % 200 == 0:
                             forces = force_magnitudes[0].cpu().numpy()
                             contacts_binary = contacts[0].cpu().numpy()
-                            print(f"[INFO] Step {step_count}: Forces FL={forces[0]:.2f}N, FR={forces[1]:.2f}N, RL={forces[2]:.2f}N, RR={forces[3]:.2f}N")
-                            print(f"[INFO] Step {step_count}: Contact FL={contacts_binary[0]}, FR={contacts_binary[1]}, RL={contacts_binary[2]}, RR={contacts_binary[3]}")
+                            print(f"[INFO] Step {step_count}: G1 Forces L={forces[0]:.2f}N, R={forces[1]:.2f}N")
+                            print(f"[INFO] Step {step_count}: G1 Contact L={contacts_binary[0]}, R={contacts_binary[1]}")
+                            
+                    elif len(contact_sensor.find_bodies(".*_foot")[0]) >= 4:
+                        # Go1 Quadruped fallback (4 feet)
+                        foot_ids, foot_names = contact_sensor.find_bodies(".*_foot")
+                        net_forces = contact_sensor.data.net_forces_w[:, foot_ids, :]  # Shape: (num_envs, 4, 3)
+                        force_magnitudes = torch.norm(net_forces, dim=-1)  # Shape: (num_envs, 4)
+                        contacts = (force_magnitudes > contact_threshold).float()
+                        
+                        contact_data.append(contacts[0].cpu().numpy())  # Shape: (4,)
+                        force_data.append(force_magnitudes[0].cpu().numpy())
+                        
+                        if (step_count - warmup_steps) % 200 == 0:
+                            forces = force_magnitudes[0].cpu().numpy()
+                            contacts_binary = contacts[0].cpu().numpy()
+                            print(f"[INFO] Step {step_count}: Go1 Forces FL={forces[0]:.2f}N, FR={forces[1]:.2f}N, RL={forces[2]:.2f}N, RR={forces[3]:.2f}N")
+                            print(f"[INFO] Step {step_count}: Go1 Contact FL={contacts_binary[0]}, FR={contacts_binary[1]}, RL={contacts_binary[2]}, RR={contacts_binary[3]}")
                     else:
-                        print(f"[WARNING] Expected 4 feet but found {len(foot_ids)}: {foot_names}")
+                        print(f"[WARNING] No suitable foot bodies found. G1 ankle links: {len(foot_ids)}, Go1 feet: {len(contact_sensor.find_bodies('.*_foot')[0])}")
                         # Fallback: create dummy contact data
                         dummy_contacts = np.random.choice([0, 1], size=(4,), p=[0.3, 0.7])
                         contact_data.append(dummy_contacts)
@@ -387,16 +421,27 @@ def main():
         print(f"[INFO] Contact data saved to: {os.path.join(output_dir, 'contact_data.npy')}")
         print(f"[INFO] Force data saved to: {os.path.join(output_dir, 'force_data.npy')}")
         
+        # Detect if this is G1 humanoid (only first 2 feet have non-zero forces) or Go1 quadruped
+        is_humanoid = np.all(force_array[:, 2:] == 0) and np.any(force_array[:, :2] > 0)
+        
         # Print force statistics for debugging
         print(f"[INFO] Force statistics:")
-        foot_names_ordered = ['FL', 'FR', 'RL', 'RR']
-        for i, name in enumerate(foot_names_ordered):
-            forces = force_array[:, i]
-            print(f"  {name}: mean={np.mean(forces):.2f}N, max={np.max(forces):.2f}N, min={np.min(forces):.2f}N")
+        if is_humanoid:
+            foot_names_ordered = ['L', 'R']
+            robot_name = "G1 Humanoid"
+            for i, name in enumerate(foot_names_ordered):
+                forces = force_array[:, i]
+                print(f"  {name}: mean={np.mean(forces):.2f}N, max={np.max(forces):.2f}N, min={np.min(forces):.2f}N")
+        else:
+            foot_names_ordered = ['FL', 'FR', 'RL', 'RR']
+            robot_name = "Go1 Quadruped"
+            for i, name in enumerate(foot_names_ordered):
+                forces = force_array[:, i]
+                print(f"  {name}: mean={np.mean(forces):.2f}N, max={np.max(forces):.2f}N, min={np.min(forces):.2f}N")
         
         # Generate contact plot
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        title = f"Go1 Foot Contact Sequence - {timestamp}\nThreshold: {contact_threshold}N, Steps: {args_cli.plot_steps}"
+        title = f"{robot_name} Foot Contact Sequence - {timestamp}\nThreshold: {contact_threshold}N, Steps: {args_cli.plot_steps}"
         
         # Use the new function signature with appropriate window settings
         if args_cli.plot_steps <= 300:

@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - task: trot
+  - task: walk
   - override hydra/launcher: local
   - override hydra/output: local
 
@@ -13,15 +13,17 @@ model: o4-mini  # Using OpenAI o4-mini reasoning model
 temperature: 1.0
 
 task: Forward Locomotion
-env_name: forward_locomotion_sds
+env_name: isaac_lab_sds_env
 
 train_script: scripts/train.py
-reward_template_file: go1_gym/rewards/sds_reward_template.py
-reward_output_file: go1_gym/rewards/sds_reward.py
+reward_template_file: g1_gym/rewards/sds_reward_template.py
+reward_output_file: g1_gym/rewards/sds_reward.py
 
-# Environment settings
-num_envs: 4096  # Number of parallel environments for training
-video_length: 500  # Length of video footage and contact analysis in frames
+# Environment settings - G1 Humanoid Robot (hardcoded)
+robot: g1                    # Unitree G1 Humanoid Robot
+terrain: flat               # Terrain type: flat, rough
+num_envs: 4096              # Number of parallel environments for training
+video_length: 500           # Length of video footage and contact analysis in frames
 
 iteration: 5
 sample: 8

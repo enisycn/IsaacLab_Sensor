@@ -54,10 +54,10 @@ class SDSG1RoughEnvCfg(SDSVelocityRoughEnvCfg):
             },
         }
 
-        # Commands - focused on forward movement with minimal lateral movement
-        self.commands.base_velocity.ranges.lin_vel_x = (0.0, 1.2)  # Increased forward velocity for better training variety
-        self.commands.base_velocity.ranges.lin_vel_y = (-0.1, 0.1)  # Minimal lateral movement (just a bit of side movement)
-        self.commands.base_velocity.ranges.ang_vel_z = (-0.2, 0.2)  # Reduced turning for forward-focused training
+        # Commands - CORRECTED: Zero velocity for stationary jumping (SDS locomotion tasks)
+        self.commands.base_velocity.ranges.lin_vel_x = (0.0, 0.0)  # Zero forward velocity for stationary jumping
+        self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)  # Zero lateral movement for stationary jumping
+        self.commands.base_velocity.ranges.ang_vel_z = (0.0, 0.0)  # Zero turning for stationary jumping
 
         # rewards - SDS uses only the sds_custom reward, no need to configure others
         # self.rewards.sds_custom is already configured in the base class

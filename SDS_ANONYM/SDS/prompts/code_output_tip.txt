@@ -1,21 +1,21 @@
-⚠️ **MANDATORY: GENTLE MOVEMENT ENFORCEMENT** ⚠️
+**MANDATORY: GENTLE MOVEMENT ENFORCEMENT**
 
 ALL generated reward functions MUST prioritize GENTLE, CONTROLLED, SUSTAINABLE movements:
 
-🎯 **REQUIRED GENTLENESS IMPLEMENTATION:**
+**REQUIRED GENTLENESS IMPLEMENTATION:**
 - **Jump tasks:** Target 5-25cm height, 0.5-1.5 m/s velocity (NEVER exceed 2m/s or 30cm!)
 - **Walk tasks:** Smooth, controlled steps with no jarring movements
 - **March tasks:** Moderate knee lift 60-90°, gentle timing
 - **Sprint tasks:** Efficient energy use, controlled acceleration  
 - **Pace tasks:** Gentle lateral movement, maintained balance
 
-🚫 **ABSOLUTELY FORBIDDEN IN REWARD FUNCTIONS:**
+**ABSOLUTELY FORBIDDEN IN REWARD FUNCTIONS:**
 - Rewarding excessive heights (>30cm) or velocities (>2.0 m/s)
 - Encouraging harsh, jerky, or explosive movements
 - Ignoring landing impact or movement smoothness
 - Creating energy-wasteful behaviors
 
-✅ **REQUIRED REWARD PATTERNS:**
+**REQUIRED REWARD PATTERNS:**
 ```python
 # MANDATORY: Gentle height control for jumping
 height_gain = current_height - baseline  
@@ -33,25 +33,25 @@ gentle_reward = base_reward - velocity_penalty
 impact_penalty = torch.clamp((force_magnitude - 500.0) / 200.0, 0.0, 1.0)
 ```
 
-🚀 **CREATIVE REWARD ENGINEERING DIRECTIVE:**
+**CREATIVE REWARD ENGINEERING DIRECTIVE:**
 
 Use the technical guidance below as **CREATIVE INSPIRATION** - not rigid rules to copy! Your goal is to generate the **BEST POSSIBLE** reward function for the specific gait pattern by:
 
-🎨 **INNOVATING WITH PURPOSE:** Consider the provided examples as starting points, then think deeper about what makes THIS specific gait pattern exceptional
-🧠 **THINKING BIOMECHANICALLY:** What unique movement challenges does this gait present? How can you measure and reward the highest quality execution?
-🔬 **EXPERIMENTING WITH APPROACHES:** Try novel combinations of the suggested techniques, or invent entirely new metrics that capture movement excellence
-🎯 **DESIGNING FOR PERFECTION:** Create detailed, nuanced rewards that distinguish between good, great, and exceptional movement execution
+**INNOVATING WITH PURPOSE:** Consider the provided examples as starting points, then think deeper about what makes THIS specific gait pattern exceptional
+**THINKING BIOMECHANICALLY:** What unique movement challenges does this gait present? How can you measure and reward the highest quality execution?
+**EXPERIMENTING WITH APPROACHES:** Try novel combinations of the suggested techniques, or invent entirely new metrics that capture movement excellence
+**DESIGNING FOR PERFECTION:** Create detailed, nuanced rewards that distinguish between good, great, and exceptional movement execution
 
 The specifications below are **TOOLS FOR YOUR CREATIVITY** - use them to build something innovative and effective!
 
 IMPORTANT: Provide ONLY the reward function code in ```python ``` blocks. Do NOT include lengthy explanations.
 
-🚨 CRITICAL TECHNICAL REQUIREMENTS 🚨
+**CRITICAL TECHNICAL REQUIREMENTS**
 
 **Division Safety (Prevents Crashes):**
-- For literal numbers: `error / max(0.1, 1e-6)` ✅
-- For tensor variables: `error / torch.clamp(tensor_var, min=1e-6)` ✅  
-- NEVER: `torch.clamp(0.1, min=1e-6)` ❌ (crashes training)
+- For literal numbers: `error / max(0.1, 1e-6)` (CORRECT)
+- For tensor variables: `error / torch.clamp(tensor_var, min=1e-6)` (CORRECT)  
+- NEVER: `torch.clamp(0.1, min=1e-6)` (WRONG - crashes training)
 
 **Function Structure:**
 ```python
@@ -61,7 +61,7 @@ def sds_custom_reward(env) -> torch.Tensor:
     return reward.clamp(min=0.0, max=10.0)
 ```
 
-## 🧠 REWARD DESIGN MINDSET
+## **REWARD DESIGN MINDSET**
 
 **Think Problem-Solving, Not Templates:**
 - What specific movement problems need solving?
@@ -102,7 +102,7 @@ def sds_custom_reward(env) -> torch.Tensor:
 
 **Reward Hacking Warning:** If rewards are not designed cleverly, robots will find alternative ways to maximize rewards instead of performing the intended behavior - ensure your reward function specifically measures the desired movement, not just correlated metrics that can be achieved through shortcuts.
 
-**🤖 UNITREE G1 HUMANOID ROBOT SPECIFICATIONS:**
+**UNITREE G1 HUMANOID ROBOT SPECIFICATIONS:**
 
 **Joint Position Access for Bilateral Coordination:**
 ```python
@@ -133,7 +133,7 @@ joint_symmetry = torch.exp(-joint_diff / 0.1)  # Exponential penalty for asymmet
 - Return single torch.Tensor with shape [num_envs]
 - Final bounds: `return reward.clamp(min=0.0, max=10.0)`
 
-## 🎯 BIOMECHANICAL REWARD STRATEGIES
+## **BIOMECHANICAL REWARD STRATEGIES**
 
 **Phase-Based Movement Rewards:**
 - **Phase Detection:** Identify current movement phase using contact patterns and velocities
@@ -152,8 +152,8 @@ joint_symmetry = torch.exp(-joint_diff / 0.1)  # Exponential penalty for asymmet
 # SYNCHRONIZED BILATERAL COORDINATION (for jumping, standing, etc.)
 # Both legs should move together with same joint angles
 joint_pos = robot.data.joint_pos
-left_leg_joints = joint_pos[:, [0,1,2,3,9,10]]   # Use correct G1 indices
-right_leg_joints = joint_pos[:, [4,5,6,7,11,12]]  # Use correct G1 indices
+left_leg_joints = joint_pos[:, [0,2,4,6,9,11]]   # Use correct G1 indices (interleaved PhysX pattern)
+right_leg_joints = joint_pos[:, [1,3,5,7,10,12]]  # Use correct G1 indices (interleaved PhysX pattern)
 joint_symmetry = torch.exp(-(left_leg_joints - right_leg_joints).abs().mean(dim=1) / 0.1)
 
 # AIR TIME SYMMETRY (for bilateral jumping)
@@ -176,13 +176,13 @@ bilateral_reward = joint_symmetry * 1.5 + air_symmetry * 1.0  # Higher weight on
 
 **Bilateral Coordination Implementation Examples (CREATIVE STARTING POINTS):**
 
-🎨 **THESE ARE INSPIRATION, NOT TEMPLATES!** Think about what each approach is trying to achieve biomechanically, then consider improvements:
+**THESE ARE INSPIRATION, NOT TEMPLATES!** Think about what each approach is trying to achieve biomechanically, then consider improvements:
 
 ```python
 # EXAMPLE 1: Joint position symmetry - prevents asymmetric leg movement
 joint_pos = robot.data.joint_pos
-left_joints = joint_pos[:, [0,1,2,3,9,10]]  # G1 left leg indices
-right_joints = joint_pos[:, [4,5,6,7,11,12]]  # G1 right leg indices
+left_joints = joint_pos[:, [0,2,4,6,9,11]]  # G1 left leg indices (interleaved PhysX pattern)
+right_joints = joint_pos[:, [1,3,5,7,10,12]]  # G1 right leg indices (interleaved PhysX pattern)
 joint_symmetry = torch.exp(-(left_joints - right_joints).abs().mean(dim=1) / 0.1)
 
 # EXAMPLE 2: Air time coordination - matches flight phase timing
@@ -193,7 +193,7 @@ timing_symmetry = torch.exp(-((airtime[:, 0] - airtime[:, 1]).abs()) / 0.1)
 bilateral_score = joint_symmetry * 1.5 + timing_symmetry * 1.0
 ```
 
-**💡 CREATIVE EXTENSIONS TO CONSIDER:**
+**CREATIVE EXTENSIONS TO CONSIDER:**
 - **Force symmetry:** What if you also measure contact force matching between legs?
 - **Momentum symmetry:** Could you compare leg momentum or velocity profiles?
 - **Phase-dependent coordination:** Different symmetry requirements for different movement phases?
@@ -205,7 +205,7 @@ bilateral_score = joint_symmetry * 1.5 + timing_symmetry * 1.0
 
 **Mathematical Creativity Toolkit (Examples, Not Constraints):**
 
-🧮 **EXPLORE DIVERSE FUNCTIONS:** The examples below are starting points - think about what mathematical relationships best capture your specific movement quality goals!
+**EXPLORE DIVERSE FUNCTIONS:** The examples below are starting points - think about what mathematical relationships best capture your specific movement quality goals!
 
 - **Exponential decay:** `torch.exp(-scale * error)` - Good for smooth tracking, but consider: What if linear or polynomial works better?
 - **Sigmoid activation:** `torch.sigmoid(gain * (value - threshold))` - Smooth transitions, adjustable steepness
@@ -218,7 +218,7 @@ bilateral_score = joint_symmetry * 1.5 + timing_symmetry * 1.0
 - **State-dependent scaling:** Rewards that change based on current movement context
 - **Temporal smoothing:** Moving averages for reward consistency across timesteps
 
-🎯 **THINK ABOUT FUNCTION CHOICE:** Why exponential vs polynomial? When does linear make sense? What mathematical relationship truly captures the biomechanical principle you're trying to reward?
+**THINK ABOUT FUNCTION CHOICE:** Why exponential vs polynomial? When does linear make sense? What mathematical relationship truly captures the biomechanical principle you're trying to reward?
 
 **Remember:** Your mathematical choices should reflect the UNDERLYING BIOMECHANICS, not just follow templates!
 
@@ -268,7 +268,7 @@ Some helpful tips for writing the reward function code:
     (2) Access robot data through: robot = env.scene["robot"]; robot.data.root_pos_w, robot.data.joint_pos, etc.
     (3) CRITICAL: Use BODY frame velocities (robot.data.root_lin_vel_b, robot.data.root_ang_vel_b)
     (4) Access contact forces through: contact_sensor = env.scene.sensors["contact_forces"]; contact_sensor.data.net_forces_w
-    (5) CRITICAL: Get foot indices correctly: foot_ids, foot_names = contact_sensor.find_bodies(".*_foot")
+    (5) CRITICAL: Get foot indices correctly: foot_ids, foot_names = contact_sensor.find_bodies(".*_ankle_roll_link")
     (6) Make sure all tensors are on the same device: device=env.device
     (7) Return only the total reward tensor, not individual components
     (8) Commands are in body frame: env.command_manager.get_command("base_velocity") gives [vx, vy, omega_z]
@@ -277,17 +277,17 @@ Some helpful tips for writing the reward function code:
 CRITICAL ISAAC LAB CONSTRAINTS:
     (10) NEVER call external functions like extract_foot_contacts() or get_foot_contact_analysis()
     (11) Use ONLY inline contact analysis within your reward function
-    (12) 🚨 CRITICAL: NEVER ADD ANY IMPORT STATEMENTS - all necessary imports are already available
+    (12) **CRITICAL: NEVER ADD ANY IMPORT STATEMENTS** - all necessary imports are already available
     (12.1) NEVER use: from omni.isaac.core.utils.quaternion import quat_apply_inverse
     (12.2) NEVER use: from omni.isaac.core import *
     (12.3) DO NOT add any "from" or "import" lines in your function
     (12.4) All Isaac Lab math functions (quat_apply_inverse, yaw_quat, etc.) are already imported at top of file
     (13) For contact analysis, use this pattern:
          contact_forces = contact_sensor.data.net_forces_w
-         foot_ids, foot_names = contact_sensor.find_bodies(".*_foot")
+         foot_ids, foot_names = contact_sensor.find_bodies(".*_ankle_roll_link")
          foot_forces = contact_forces[:, foot_ids, :]
          force_magnitudes = foot_forces.norm(dim=-1)
-         foot_contacts = force_magnitudes > 2.0
+         foot_contacts = force_magnitudes > 50.0
     (14) CRITICAL TENSOR DTYPE: Always use torch.tensor(..., dtype=torch.float32, device=env.device)
          NEVER use torch.tensor([1, 2, 3]) - always specify dtype=torch.float32
     (15) For Isaac Lab math functions like quat_apply_inverse, ensure all tensors are float32
@@ -311,7 +311,7 @@ CRITICAL ISAAC LAB CONSTRAINTS:
          - G1 humanoid is BIPEDAL (2 feet) - design contact patterns for bipedal locomotion
          - Humanoid contact threshold: Use 50.0N (not 2.0N) for G1 35kg robot
 
-## 🔬 ANALYSIS-DRIVEN REWARD DESIGN
+## **ANALYSIS-DRIVEN REWARD DESIGN**
 
 **Video Analysis Questions:**
 - What movement pattern is demonstrated?
@@ -342,14 +342,14 @@ CRITICAL ISAAC LAB CONSTRAINTS:
     (19.5) CONTACT SENSOR TIMING DATA FOR GAIT REWARDS:
          Isaac Lab provides rich timing data for sophisticated gait control:
          
-         ✅ AVAILABLE CONTACT TIMING DATA:
+         **AVAILABLE CONTACT TIMING DATA:**
          - contact_sensor.data.last_air_time[:, foot_ids]        # Duration of previous aerial phase
          - contact_sensor.data.current_air_time[:, foot_ids]     # Current ongoing air time
          - contact_sensor.data.last_contact_time[:, foot_ids]    # Duration of previous ground contact 
          - contact_sensor.data.current_contact_time[:, foot_ids] # Current ongoing contact time
          - contact_sensor.compute_first_contact(env.step_dt)[:, foot_ids]  # Just-landed detection
          
-         ✅ PROPER AIR TIME USAGE:
+         **PROPER AIR TIME USAGE:**
          # For gaits with aerial phases (jumping, sprinting, dynamic gaits):
          air_threshold = 0.05  # Minimum meaningful air time in seconds
          meaningful_air = (last_air_time > air_threshold) & (first_contact > 0)
@@ -359,17 +359,17 @@ CRITICAL ISAAC LAB CONSTRAINTS:
          all_airborne = (current_air_time > 0.0).all(dim=1)
          sustained_air_reward = torch.where(all_airborne, current_air_time.mean(dim=1), 0.0)
          
-         ❌ AVOID OVERLY SIMPLE CONTACT DETECTION:
+         **AVOID OVERLY SIMPLE CONTACT DETECTION:**
          # Don't use only: (foot_contacts.sum(dim=-1) == 0).float()  # Too basic
          # This misses timing, duration, and rhythm which are crucial for natural gaits
          
-         ✅ DESIGN FOR SPECIFIC GAIT REQUIREMENTS:
+         **DESIGN FOR SPECIFIC GAIT REQUIREMENTS:**
          - **Bilateral gaits:** Measure and reward symmetry between limbs
          - **Alternating gaits:** Reward proper phase relationships and timing
          - **Aerial gaits:** Consider flight duration and landing control
          - **Stability gaits:** Focus on balance and controlled movement patterns
          
-         🚨 CRITICAL: JUMPING REQUIRES SYNCHRONIZED LEG COORDINATION:
+         **CRITICAL: JUMPING REQUIRES SYNCHRONIZED LEG COORDINATION:**
          # JUMPING (vertical bouncing, both legs synchronized):
          num_contacts = foot_contacts.sum(dim=-1)
          jump_states = (num_contacts == 0) | (num_contacts == 2)  # Only airborne OR both-contact
@@ -422,8 +422,8 @@ Common Isaac Lab tensor operations:
 (11) For vector creation: torch.tensor([x, y, z], dtype=torch.float32, device=env.device)
 (12) For batch operations: expand tensors to match env.num_envs dimension
 (13) For dot products: use torch.sum(tensor1 * tensor2, dim=-1) instead of torch.dot()
-(14) For contact detection: use force_threshold > 2.0 for reliable contact sensing
-(15) For foot identification: use contact_sensor.find_bodies(".*_foot") pattern
+  (14) For contact detection: use force_threshold > 50.0 for reliable contact sensing (G1 humanoid)
+    (15) For foot identification: use contact_sensor.find_bodies(".*_ankle_roll_link") pattern
 
 Mathematical patterns for stability:
 (16) Use exponential decay for tracking: torch.exp(-scale * error) with reasonable scale
@@ -452,12 +452,12 @@ Consider that humanoid locomotion involves temporal patterns. When analyzing con
 
 **Important**: Design rewards that promote balanced and coordinated leg movements to ensure natural bipedal locomotion patterns with proper stability.
 
-🚨 CRITICAL FORMATTING REQUIREMENTS 🚨
+**CRITICAL FORMATTING REQUIREMENTS**
 
 MOST COMMON ERRORS CAUSING TRAINING CRASHES:
 
 1. INDENTATION ERRORS:
-   ✅ CORRECT: Use exactly 4 spaces for function body
+   **CORRECT: Use exactly 4 spaces for function body**
    ```python
    def sds_custom_reward(env) -> torch.Tensor:
        """Description"""
@@ -466,40 +466,40 @@ MOST COMMON ERRORS CAUSING TRAINING CRASHES:
        return reward.clamp(min=0.0, max=10.0)
    ```
    
-   ❌ WRONG: 8 spaces, tabs, or inconsistent spacing
+   **WRONG: 8 spaces, tabs, or inconsistent spacing**
    ```python
    def sds_custom_reward(env) -> torch.Tensor:
            robot = env.scene["robot"]  # 8 spaces - CRASHES!
    ```
 
 2. DIVISION BY ZERO ERRORS:
-   🚨 #1 CAUSE OF CRASHES: torch.clamp() on literal numbers
+   **#1 CAUSE OF CRASHES: torch.clamp() on literal numbers**
    
-   ✅ CORRECT PATTERNS:
+   **CORRECT PATTERNS:**
    - LITERAL NUMBERS: 0.1, 2.0, 0.15 (typed directly) → Use max()
    - TENSOR VARIABLE: vx_command, height_error, tolerance (computed from robot data) → Use torch.clamp()
    
    ```python
-   # ✅ CORRECT: max() for literal numbers
+   # CORRECT: max() for literal numbers
    reward = error / max(0.1, 1e-6)        # 0.1 is typed directly
    reward = error / max(2.0, 1e-6)        # 2.0 is typed directly
    
-   # ✅ CORRECT: torch.clamp() for tensor variables
+   # CORRECT: torch.clamp() for tensor variables
    tolerance = commands[:, 0] * 1.2       # tolerance computed from robot data
-   reward = error / torch.clamp(tolerance, min=1e-6)  # ✅ Works!
+   reward = error / torch.clamp(tolerance, min=1e-6)  # Works!
    
-   # ❌ CRASHES: torch.clamp() on literal numbers
+   # CRASHES: torch.clamp() on literal numbers
    reward = error / torch.clamp(0.1, min=1e-6)   # 0.1 is literal - CRASHES!
    reward = error / torch.clamp(2.0, min=1e-6)   # 2.0 is literal - CRASHES!
    ```
 
 3. TENSOR CREATION ERRORS:
-   ✅ ALWAYS specify dtype and device:
+   **ALWAYS specify dtype and device:**
    ```python
    up_vector = torch.tensor([0, 0, 1], dtype=torch.float32, device=env.device)
    ```
    
-   ❌ Missing dtype creates Long tensors (crashes):
+   **Missing dtype creates Long tensors (crashes):**
    ```python
    up_vector = torch.tensor([0, 0, 1])  # Creates Long tensor - CRASHES!
    ```
@@ -526,7 +526,7 @@ Remember: Different gaits require different reward structures - avoid hardcoding
 
 CRITICAL: Always specify dtype=torch.float32 and device=env.device for tensor creation!
 
-**🤖 HUMANOID-SPECIFIC REWARD DESIGN TIPS (Avoid Awkward Behavior):**
+**HUMANOID-SPECIFIC REWARD DESIGN TIPS (Avoid Awkward Behavior):**
 
 (20) TORSO STABILITY IS CRITICAL:
      - Always include orientation penalties: `torch.sum(torch.square(robot.data.projected_gravity_b[:, :2]), dim=1)`
@@ -535,7 +535,7 @@ CRITICAL: Always specify dtype=torch.float32 and device=env.device for tensor cr
 
 (21) FORWARD MOVEMENT BIAS:
      - Weight forward velocity tracking 3x higher than lateral movement
-     - Humans are forward-optimized, not omnidirectional like quadrupeds
+     - G1 humanoid bipeds are forward-optimized for efficient locomotion
      - Use tighter tolerance for forward tracking (σ=0.25) vs lateral (σ=0.5)
 
 (22) ACTION SMOOTHNESS PREVENTS JERKY MOTION:
@@ -571,16 +571,16 @@ CRITICAL: Always specify dtype=torch.float32 and device=env.device for tensor cr
 - PACE: 1 or 2 feet contact (lateral movement stability)
 - Match pattern to demonstrated video behavior
 
-**PROVEN WEIGHT HIERARCHY (Based on RSL-RL Success):**
+**PROVEN WEIGHT HIERARCHY (Based on G1 Humanoid RSL-RL Success):**
 Priority 1 - Safety: Joint limits, orientation (10.0-30.0x)
 Priority 2 - Stability: Height, contact forces (5.0-10.0x)  
 Priority 3 - Performance: Velocity tracking (1.0-5.0x)
 Priority 4 - Quality: Smoothness, efficiency (0.1-1.0x)
 
 **COMMON HUMANOID MISTAKES TO AVOID:**
-❌ Equal forward/lateral weighting → Use 3:1 forward bias
-❌ Missing orientation penalties → Always include upright stability  
-❌ No action rate damping → Causes jerky, robotic motion
-❌ Overly rigid height control → Prevents natural walking dynamics
-❌ Ignoring upper body → Torso stability critical for bipeds
-❌ Static contact thresholds → Should adapt to movement intensity
+Equal forward/lateral weighting → Use 3:1 forward bias
+Missing orientation penalties → Always include upright stability  
+No action rate damping → Causes jerky, robotic motion
+Overly rigid height control → Prevents natural walking dynamics
+Ignoring upper body → Torso stability critical for bipeds
+Static contact thresholds → Should adapt to movement intensity

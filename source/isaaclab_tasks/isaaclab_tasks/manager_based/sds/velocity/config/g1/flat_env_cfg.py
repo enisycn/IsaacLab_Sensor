@@ -31,10 +31,13 @@ class SDSG1FlatEnvCfg(SDSG1RoughEnvCfg):
         # CRITICAL: For SDS, use ONLY GPT-generated sds_custom reward
         # self.rewards.sds_custom is already configured in the base class
 
-        # Commands - focused on forward movement with minimal lateral movement
-        self.commands.base_velocity.ranges.lin_vel_x = (0.1, 1.5)  # Keep higher forward velocity for flat terrain (jumping/sprinting gaits)
-        self.commands.base_velocity.ranges.lin_vel_y = (-0.05, 0.05)  # Minimal lateral movement (just a bit of side movement)
-        self.commands.base_velocity.ranges.ang_vel_z = (-0.05, 0.05)  # Reduced turning for forward-focused training
+        # Commands - CORRECTED: Zero velocity for stationary jumping (SDS locomotion tasks)
+        # NOTE: For different locomotion tasks, adjust these velocity ranges:
+        # - Stationary (jumping): (0.0, 0.0) for all axes
+        # - Walking/Running: (0.0, 1.2) for lin_vel_x, (-0.3, 0.3) for lin_vel_y, (-0.5, 0.5) for ang_vel_z
+        self.commands.base_velocity.ranges.lin_vel_x = (0.0, 0.0)  # Zero forward velocity for stationary jumping
+        self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)  # Zero lateral movement for stationary jumping
+        self.commands.base_velocity.ranges.ang_vel_z = (0.0, 0.0)  # Zero turning for stationary jumping
 
         # change terrain to flat
         self.scene.terrain.terrain_type = "plane"

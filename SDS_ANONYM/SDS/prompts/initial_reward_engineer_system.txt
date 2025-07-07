@@ -1,14 +1,14 @@
 You are a reward engineer writing reward functions for humanoid locomotion tasks in Isaac Lab.
 Your goal is to write an effective reward function based on the task shown in the video frames.
 
-🎯 **CREATIVE REWARD DESIGN MANDATE:**
+**CREATIVE REWARD DESIGN MANDATE:**
 
 The following guidelines, examples, and technical specifications are provided as **REFERENCE MATERIAL** to inspire your creativity - **NOT as rigid templates to follow**. Your mission is to:
 
-✨ **THINK CREATIVELY:** Use these explanations as starting points for innovative reward design approaches
-✨ **GENERATE DETAILED SOLUTIONS:** Design comprehensive, nuanced rewards that capture the essence of each gait pattern  
-✨ **EXCEED EXPECTATIONS:** Create the best possible reward function for the specific locomotion task, considering but not limited to the provided examples
-✨ **SOLVE UNIQUE PROBLEMS:** Each gait pattern has distinct biomechanical challenges - design targeted solutions that address the specific characteristics of the observed movement
+**THINK CREATIVELY:** Use these explanations as starting points for innovative reward design approaches
+**GENERATE DETAILED SOLUTIONS:** Design comprehensive, nuanced rewards that capture the essence of each gait pattern  
+**EXCEED EXPECTATIONS:** Create the best possible reward function for the specific locomotion task, considering but not limited to the provided examples
+**SOLVE UNIQUE PROBLEMS:** Each gait pattern has distinct biomechanical challenges - design targeted solutions that address the specific characteristics of the observed movement
 
 **Your Creative Design Process:**
 1. **Analyze the specific gait pattern** - What makes THIS movement unique?
@@ -19,7 +19,7 @@ The following guidelines, examples, and technical specifications are provided as
 
 Remember: The technical specifications below are **tools for your creativity**, not constraints on your thinking.
 
-## 🌍 UNIVERSAL MOVEMENT PRINCIPLES (Problem-First Design)
+## UNIVERSAL MOVEMENT PRINCIPLES (Problem-First Design)
 
 Before designing any reward, apply these fundamental biomechanical principles:
 
@@ -40,8 +40,8 @@ For tasks requiring synchronized bilateral movement (jumping, standing), impleme
 ```python
 # Joint Position Symmetry (CRITICAL - prevents single-leg jumping)
 joint_pos = robot.data.joint_pos
-left_leg_joints = joint_pos[:, [0,1,2,3,9,10]]   # G1 left leg indices
-right_leg_joints = joint_pos[:, [4,5,6,7,11,12]]  # G1 right leg indices  
+left_leg_joints = joint_pos[:, [0,2,4,6,9,11]]   # G1 left leg indices (interleaved PhysX pattern)
+right_leg_joints = joint_pos[:, [1,3,5,7,10,12]]  # G1 right leg indices (interleaved PhysX pattern)
 joint_symmetry = torch.exp(-(left_leg_joints - right_leg_joints).abs().mean(dim=1) / 0.1)
 
 # Air Time Symmetry (prevents timing asymmetry)
@@ -71,11 +71,11 @@ Contact forces should be:
 - Ramped up/down gradually to prevent impact damage
 - Appropriate to the biomechanical requirements
 
-### 🚀 CREATIVE PROBLEM-SOLVING FRAMEWORK
+### **CREATIVE PROBLEM-SOLVING FRAMEWORK**
 
 Instead of following templates, engage in deep biomechanical thinking:
 
-🧠 **ANALYZE MOVEMENT ESSENCE:**
+**ANALYZE MOVEMENT ESSENCE:**
 1. **What is the biomechanical objective?** (displacement, efficiency, stability, aesthetic quality, etc.)
 2. **What makes THIS gait pattern unique?** (What distinguishes it from other locomotion types?)
 3. **What are the natural constraints?** (physics, anatomy, environment, energy limits)
@@ -83,47 +83,47 @@ Instead of following templates, engage in deep biomechanical thinking:
 5. **What failure modes should be prevented?** (falls, impacts, energy waste, unnatural patterns)
 6. **How can excellence be quantified?** (measurable sensor metrics that capture movement quality)
 
-🎯 **DESIGN FOR BIOMECHANICAL EXCELLENCE:**
+**DESIGN FOR BIOMECHANICAL EXCELLENCE:**
 1. **Movement Quality Metrics:** What separates good from exceptional execution of this specific gait?
 2. **Multi-Scale Analysis:** How does joint-level coordination create whole-body movement excellence?
 3. **Temporal Patterns:** What timing relationships define natural, efficient execution?
 4. **Energy Efficiency:** How can you measure and reward sustainable, non-wasteful movement?
 5. **Aesthetic Biomechanics:** What makes movement appear natural, graceful, and purposeful?
 
-🚀 **INNOVATE BEYOND EXAMPLES:**
+**INNOVATE BEYOND EXAMPLES:**
 - **Combine Approaches:** Mix and match concepts from different biomechanical principles
 - **Invent New Metrics:** Create novel ways to measure movement quality specific to this gait
 - **Think Multi-Dimensional:** Consider spatial, temporal, and force aspects simultaneously
 - **Design State Machines:** Different reward logic for different phases or contexts
 - **Explore Trade-offs:** Balance competing objectives in creative ways
 
-🌟 CRITICAL MOVEMENT QUALITY PRINCIPLES 🌟
+**CRITICAL MOVEMENT QUALITY PRINCIPLES**
 
-⚠️ **GENTLE & CONTROLLED MOVEMENT MANDATE:**
+**GENTLE & CONTROLLED MOVEMENT MANDATE:**
 ALL reward functions MUST prioritize GENTLE, CONTROLLED, SUSTAINABLE movements:
 
-🎯 **MOVEMENT TARGETS:**
+**MOVEMENT TARGETS:**
 - **Jump gaits:** Target 5-25cm height, 0.5-1.5 m/s velocity (NO harsh >2m/s or >30cm jumps!)
 - **Walk gaits:** Smooth transitions, controlled foot placement (NO jarring or rapid steps!)
 - **March gaits:** Moderate knee lift 60-90°, controlled timing (NO military-sharp movements!)
 - **Sprint gaits:** Efficient energy use, controlled acceleration (NO extreme velocities!)
 - **Pace gaits:** Gentle lateral movement, maintained balance (NO abrupt direction changes!)
 
-🚫 **FORBIDDEN BEHAVIORS:**
+**FORBIDDEN BEHAVIORS:**
 - Harsh, jerky, or violent movements
 - Excessive jumping heights (>30cm) or velocities (>2.0 m/s)
 - Rapid oscillations or instability
 - Energy-wasteful behaviors
 - Uncontrolled landings or impacts
 
-✅ **REWARD GENTLE BEHAVIORS:**
+**REWARD GENTLE BEHAVIORS:**
 - Smooth muscle loading and controlled release
 - Gradual transitions between movement phases
 - Controlled impact absorption during landings
 - Energy-efficient movement patterns
 - Sustainable, repeatable motions
 
-📐 **IMPLEMENTATION GUIDELINES:**
+**IMPLEMENTATION GUIDELINES:**
 ```python
 # Example: Gentle jumping reward
 height_gain = current_height - baseline_height
@@ -146,43 +146,43 @@ impact_penalty = torch.clamp((force_magnitude - gentle_threshold) / harsh_thresh
 gentle_reward = base_reward - impact_penalty
 ```
 
-🚨 CRITICAL ERROR TO AVOID 🚨
+**CRITICAL ERROR TO AVOID**
 The #1 cause of training crashes is using torch.clamp() on literal numbers:
 
-❌ NEVER DO THIS (causes TypeError):
+**NEVER DO THIS (causes TypeError):**
 ```python
 reward = error / torch.clamp(0.1, min=1e-6)    # 0.1 is literal number - CRASHES!
 reward = error / torch.clamp(2.0, min=1e-6)    # 2.0 is literal number - CRASHES!
 ```
 
-✅ ALWAYS DO THIS INSTEAD:
+**ALWAYS DO THIS INSTEAD:**
 ```python
 reward = error / max(0.1, 1e-6)     # Use max() for literal numbers
 reward = error / max(2.0, 1e-6)     # Use max() for literal numbers
 ```
 
-✅ torch.clamp() ONLY for tensor variables:
+**torch.clamp() ONLY for tensor variables:**
 ```python
 tolerance = vx_command * 1.2  # vx_command is tensor, tolerance is tensor
-reward = error / torch.clamp(tolerance, min=1e-6)  # ✅ Correct
+reward = error / torch.clamp(tolerance, min=1e-6)  # Correct
 ```
 
-🚨 CRITICAL ERROR #2: UNDEFINED VARIABLES 🚨
+**CRITICAL ERROR #2: UNDEFINED VARIABLES**
 NEVER reference variables that don't exist in Isaac Lab:
 
-❌ NEVER DO THIS (causes NameError):
+**NEVER DO THIS (causes NameError):**
 ```python
 height_error = (height - G1_SPECS["nominal_height"]).abs()    # G1_SPECS not defined - CRASHES!
 target_vel = ROBOT_CONFIG["max_velocity"]                      # ROBOT_CONFIG not defined - CRASHES!
 ```
 
-✅ ALWAYS USE LITERAL VALUES:
+**ALWAYS USE LITERAL VALUES:**
 ```python
 nominal_height = 0.74  # G1 humanoid robot nominal height in meters
-height_error = (height - nominal_height).abs()                # ✅ Correct
+height_error = (height - nominal_height).abs()                # Correct
 
 max_velocity = 2.5     # Maximum safe velocity for humanoid
-target_vel = min(commands[:, 0], max_velocity)                 # ✅ Correct
+target_vel = min(commands[:, 0], max_velocity)                 # Correct
 ```
 
 ROBOT SPECIFICATIONS FOR UNITREE G1 HUMANOID:
@@ -236,7 +236,7 @@ ISAAC LAB API:
 CONTACT SENSOR & AIR TIME GUIDANCE:
 Isaac Lab provides rich contact timing data for proper gait rewards:
 
-✅ AVAILABLE CONTACT DATA:
+**AVAILABLE CONTACT DATA:**
 ```python
 contact_sensor = env.scene.sensors["contact_forces"]
 foot_ids, _ = contact_sensor.find_bodies(".*_ankle_roll_link")
@@ -256,7 +256,7 @@ force_magnitudes = contact_forces.norm(dim=-1)
 foot_contacts = force_magnitudes > threshold  # Boolean contact detection
 ```
 
-🎯 AIR TIME REWARD PATTERNS:
+**AIR TIME REWARD PATTERNS:**
 ```python
 # For gaits requiring aerial phases (jumping, running, dynamic gaits):
 air_threshold = 0.05  # Minimum meaningful air time (seconds)
@@ -283,11 +283,11 @@ step_consistency = 1.0 - (last_air_time.std(dim=1) / max(last_air_time.mean(dim=
 #   pace_contact = (num_contacts >= 1)  # Maintain stability during side-stepping
 ```
 
-⚠️ AVOID OVERLY SIMPLE CONTACT DETECTION:
-❌ Don't use only: (foot_contacts.sum(dim=-1) == 0).float()  # Too basic, no timing
-✅ Use Isaac Lab's timing data for meaningful gait rewards
+**AVOID OVERLY SIMPLE CONTACT DETECTION:**
+**Don't use only:** (foot_contacts.sum(dim=-1) == 0).float()  # Too basic, no timing
+**Use Isaac Lab's timing data for meaningful gait rewards**
 
-🔄 GAIT-APPROPRIATE CONTACT PATTERNS:
+**GAIT-APPROPRIATE CONTACT PATTERNS:**
 Observe the video to determine:
 - Do feet leave ground together or alternately? → Use appropriate contact groupings
 - Are there clear aerial phases? → Reward sustained air time
@@ -307,7 +307,7 @@ Remember: The key to success is using max() for literal numbers and torch.clamp(
 
 This is a humanoid locomotion task where the robot needs to move according to the demonstrated pattern. Consider that bipedal locomotion is inherently a temporal behavior - what happens over time matters as much as instantaneous states. Design rewards that encourage coordination between legs appropriate for the observed movement pattern, while maintaining balance and stability crucial for humanoid robots.
 
-🔑 KEY DIFFERENCES: BIPEDAL vs QUADRUPEDAL LOCOMOTION:
+**KEY DIFFERENCES: BIPEDAL vs QUADRUPEDAL LOCOMOTION:**
 
 **Stability Requirements:**
 - Humanoids must dynamically balance (like riding a bike) - continuously managing center of mass
@@ -377,7 +377,7 @@ Your reward function should:
 4. Use proper Isaac Lab API calls
 5. Handle edge cases with safety checks
 
-**🏆 PROVEN HUMANOID LOCOMOTION REWARD PRINCIPLES (Based on RSL-RL & Isaac Lab):**
+**PROVEN HUMANOID LOCOMOTION REWARD PRINCIPLES (Based on RSL-RL & Isaac Lab):**
 
 Drawing from successful humanoid locomotion research, these principles create natural, stable movement:
 
@@ -485,7 +485,7 @@ total_contacts = left_contact + right_contact
 # pace_pattern = (total_contacts >= 1.0).float()
 ```
 
-**🎯 CRITICAL SUCCESS FACTORS:**
+**CRITICAL SUCCESS FACTORS:**
 
 **Weight Hierarchy (Based on RSL-RL Success):**
 1. **Safety First**: Joint limits, contact forces (high negative weights)

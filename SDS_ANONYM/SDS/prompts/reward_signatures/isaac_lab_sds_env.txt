@@ -52,9 +52,9 @@ def sds_custom_reward(env) -> torch.Tensor:
     # - Height maintenance: G1 initial height is 0.74m in Isaac Lab (VERIFIED)
     # - Upper body stability: minimize arm swing, maintain upright torso
     # - Gait patterns: Walk (alternating with double support), Jump (synchronized takeoff/landing), March (controlled single support), Sprint (extended flight), Pace (lateral movement)
-    # - Isaac Lab G1 joint structure: 37 DOF total (9 legs + 4 ankles + 10 arms + 14 hands)
-    # - Joint naming: hip_[yaw/roll/pitch]_joint, knee_joint, ankle_[pitch/roll]_joint, 
-    #   shoulder_[pitch/roll/yaw]_joint, elbow_[pitch/roll]_joint, [zero-six]_joint (hands)
+    # - Isaac Lab G1 joint structure: 37 DOF total (13 controlled + 24 fixed)
+    # - CONTROLLED joint naming: hip_[yaw/roll/pitch]_joint, knee_joint, ankle_[pitch/roll]_joint, torso_joint
+    # - FIXED joint naming: shoulder_[pitch/roll/yaw]_joint, elbow_[pitch/roll]_joint, [zero-six]_joint (hands)
     
     # HUMAN-LIKE LOCOMOTION DESIGN PRINCIPLES:
     # 1. Dynamic Balance: Humanoids require continuous balance management (not static stability)
@@ -180,14 +180,13 @@ Isaac Lab SDS Environment - G1 Humanoid Locomotion
 
 ## Robot Configuration (VERIFIED & CORRECTED)
 - **Robot**: Unitree G1 EDU U4 Humanoid (37 DOF total)
-- **Action Space**: 23 DOF controlled for locomotion (hands excluded)
+- **Action Space**: 13 DOF controlled for locomotion (arms and hands excluded)
 - **Height**: 0.74m (Isaac Lab verified)
 - **Mass**: ~35kg humanoid
 
-## Action Configuration (SIMPLIFIED)
+## Action Configuration (LOCOMOTION FOCUSED)
 **Controlled Joints (13 DOF for locomotion):**
-- Legs: 8 DOF (4 per leg: hip_yaw, hip_roll, hip_pitch, knee)
-- Ankles: 4 DOF (2 per foot: ankle_pitch, ankle_roll) 
+- Legs: 12 DOF (6 per leg: hip_yaw, hip_roll, hip_pitch, knee, ankle_pitch, ankle_roll)
 - Torso: 1 DOF (torso_joint)
 
 **Fixed Joints (24 DOF):**

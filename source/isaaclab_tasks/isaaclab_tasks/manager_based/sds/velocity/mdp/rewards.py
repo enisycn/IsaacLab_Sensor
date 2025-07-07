@@ -115,69 +115,70 @@ def track_ang_vel_z_world_exp(
 # GPT will generate the complete reward logic - no hardcoded components
 
 def sds_custom_reward(env) -> torch.Tensor:
-        """Gentle, efficient walking gait reward for Unitree G1 humanoid."""
-        import torch
-        robot = env.scene["robot"]
-        contact_sensor = env.scene.sensors["contact_forces"]
-        commands = env.command_manager.get_command("base_velocity")
-        num_envs = env.num_envs
-        device = env.device
-    
-        # Initialize reward
-        reward = torch.zeros(num_envs, dtype=torch.float32, device=device)
-    
-        # 1. Velocity tracking (forward biased)
-        vel_b = robot.data.root_lin_vel_b  # [num_envs,3]
-        forward_err = (vel_b[:, 0] - commands[:, 0]).abs()
-        forward_r = torch.exp(-forward_err / 0.25) * 3.0
-        lateral_err = (vel_b[:, 1] - commands[:, 1]).abs()
-        lateral_r = torch.exp(-lateral_err / 0.5) * 1.0
-        yaw_err = (robot.data.root_ang_vel_b[:, 2] - commands[:, 2]).abs()
-        yaw_r = torch.exp(-yaw_err / 1.0) * 0.5
-    
-        # 2. Height maintenance around nominal walking height
-        height = robot.data.root_pos_w[:, 2]
-        height_err = (height - 0.74).abs()
-        height_r = torch.exp(-height_err / 0.1)
-    
-        # 3. Torso orientation stability (penalize roll/pitch)
-        quat = robot.data.root_quat_w  # [w,x,y,z]
-        orient_pen = quat[:, 1]**2 + quat[:, 2]**2
-        orient_r = torch.exp(-10.0 * orient_pen)
-    
-        # 4. Angular velocity stability (roll/pitch damping)
-        ang_vel = robot.data.root_ang_vel_b[:, :2]
-        ang_pen = torch.sum(ang_vel**2, dim=1)
-        stability_r = torch.exp(-2.0 * ang_pen)
-    
-        # 5. Contact pattern for walking (1 or 2 feet)
-        net_forces = contact_sensor.data.net_forces_w  # [num_envs, num_bodies, 3]
-        foot_ids, _ = contact_sensor.find_bodies(".*_ankle_roll_link")
-        foot_forces = net_forces[:, foot_ids, :]  # [num_envs,2,3]
-        force_mag = foot_forces.norm(dim=-1)  # [num_envs,2]
-        contacts = (force_mag > 50.0).float()
-        num_contacts = contacts.sum(dim=-1)
-        contact_r = ((num_contacts == 1) | (num_contacts == 2)).float()
-    
-        # 6. Step timing consistency (low variance in last air times)
-        last_air = contact_sensor.data.last_air_time[:, foot_ids]  # [num_envs,2]
-        std_air = last_air.std(dim=1)
-        mean_air = last_air.mean(dim=1)
-        step_consistency = 1.0 - std_air / torch.clamp(mean_air, min=1e-6)
-        step_consistency = step_consistency.clamp(min=0.0, max=1.0)
-    
-        # 7. Energy efficiency (joint velocity penalty)
-        joint_vel = robot.data.joint_vel  # [num_envs,37]
-        vel_pen = torch.sum(joint_vel**2, dim=1)
-        efficiency_r = torch.exp(-0.001 * vel_pen)
-    
-        # Combine reward components with weights
-        reward = forward_r + lateral_r + yaw_r
-        reward = reward + height_r * 1.0 + orient_r * 1.5 + stability_r * 1.0
-        reward = reward + contact_r * 0.5 + step_consistency * 0.5 + efficiency_r * 0.3
-    
-        # Final bounds
-        return reward.clamp(min=0.0, max=10.0)
+    """Gentle bilateral squat-jump reward with height, velocity, symmetry, and stability."""
+    import torch
+    robot = env.scene["robot"]
+    contact_sensor = env.scene.sensors["contact_forces"]
+    # initialize reward
+    reward = torch.zeros(env.num_envs, dtype=torch.float32, device=env.device)
+    # --- Height and vertical velocity rewards (gentle jump) ---
+    # Height above nominal standing
+    current_height = robot.data.root_pos_w[:, 2]
+    nominal_height = 0.74
+    height_gain = current_height - nominal_height
+    gentle_height = torch.where(
+    (height_gain > 0.05) & (height_gain < 0.25),
+    torch.exp(-((height_gain - 0.15) / max(0.05, 1e-6)).abs()),
+    torch.zeros_like(height_gain)
+    )
+    # Vertical velocity in world frame
+    vz = robot.data.root_lin_vel_w[:, 2]
+    gentle_velocity = torch.where(
+    (vz > 0.5) & (vz < 1.5),
+    torch.exp(-((vz - 1.0) / max(0.3, 1e-6)).abs()),
+    torch.zeros_like(vz)
+    )
+    # --- Contact and gait phase (jump pattern) ---
+    forces = contact_sensor.data.net_forces_w  # [envs, bodies, 3]
+    foot_ids, _ = contact_sensor.find_bodies(".*_ankle_roll_link")
+    foot_forces = forces[:, foot_ids, :]       # [envs, 2, 3]
+    force_mags = foot_forces.norm(dim=-1)      # [envs, 2]
+    foot_contacts = (force_mags > 50.0).float()
+    left_contact = foot_contacts[:, 0]
+    right_contact = foot_contacts[:, 1]
+    total_contacts = left_contact + right_contact
+    jump_pattern = ((total_contacts == 0) | (total_contacts == 2)).float()
+    # --- Bilateral symmetry (joint + air time) ---
+    jp = robot.data.joint_pos
+    left_idx  = [0, 2, 4, 6, 9, 11]   # G1 left leg indices (interleaved PhysX pattern)
+    right_idx = [1, 3, 5, 7, 10, 12]  # G1 right leg indices (interleaved PhysX pattern)
+    jl = jp[:, left_idx]
+    jr = jp[:, right_idx]
+    joint_diff = (jl - jr).abs().mean(dim=1)
+    joint_symmetry = torch.exp(-joint_diff / max(0.1, 1e-6))
+    airtime = contact_sensor.data.current_air_time[:, foot_ids]  # [envs,2]
+    air_diff = (airtime[:, 0] - airtime[:, 1]).abs()
+    air_symmetry = torch.exp(-air_diff / max(0.1, 1e-6))
+    # --- Torso orientation stability ---
+    proj_g = robot.data.projected_gravity_b[:, :2]  # [envs,2]
+    orient_pen = torch.sum(proj_g * proj_g, dim=1)
+    orientation_reward = torch.exp(-5.0 * orient_pen)
+    # --- Combine components with weights and mask by jump phases ---
+    total = (
+    gentle_height * 3.0 +
+    gentle_velocity * 2.0 +
+    joint_symmetry * 1.5 +
+    air_symmetry * 1.0 +
+    orientation_reward * 1.0
+    )
+    reward = jump_pattern * total
+    return reward.clamp(min=0.0, max=10.0)
+
+
+# SDS_FUNCTION_END_MARKER
+
+
+
 
 
 

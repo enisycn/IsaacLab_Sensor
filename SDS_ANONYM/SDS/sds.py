@@ -177,38 +177,41 @@ def main(cfg):
                     break
             
             
-            def ensure_doubly_indented(code_str):
+            def ensure_proper_indentation(code_str):
+                """Ensure the function has proper Python indentation (0 for def, 4 for body)."""
                 lines = code_str.splitlines()
                 
-                base_indentation = len(lines[0]) - len(lines[0].lstrip())
-
-                def adjust_indentation(line):
-                    stripped_line = line.lstrip()
-                    current_indentation = len(line) - len(stripped_line)
-                    
-                    return " "*(4+current_indentation-base_indentation) + stripped_line
-
+                if not lines:
+                    return code_str
+                
+                # Check if first line is the function definition
+                first_line = lines[0].strip()
+                if not first_line.startswith('def sds_custom_reward'):
+                    raise ValueError(f"Generated code must start with 'def sds_custom_reward', got: {first_line}")
+                
                 adjusted_lines = []
                 for i, line in enumerate(lines):
-                    if i == 0 and line.strip().startswith('def'):
-                        adjusted_lines.append(adjust_indentation(line))
+                    if i == 0:
+                        # Function definition at file level (no indentation)
+                        adjusted_lines.append(first_line)
+                    elif line.strip():  # Non-empty line
+                        # Function body with 4-space indentation
+                        adjusted_lines.append("    " + line.strip())
                     else:
-                        adjusted_lines.append(adjust_indentation(line))
+                        # Empty line
+                        adjusted_lines.append("")
                 
-                # Join the lines back into a single string with newline characters
-                adjusted_code = '\n'.join(adjusted_lines)
-                
-                return adjusted_code
+                return '\n'.join(adjusted_lines)
             
-            code_string = ensure_doubly_indented(code_string)
+            code_string = ensure_proper_indentation(code_string)
             code_runs.append(code_string)
                     
             # Add the SDS Reward Signature to the environment code
             # For Isaac Lab integration, we need to replace the entire sds_custom_reward function
             
             # ROBUST replacement pattern that matches the actual Isaac Lab function signature
-            # This pattern matches both the original placeholder and any existing function
-            pattern = r'def sds_custom_reward\(env\).*?return reward.*?(?=\n\n# INSERT SDS REWARD HERE|\n\n\n|\nclass|\ndef |\Z)'
+            # This pattern matches the function from def to the end marker
+            pattern = r'def sds_custom_reward\(env\).*?return reward.*?(?=\n\n# SDS_FUNCTION_END_MARKER|\n\n\n|\nclass|\ndef |\Z)'
             
             # Verify the GPT generated a proper Isaac Lab function
             if not code_string.strip().startswith('def sds_custom_reward'):

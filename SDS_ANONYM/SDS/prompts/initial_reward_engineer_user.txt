@@ -1,29 +1,29 @@
-⚠️ **CRITICAL: GENTLE MOVEMENT REQUIREMENT** ⚠️
+**CRITICAL: GENTLE MOVEMENT REQUIREMENT**
 
 ALL reward functions MUST prioritize GENTLE, CONTROLLED, SUSTAINABLE movements:
 
-🎯 **MANDATORY GENTLENESS TARGETS:**
+**MANDATORY GENTLENESS TARGETS:**
 - **Jump tasks:** 5-25cm height, 0.5-1.5 m/s velocity (NEVER >2m/s or >30cm!)
 - **Walk tasks:** Smooth, controlled steps (NO jarring or rapid movements!)
 - **March tasks:** Moderate knee lift 60-90°, gentle timing (NO sharp movements!)
 - **Sprint tasks:** Efficient acceleration, controlled power (NO extreme velocities!)
 - **Pace tasks:** Gentle lateral shifts, maintained balance (NO abrupt changes!)
 
-🚫 **ABSOLUTELY FORBIDDEN:**
+**ABSOLUTELY FORBIDDEN:**
 - Harsh, jerky, violent movements
 - Excessive jumping (>30cm height or >2.0 m/s velocity)
 - Rapid oscillations or instability
 - Energy-wasteful explosive behaviors
 - Uncontrolled impacts or landings
 
-✅ **REWARD THESE GENTLE BEHAVIORS:**
+**REWARD THESE GENTLE BEHAVIORS:**
 - Smooth muscle loading and controlled release
 - Gradual transitions between movement phases
 - Controlled impact absorption during landings
 - Energy-efficient, sustainable motions
 - Natural human-like movement quality
 
-🔧 **IMPLEMENTATION EXAMPLE:**
+**IMPLEMENTATION EXAMPLE:**
 ```python
 # Gentle height targeting (jumping)
 height_gain = current_height - baseline
@@ -38,15 +38,15 @@ excessive_penalty = torch.clamp((velocity.abs() - 2.0) / 1.0, 0.0, 2.0)
 gentle_reward = base_reward - excessive_penalty
 ```
 
-🎨 **INNOVATIVE REWARD DESIGN CHALLENGE:**
+**INNOVATIVE REWARD DESIGN CHALLENGE:**
 
 You are tasked with creating the **MOST EFFECTIVE** reward function possible for the observed gait pattern. The frameworks and examples provided below are **CREATIVE SPRINGBOARDS** - use them to inspire innovative solutions, but don't limit yourself to copying them!
 
 **Your Design Excellence Goals:**
-🌟 **GAIT-SPECIFIC MASTERY:** Design rewards that capture the unique biomechanical signature of THIS specific locomotion pattern
-🌟 **MOVEMENT QUALITY FOCUS:** Create nuanced metrics that distinguish exceptional movement from merely functional movement  
-🌟 **CREATIVE PROBLEM-SOLVING:** Combine, modify, or invent reward components that address the specific challenges of this gait type
-🌟 **COMPREHENSIVE SOLUTIONS:** Consider multiple aspects of movement quality - coordination, timing, efficiency, naturalness, safety
+**GAIT-SPECIFIC MASTERY:** Design rewards that capture the unique biomechanical signature of THIS specific locomotion pattern
+**MOVEMENT QUALITY FOCUS:** Create nuanced metrics that distinguish exceptional movement from merely functional movement  
+**CREATIVE PROBLEM-SOLVING:** Combine, modify, or invent reward components that address the specific challenges of this gait type
+**COMPREHENSIVE SOLUTIONS:** Consider multiple aspects of movement quality - coordination, timing, efficiency, naturalness, safety
 
 **Think Beyond Templates:** The analysis frameworks below are tools to help you understand the movement, but your final reward function should be uniquely designed for optimal performance on this specific task!
 
@@ -66,7 +66,7 @@ Essential Isaac Lab API access patterns:
 - Commands: `commands = env.command_manager.get_command("base_velocity")`
 - Feet: `foot_ids, _ = contact_sensor.find_bodies(".*_ankle_roll_link")`
 
-## 🎥 Video Analysis Framework
+## **Video Analysis Framework**
 
 **Step 1: Identify Movement Characteristics and Natural Phases**
 - **Gait Type:** What locomotion pattern is demonstrated?
@@ -95,9 +95,9 @@ Ask yourself:
 - **How can I encourage bilateral coordination when needed?**
 - **What timing and rhythm characteristics are important for phase execution?**
 
-## 🧠 Biomechanical Problem-Solving Principles
+## **Biomechanical Problem-Solving Principles**
 
-🎨 **GAIT-SPECIFIC CREATIVE CHALLENGES:**
+**GAIT-SPECIFIC CREATIVE CHALLENGES:**
 
 Use these problem frameworks as **INSPIRATION** for deeper creative thinking about each gait type:
 
@@ -136,7 +136,7 @@ Use these problem frameworks as **INSPIRATION** for deeper creative thinking abo
 - **Innovation Ideas:** Lateral efficiency metrics, stability maintenance assessment, directional transition analysis, spatial precision tracking
 - **Mastery Metrics:** What makes lateral movement "fluid" vs "choppy"? How do you measure directional elegance?
 
-## 🔧 Reward Engineering Best Practices
+## **Reward Engineering Best Practices**
 
 **1. Normalize Components to [0,1] Range:**
 ```python
@@ -170,7 +170,7 @@ normalized = total_reward.clamp(0.0, 1.0)
 return (normalized * 10.0).to(device)
 ```
 
-## 🎯 Movement Quality Focus Areas
+## **Movement Quality Focus Areas**
 
 **Phase-Based Movement Design:**
 - **Complete Cycles:** Reward full movement cycles with all necessary phases
@@ -202,7 +202,7 @@ return (normalized * 10.0).to(device)
 - Encourage controlled landings and transitions
 - **Phase-Specific Safety:** Different stability requirements for stance vs flight phases
 
-## 📋 Design Process Checklist
+## **Design Process Checklist**
 
 Before coding, ask yourself:
 1. **What specific behavior does the video demonstrate?**
@@ -216,7 +216,7 @@ Before coding, ask yourself:
 9. **Are phase transitions smooth and natural, or do they need specific rewards?**
 10. **How can I prevent phase skipping or rushing through essential movement phases?**
 
-## 🚫 Avoid These Pitfalls
+## **Avoid These Pitfalls**
 
 **Template Following:** Don't copy existing reward patterns blindly - the examples are inspiration, not constraints!
 **Binary Thinking:** Consider gradual rewards, not just on/off states  
@@ -224,7 +224,7 @@ Before coding, ask yourself:
 **Missing Coordination:** For bilateral tasks, explicitly measure and reward symmetry
 **Poor Scaling:** Normalize components before combining to ensure balanced learning
 
-## 💡 Innovation Encouragement
+## **Innovation Encouragement**
 
 **Think creatively about:**
 - **Phase-based reward structures:** Different reward components for different movement phases
@@ -239,15 +239,15 @@ Before coding, ask yourself:
 
 **Your goal:** Create a reward function that produces natural, efficient, biomechanically-sound movement that follows proper phase progression, resembles the demonstrated behavior while avoiding pathological patterns, and ensures complete movement cycles with smooth phase transitions.
 
-🎨 **FINAL CREATIVE MANDATE:**
+**FINAL CREATIVE MANDATE:**
 
 **Remember:** You are not just implementing a template - you are **ENGINEERING MOVEMENT EXCELLENCE!** 
 
-✨ Use these guidelines as **CREATIVE INSPIRATION**, not rigid rules
-✨ Design the **BEST POSSIBLE** reward function for THIS specific gait pattern
-✨ Think deeply about what makes movement exceptional, not just functional
-✨ **INNOVATE** beyond the provided examples while considering their biomechanical wisdom
-✨ Your goal is **GAIT-SPECIFIC MASTERY** - capture the unique essence of this movement pattern
+Use these guidelines as **CREATIVE INSPIRATION**, not rigid rules
+Design the **BEST POSSIBLE** reward function for THIS specific gait pattern
+Think deeply about what makes movement exceptional, not just functional
+**INNOVATE** beyond the provided examples while considering their biomechanical wisdom
+Your goal is **GAIT-SPECIFIC MASTERY** - capture the unique essence of this movement pattern
 
 **Your reward function should be a work of biomechanical art that produces naturally beautiful, efficient movement!**
 

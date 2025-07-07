@@ -111,9 +111,9 @@ class CommandsCfg:
         heading_control_stiffness=0.5,
         debug_vis=False,  # Disabled to remove arrows from training footage
         ranges=mdp.UniformVelocityCommandCfg.Ranges(
-            lin_vel_x=(0.0, 1.2),     # Max 1.2 m/s forward (reasonable walking/jogging)
-            lin_vel_y=(-0.3, 0.3),    # Limited lateral movement for bipedal stability  
-            ang_vel_z=(-0.5, 0.5),    # Conservative turning for balance
+            lin_vel_x=(0.0, 0.0),     # Zero forward velocity for stationary jumping
+            lin_vel_y=(0.0, 0.0),     # Zero lateral movement for stationary jumping  
+            ang_vel_z=(0.0, 0.0),     # Zero turning for stationary jumping
             heading=(-math.pi, math.pi)
         ),
     )
@@ -123,8 +123,8 @@ class CommandsCfg:
 class ActionsCfg:
     """Action specifications for the MDP."""
 
-    # FULL BODY CONTROL: All G1 joints except hand/finger joints (23 DOF)
-    # This enables Meta Motivo to control the full humanoid body for natural movements
+    # LOCOMOTION CONTROL: Legs and torso only (13 DOF) - arms fixed for stability
+    # This focuses control on essential locomotion joints while keeping arms at default poses
     joint_pos = mdp.JointPositionActionCfg(
         asset_name="robot", 
         joint_names=[
@@ -132,15 +132,12 @@ class ActionsCfg:
             ".*_hip_yaw_joint", ".*_hip_roll_joint", ".*_hip_pitch_joint", 
             ".*_knee_joint", ".*_ankle_pitch_joint", ".*_ankle_roll_joint",
             # TORSO (1 DOF) - for upper body posture
-            "torso_joint",
-            # ARMS (10 DOF) - for natural arm swing and gestures
-            ".*_shoulder_pitch_joint", ".*_shoulder_roll_joint", ".*_shoulder_yaw_joint",
-            ".*_elbow_pitch_joint", ".*_elbow_roll_joint"
+            "torso_joint"
         ], 
         scale=0.25,  # Reduced from 1.0 to prevent awkward excessive joint movements - enables smoother locomotion
         use_default_offset=True
     )
-    # NOTE: Hand/finger joints (14 DOF) excluded - maintain default poses for stable locomotion
+    # NOTE: Arms (10 DOF) and hands (14 DOF) excluded - maintain default poses for stable locomotion
 
 
 @configclass

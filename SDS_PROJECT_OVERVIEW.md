@@ -62,7 +62,8 @@ IsaacLab/
 ```bash
 cd SDS_ANONYM
 conda activate <your_environment>
-export OPENAI_API_KEY="your-api-key"
+
+export OPENAI_API_KEY="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"
 
 python SDS/sds.py task=jump train_iterations=1000 iteration=4 sample=5 num_envs=4096 video_length=1000
 ```
@@ -179,3 +180,4 @@ ranges=mdp.UniformVelocityCommandCfg.Ranges(
 ---
 
 
+ 

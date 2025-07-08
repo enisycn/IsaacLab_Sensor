@@ -188,7 +188,7 @@ def main(cfg):
                 first_line = lines[0].strip()
                 if not first_line.startswith('def sds_custom_reward'):
                     raise ValueError(f"Generated code must start with 'def sds_custom_reward', got: {first_line}")
-                
+
                 adjusted_lines = []
                 for i, line in enumerate(lines):
                     if i == 0:
@@ -292,32 +292,135 @@ def main(cfg):
             
             logging.info(f"Running Isaac Lab training: {' '.join(command)}")
             
-            with open(rl_filepath, 'w') as f:
-                process = subprocess.run(command, stdout=f, stderr=f, cwd=isaac_lab_root)
+            # SIMPLE RETRY MECHANISM: Try up to 3 times per sample
+            training_successful = False
+            max_retries = 2  # 3 total attempts (original + 2 retries)
             
-            if process.returncode != 0:
-                logging.error(f"Isaac Lab training failed with return code: {process.returncode}")
-                with open(rl_filepath, 'r') as f:
-                    error_content = f.read()
-                    logging.error(f"Training error output: {error_content[-1000:]}")  # Last 1000 chars
+            for retry_attempt in range(max_retries + 1):
+                # Generate new reward function on retry
+                if retry_attempt > 0:
+                    logging.info(f"Sample {response_id} failed, generating new reward function (retry {retry_attempt}/{max_retries})")
+                    try:
+                        # Generate new reward function from GPT
+                        new_responses, _, _, _ = gpt_query(1, reward_query_messages, cfg.temperature, cfg.model)
+                        new_response_cur = new_responses[0]["message"]["content"]
+                        
+                        # Extract and process new code the same way as original
+                        patterns = [
+                            r'```python(.*?)```',
+                            r'```(.*?)```',
+                            r'"""(.*?)"""',
+                            r'""(.*?)""',
+                            r'"(.*?)"',
+                        ]
+                        new_code_string = None
+                        for pattern in patterns:
+                            match = re.search(pattern, new_response_cur, re.DOTALL)
+                            if match is not None:
+                                new_code_string = match.group(1).strip()
+                                break
+                        new_code_string = new_response_cur if not new_code_string else new_code_string
+                        
+                        # Process new code the same way
+                        lines = new_code_string.split("\n")
+                        lines = [" "*4 + line for line in lines]
+                        for i, line in enumerate(lines):
+                            if line.strip().startswith("def "):
+                                new_code_string = "\n".join(lines[i:])
+                                break
+                        
+                        new_code_string = ensure_proper_indentation(new_code_string)
+                        
+                        # Replace the failed code with new one
+                        code_runs[response_id] = new_code_string
+                        
+                        # Update environment code with new reward function
+                        if not new_code_string.strip().startswith('def sds_custom_reward'):
+                            raise ValueError("New reward function must start with 'def sds_custom_reward'")
+                        
+                        # Replace function in environment code
+                        pattern = r'def sds_custom_reward\(env\).*?return reward.*?(?=\n\n# SDS_FUNCTION_END_MARKER|\n\n\n|\nclass|\ndef |\Z)'
+                        cur_task_rew_code_string = re.sub(pattern, new_code_string.strip(), task_rew_code_string, flags=re.DOTALL, count=1)
+                        
+                        if cur_task_rew_code_string == task_rew_code_string:
+                            # Fallback replacement method
+                            start_marker = "def sds_custom_reward(env) -> torch.Tensor:"
+                            if start_marker in task_rew_code_string:
+                                start_idx = task_rew_code_string.find(start_marker)
+                                temp_str = task_rew_code_string[start_idx:]
+                                lines = temp_str.split('\n')
+                                end_idx = start_idx
+                                for i, line in enumerate(lines[1:], 1):
+                                    if line.strip() == "# INSERT SDS REWARD HERE":
+                                        break
+                                    elif line.startswith('def ') or line.startswith('class ') or (line.strip() and not line.startswith(' ') and not line.startswith('\t')):
+                                        break
+                                    end_idx += len(line) + 1
+                                before = task_rew_code_string[:start_idx]
+                                after = task_rew_code_string[start_idx + end_idx:]
+                                cur_task_rew_code_string = before + new_code_string.strip() + '\n\n' + after
+                        
+                        # Save new environment code
+                        with open(output_file, 'w') as file:
+                            file.writelines(cur_task_rew_code_string + '\n')
+                        
+                        with open(f"env_iter{iter}_response{response_id}_rewardonly.py", 'w') as file:
+                            file.writelines(new_code_string + '\n')
+                        
+                        shutil.copy(output_file, f"env_iter{iter}_response{response_id}.py")
+                        
+                        logging.info(f"Generated new reward function for sample {response_id} retry {retry_attempt}")
+                    
+                    except Exception as e:
+                        logging.error(f"Failed to generate new reward function for sample {response_id}: {e}")
+                        break  # Skip this sample if we can't generate new code
                 
-                # DELAYED GPU cleanup on training failure to allow Isaac Lab to finish cleanup
-                try:
-                    import time
-                    time.sleep(2)  # Give Isaac Lab time to release GPU resources
-                    if torch.cuda.is_available():
-                        device = torch.cuda.current_device()
-                        torch.cuda.synchronize(device)  # Wait for all CUDA operations to complete
-                        torch.cuda.empty_cache()
-                        logging.info(f"GPU cache cleared after training failure for sample {response_id}")
-                except Exception as e:
-                    logging.warning(f"GPU cleanup failed after training failure: {e}")
+                # Try training with current reward function
+                # Set HYDRA_FULL_ERROR=1 to ensure all Hydra errors show full stack trace for better detection
+                training_env = os.environ.copy()
+                training_env['HYDRA_FULL_ERROR'] = '1'
                 
-                raise RuntimeError(f"Isaac Lab training failed for iteration {iter}, response {response_id}")
+                with open(rl_filepath, 'w') as f:
+                    process = subprocess.run(command, stdout=f, stderr=f, cwd=isaac_lab_root, env=training_env)
+                
+                if process.returncode == 0:
+                    # Training succeeded
+                    training_successful = True
+                    logging.info(f"Sample {response_id} training succeeded" + (f" (retry {retry_attempt})" if retry_attempt > 0 else ""))
+                    break
+                else:
+                    # Training failed
+                    logging.error(f"Sample {response_id} training failed (attempt {retry_attempt + 1})")
+                    with open(rl_filepath, 'r') as f:
+                        error_content = f.read()
+                        logging.error(f"Training error: {error_content[-500:]}")  # Last 500 chars
+                    
+                    # GPU cleanup after failure
+                    try:
+                        import time
+                        time.sleep(2)
+                        if torch.cuda.is_available():
+                            device = torch.cuda.current_device()
+                            torch.cuda.synchronize(device)
+                            torch.cuda.empty_cache()
+                            logging.info(f"GPU cache cleared after failure for sample {response_id}")
+                    except Exception as e:
+                        logging.warning(f"GPU cleanup failed: {e}")
+                    
+                    # If this was the last retry, log final failure
+                    if retry_attempt == max_retries:
+                        logging.error(f"Sample {response_id} failed after {max_retries + 1} attempts, skipping")
             
-            training_success = block_until_training(rl_filepath, success_keyword=cfg.success_keyword, failure_keyword=cfg.failure_keyword,
-                                 log_status=True, iter_num=iter, response_id=response_id)
-            rl_runs.append(process)
+            # Only proceed if training was successful
+            training_success = False  # Initialize to prevent NameError
+            if training_successful:
+                training_success = block_until_training(rl_filepath, success_keyword=cfg.success_keyword, failure_keyword=cfg.failure_keyword,
+                                     log_status=True, iter_num=iter, response_id=response_id)
+                rl_runs.append(process)
+            else:
+                # Add placeholder for failed sample to maintain indexing
+                rl_runs.append(None)
+                logging.warning(f"Sample {response_id} failed all attempts, added placeholder")
             
             # REDUCED FREQUENCY: Only clear GPU cache after training, not after every subprocess
             # Let Isaac Lab fully complete before clearing cache
@@ -380,7 +483,11 @@ def main(cfg):
                 ]
                 
                 logging.info(f"Running video generation: {' '.join(eval_command)}")
-                result = subprocess.run(eval_command, cwd=isaac_lab_root, capture_output=True, text=True)
+                # Set HYDRA_FULL_ERROR=1 for evaluation as well
+                eval_env = os.environ.copy()
+                eval_env['HYDRA_FULL_ERROR'] = '1'
+                
+                result = subprocess.run(eval_command, cwd=isaac_lab_root, capture_output=True, text=True, env=eval_env)
                 if result.returncode != 0:
                     logging.error(f"Video generation failed: {result.stderr}")
                     
@@ -415,7 +522,11 @@ def main(cfg):
                 ]
                 
                 logging.info(f"Running contact analysis: {' '.join(contact_command)}")
-                result = subprocess.run(contact_command, cwd=isaac_lab_root, capture_output=True, text=True)
+                # Set HYDRA_FULL_ERROR=1 for contact analysis as well
+                contact_env = os.environ.copy()
+                contact_env['HYDRA_FULL_ERROR'] = '1'
+                
+                result = subprocess.run(contact_command, cwd=isaac_lab_root, capture_output=True, text=True, env=contact_env)
                 if result.returncode != 0:
                     logging.error(f"Contact analysis failed: {result.stderr}")
                     
@@ -533,6 +644,15 @@ def main(cfg):
         for response_id, (code_run, rl_run) in enumerate(zip(code_runs, rl_runs)):
             rl_filepath = f"env_iter{iter}_response{response_id}.txt"
             code_paths.append(f"env_iter{iter}_response{response_id}.py")
+            
+            # SAFETY: Skip failed samples (where rl_run is None)
+            if rl_run is None:
+                content = execution_error_feedback.format(traceback_msg="Sample failed during training after all retry attempts!")
+                content += code_output_tip
+                contents.append(content) 
+                reward_correlations.append(DUMMY_FAILURE)
+                continue
+                
             try:
                 with open(rl_filepath, 'r') as f:
                     stdout_str = f.read()

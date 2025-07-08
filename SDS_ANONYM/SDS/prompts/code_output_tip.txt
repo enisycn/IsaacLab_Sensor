@@ -110,8 +110,8 @@ def sds_custom_reward(env) -> torch.Tensor:
 joint_pos = robot.data.joint_pos  # [num_envs, num_joints]
 
 # CORRECT G1 Leg Joint Indices (CRITICAL for bilateral coordination):
-left_leg_indices = [0, 1, 2, 3, 9, 10]   # [hip_yaw, hip_roll, hip_pitch, knee, ankle_pitch, ankle_roll]
-right_leg_indices = [4, 5, 6, 7, 11, 12]  # [hip_yaw, hip_roll, hip_pitch, knee, ankle_pitch, ankle_roll]
+left_leg_indices = [0, 2, 4, 6, 9, 11]   # [hip_yaw, hip_roll, hip_pitch, knee, ankle_pitch, ankle_roll] - interleaved PhysX pattern
+right_leg_indices = [1, 3, 5, 7, 10, 12]  # [hip_yaw, hip_roll, hip_pitch, knee, ankle_pitch, ankle_roll] - interleaved PhysX pattern
 
 # Bilateral Joint Symmetry Implementation:
 left_leg_joints = joint_pos[:, left_leg_indices]

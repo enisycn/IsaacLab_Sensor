@@ -4,13 +4,22 @@ Your reward function must follow this exact structure with proper 4-space indent
 
 def sds_custom_reward(env) -> torch.Tensor:
     """Your reward function description here."""
+    import torch  # Only import torch - no other imports allowed
+    
+    # ACCESS RULES: Use ONLY these imports and data access patterns
+    # ALLOWED: import torch (Do not import anything more than this)
+    # FORBIDDEN: from omni.isaac.core.* (not available in Isaac Lab)
+    # FORBIDDEN: import omni.* (not available in Isaac Lab)
+    # FORBIDDEN: from isaacgym.* (not available in Isaac Lab)
+     
+
     # Access environment data (4-space indent)
     robot = env.scene["robot"]
     contact_sensor = env.scene.sensors["contact_forces"]
     commands = env.command_manager.get_command("base_velocity")
     
     # Initialize reward (4-space indent)
-    reward = torch.zeros(env.num_envs, device=env.device)
+    reward = torch.zeros(env.num_envs, dtype=torch.float32, device=env.device)
     
     # IMPORTANT: For contact analysis, use this inline approach:
     # Get foot contact forces for G1 humanoid

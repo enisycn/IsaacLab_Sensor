@@ -1,5 +1,8 @@
 import logging
 from utils.misc import gpt_query
+import subprocess
+import os
+import re
 
 class Conversation():
     def __init__(self,system_prompt:str) -> None:
@@ -121,17 +124,6 @@ class Agent():
     
     def obtain_results(self):
         return self.last_assistant_content
-    
-class TaskDescriptor(Agent):
-    def __init__(self, cfg, prompt_dir):
-        system_prompt_file=f"{prompt_dir}/task_descriptor_system.txt"
-        super().__init__(system_prompt_file, cfg)
-    def analyse(self,encoded_frame_grid, task_hint=None):
-        user_content = [{"type":"image_uri","data":encoded_frame_grid}]
-        if task_hint:
-            user_content.append({"type":"text","data":f"You are analyzing a video demonstrating: {task_hint}. Focus your analysis on the specific behaviors and movements characteristic of this task."})
-        self.prepare_user_content(user_content)
-        return self.query()
 
 class ContactSequenceAnalyser(Agent):
     def __init__(self, cfg, prompt_dir):
@@ -178,7 +170,7 @@ class SUSGenerator(Agent):
     
     def generate_sus_prompt(self,encoded_gt_frame_grid, task_description_hint=None):
         task_descriptor = TaskDescriptor(self.cfg,self.prompt_dir)
-        task_description = task_descriptor.analyse(encoded_gt_frame_grid, task_description_hint)   
+        task_description = task_descriptor.analyse(encoded_gt_frame_grid, task_description_hint)
         
         contact_sequence_analyser = ContactSequenceAnalyser(self.cfg,self.prompt_dir)
         contact_pattern = contact_sequence_analyser.analyse(encoded_gt_frame_grid)
@@ -190,6 +182,181 @@ class SUSGenerator(Agent):
         task_requirement_response = task_requirement_analyser.analyse(encoded_gt_frame_grid, task_description_hint)
         
         self.prepare_user_content([{"type":"text","data":task_description},{"type":"text","data":gait_response},{"type":"text","data":task_requirement_response}])
+        
+        sus_prompt = self.query()
+        
+        return sus_prompt
+
+class EnvironmentAwareTaskDescriptor(Agent):
+    def __init__(self, cfg, prompt_dir):
+        system_prompt_file=f"{prompt_dir}/environment_aware_task_descriptor_system.txt"
+        super().__init__(system_prompt_file, cfg)
+        self.prompt_file = system_prompt_file
+        
+    def inject_environment_analysis(self, environment_analysis):
+        """Dynamically inject environment analysis into the prompt file between markers"""
+        try:
+            # Read the current prompt file
+            with open(self.prompt_file, 'r') as f:
+                prompt_content = f.read()
+            
+            # Find the markers and replace content between them
+            start_marker = "<!-- ENVIRONMENT_ANALYSIS_START -->"
+            end_marker = "<!-- ENVIRONMENT_ANALYSIS_END -->"
+            
+            if start_marker in prompt_content and end_marker in prompt_content:
+                # Replace content between markers
+                pattern = f"{re.escape(start_marker)}.*?{re.escape(end_marker)}"
+                new_content = f"{start_marker}\n{environment_analysis}\n{end_marker}"
+                updated_prompt = re.sub(pattern, new_content, prompt_content, flags=re.DOTALL)
+                
+                # Write back to file
+                with open(self.prompt_file, 'w') as f:
+                    f.write(updated_prompt)
+            
+                # Update the agent's system prompt
+                self.conversation.modify_system_prompt(updated_prompt)
+                
+                self.logger.info("Environment analysis successfully injected into prompt")
+                return True
+            else:
+                self.logger.error("Environment analysis markers not found in prompt file")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"Failed to inject environment analysis: {e}")
+            return False
+    
+    def run_environment_analysis(self, num_envs=50):
+        """Run the environment analysis script and capture output"""
+        try:
+            # Change to IsaacLab directory and run analysis
+            isaac_lab_path = "/home/enis/IsaacLab"
+            analysis_script = f"{isaac_lab_path}/analyze_environment.py"
+            
+            # Run the analysis script with SDS_ANALYSIS_MODE=true
+            cmd = [
+                "bash", "-c", 
+                f"source /home/enis/miniconda3/etc/profile.d/conda.sh && conda activate sam2 && cd {isaac_lab_path} && SDS_ANALYSIS_MODE=true ./isaaclab.sh -p analyze_environment.py --headless --num_envs {num_envs}"
+            ]
+            
+            self.logger.info(f"Running environment analysis with {num_envs} robots...")
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            
+            if result.returncode == 0:
+                # Extract only the comprehensive final analysis section
+                output = result.stdout
+                
+                # Find the comprehensive analysis section
+                start_marker = "📋 COMPREHENSIVE FINAL ENVIRONMENT ANALYSIS FOR AI AGENT"
+                
+                # Multiple possible end markers
+                end_markers = [
+                    "🔄 CLEANING UP ENVIRONMENT...",
+                    "✅ COMPREHENSIVE MULTI-ROBOT ANALYSIS COMPLETE!",
+                    "🔄 SHUTTING DOWN SIMULATION...",
+                    "================================================================================\n\n🔄"
+                ]
+                
+                if start_marker in output:
+                    start_idx = output.find(start_marker)
+            
+                    # Find the first matching end marker
+                    end_idx = len(output)  # Default to end of output
+                    for end_marker in end_markers:
+                        marker_idx = output.find(end_marker, start_idx)
+                        if marker_idx != -1:
+                            end_idx = marker_idx
+                            break
+                    
+                    analysis_section = output[start_idx:end_idx].strip()
+                    
+                    # Clean up any remaining unwanted content
+                    lines = analysis_section.split('\n')
+                    clean_lines = []
+                    for line in lines:
+                        # Skip lines that look like system output
+                        if any(skip in line for skip in ["[INFO]", "[WARNING]", "[ERROR]", "Exit code:", "Command completed"]):
+                            continue
+                        clean_lines.append(line)
+                    
+                    clean_analysis = '\n'.join(clean_lines).strip()
+                    
+                    self.logger.info(f"Environment analysis extracted successfully ({len(clean_analysis)} chars)")
+                    return clean_analysis
+                else:
+                    self.logger.error("Could not find analysis start marker")
+                    return None
+            else:
+                self.logger.error(f"Environment analysis failed: {result.stderr}")
+                return None
+                
+        except subprocess.TimeoutExpired:
+            self.logger.error("Environment analysis timed out")
+            return None
+        except Exception as e:
+            self.logger.error(f"Error running environment analysis: {e}")
+            return None
+    
+    def analyse(self, encoded_frame_grid, task_hint=None, num_envs=50):
+        """Analyze with real-time environment data injection"""
+        # Run environment analysis
+        environment_analysis = self.run_environment_analysis(num_envs)
+        
+        if environment_analysis:
+            # Inject environment analysis into prompt
+            success = self.inject_environment_analysis(environment_analysis)
+            if not success:
+                self.logger.warning("Failed to inject environment analysis, proceeding without it")
+        else:
+            self.logger.warning("No environment analysis available, proceeding with video-only analysis")
+            
+        # Prepare user content for analysis
+        user_content = [{"type":"image_uri","data":encoded_frame_grid}]
+        if task_hint:
+            user_content.append({"type":"text","data":f"You are analyzing a video demonstrating: {task_hint}. Focus your analysis on the specific behaviors and movements characteristic of this task while integrating the provided environmental sensor data."})
+        
+        self.prepare_user_content(user_content)
+        return self.query()
+
+class TaskDescriptor(Agent):
+    def __init__(self, cfg, prompt_dir):
+        system_prompt_file=f"{prompt_dir}/task_descriptor_system.txt"
+        super().__init__(system_prompt_file, cfg)
+    def analyse(self,encoded_frame_grid, task_hint=None):
+        user_content = [{"type":"image_uri","data":encoded_frame_grid}]
+        if task_hint:
+            user_content.append({"type":"text","data":f"You are analyzing a video demonstrating: {task_hint}. Focus your analysis on the specific behaviors and movements characteristic of this task."})
+        self.prepare_user_content(user_content)
+        return self.query()
+
+class EnhancedSUSGenerator(Agent):
+    def __init__(self, cfg, prompt_dir):
+        system_prompt_file=f"{prompt_dir}/SUS_generation_prompt.txt"
+        self.prompt_dir = prompt_dir
+        super().__init__(system_prompt_file, cfg)
+    
+    def generate_enhanced_sus_prompt(self, encoded_gt_frame_grid, task_description_hint=None, num_envs=50):
+        """Generate SUS prompt with environment awareness"""
+        # Use environment-aware task descriptor
+        task_descriptor = EnvironmentAwareTaskDescriptor(self.cfg, self.prompt_dir)
+        task_description = task_descriptor.analyse(encoded_gt_frame_grid, task_description_hint, num_envs)   
+        
+        # Continue with regular SUS generation pipeline
+        contact_sequence_analyser = ContactSequenceAnalyser(self.cfg, self.prompt_dir)
+        contact_pattern = contact_sequence_analyser.analyse(encoded_gt_frame_grid)
+        
+        gait_analyser = GaitAnalyser(self.cfg, self.prompt_dir)
+        gait_response = gait_analyser.analyse(encoded_gt_frame_grid, contact_pattern)
+        
+        task_requirement_analyser = TaskRequirementAnalyser(self.cfg, self.prompt_dir)
+        task_requirement_response = task_requirement_analyser.analyse(encoded_gt_frame_grid, task_description_hint)
+        
+        self.prepare_user_content([
+            {"type":"text","data":task_description},
+            {"type":"text","data":gait_response},
+            {"type":"text","data":task_requirement_response}
+        ])
         
         sus_prompt = self.query()
         

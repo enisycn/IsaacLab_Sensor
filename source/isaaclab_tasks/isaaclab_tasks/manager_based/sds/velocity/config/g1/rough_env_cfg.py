@@ -7,11 +7,15 @@
 SDS G1 Rough Environment Configuration.
 
 This configuration is specifically designed for the SDS project
-using Unitree G1 humanoid robot on rough terrain.
+using Unitree G1 humanoid robot on SIMPLIFIED rough terrain.
+FIXED: Uses minimal obstacles for easy locomotion learning.
 """
 
 from isaaclab.utils import configclass
 from isaaclab.envs import ViewerCfg
+import isaaclab.terrains as terrain_gen
+from isaaclab.terrains.config.rough import ROUGH_TERRAINS_CFG  # Standard Isaac Lab rough terrain 
+from isaaclab.terrains.terrain_generator_cfg import TerrainGeneratorCfg
 
 from isaaclab_tasks.manager_based.sds.velocity.velocity_env_cfg import SDSVelocityRoughEnvCfg
 
@@ -20,14 +24,51 @@ from isaaclab_tasks.manager_based.sds.velocity.velocity_env_cfg import SDSVeloci
 ##
 from isaaclab_assets import G1_MINIMAL_CFG  # isort: skip
 
+# 🎯 SIMPLIFIED TERRAIN: Minimal obstacles for easy learning
+SIMPLE_LEARNING_TERRAIN_CFG = TerrainGeneratorCfg(
+    size=(8.0, 8.0),
+    border_width=20.0,
+    num_rows=5,     # Fewer terrain variations
+    num_cols=8,     # Fewer environments per row  
+    horizontal_scale=0.1,
+    vertical_scale=0.005,
+    slope_threshold=0.75,
+    use_cache=False,
+    curriculum=True,  # Enable curriculum for progressive learning
+    sub_terrains={
+        # 70% FLAT for easy learning and confidence building
+        "flat": terrain_gen.MeshPlaneTerrainCfg(
+            proportion=0.7,  # 70% completely flat terrain
+        ),
+        # 30% GENTLE BUMPS (2-5cm) - Very forgiving rough terrain
+        "gentle_bumps": terrain_gen.HfRandomUniformTerrainCfg(
+            proportion=0.3, 
+            noise_range=(0.02, 0.05),  # Only 2-5cm bumps (very gentle)
+            noise_step=0.01, 
+            border_width=0.25
+        ),
+    },
+)
+
 
 @configclass
 class SDSG1RoughEnvCfg(SDSVelocityRoughEnvCfg):
-    """SDS Unitree G1 rough terrain environment configuration."""
+    """SDS Unitree G1 SIMPLIFIED rough terrain environment for easy locomotion learning.
+    
+    FIXED for standing still issue:
+    - 50% flat terrain for confidence building
+    - 30% gentle bumps (2-5cm) for basic adaptation
+    - 20% small boxes (5-10cm) for simple obstacle navigation
+    - Curriculum enabled for progressive difficulty
+    - Forward-only commands (0.3-0.6 m/s) with minimal standing
+    """
 
     def __post_init__(self):
         # post init of parent
         super().__post_init__()
+        
+        # 🎯 CRITICAL: Use SIMPLIFIED terrain for easy learning!
+        self.scene.terrain.terrain_generator = SIMPLE_LEARNING_TERRAIN_CFG
         
         # CHANGE: Use G1 robot configuration with self-collisions enabled
         self.scene.robot = G1_MINIMAL_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
@@ -38,14 +79,12 @@ class SDSG1RoughEnvCfg(SDSVelocityRoughEnvCfg):
         # G1 HUMANOID SPECIFIC ADAPTATIONS:
         
         # Randomization - adjust for bipedal stability
-        self.events.push_robot = None  # More conservative for bipedal robot
-        self.events.add_base_mass = None  # Avoid mass perturbations for humanoid
-        self.events.reset_robot_joints.params["position_range"] = (0.8, 1.2)  # Smaller range for stability
-        
-        # External forces - use torso link for humanoid
-        self.events.base_external_force_torque.params["asset_cfg"].body_names = ["torso_link"]
-        
-        # Reset parameters - bipedal specific
+        self.events.push_robot = None  # Remove random pushes that cause instability
+        self.events.add_base_mass.params["mass_distribution_params"] = (-0.5, 1.5)  # Smaller mass variations
+        self.events.add_base_mass.params["asset_cfg"].body_names = ["torso_link"]  # Only vary torso mass
+
+        # Enhanced stability control for humanoid
+        # Reduced reset pose randomization for more stable learning
         self.events.reset_base.params = {
             "pose_range": {"x": (-0.3, 0.3), "y": (-0.3, 0.3), "yaw": (-1.57, 1.57)},  # Smaller range
             "velocity_range": {
@@ -54,10 +93,13 @@ class SDSG1RoughEnvCfg(SDSVelocityRoughEnvCfg):
             },
         }
 
-        # Commands - CORRECTED: Zero velocity for stationary jumping (SDS locomotion tasks)
-        self.commands.base_velocity.ranges.lin_vel_x = (0.0, 0.0)  # Zero forward velocity for stationary jumping
-        self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)  # Zero lateral movement for stationary jumping
-        self.commands.base_velocity.ranges.ang_vel_z = (0.0, 0.0)  # Zero turning for stationary jumping
+        # 🚀 ENHANCED: Forward-focused commands to fix standing still
+        self.commands.base_velocity.ranges.lin_vel_x = (0.3, 0.6)  # Consistent forward walking
+        self.commands.base_velocity.ranges.lin_vel_y = (-0.1, 0.1)  # Minimal lateral movement
+        self.commands.base_velocity.ranges.ang_vel_z = (-0.2, 0.2)  # Small turning movements
+
+        # 🚨 CRITICAL FIX: Minimize standing commands to encourage locomotion
+        self.commands.base_velocity.rel_standing_envs = 0.02  # Only 2% standing for active learning
 
         # rewards - SDS uses only the sds_custom reward, no need to configure others
         # self.rewards.sds_custom is already configured in the base class
@@ -72,7 +114,7 @@ class SDSG1RoughEnvCfg(SDSVelocityRoughEnvCfg):
 
 @configclass
 class SDSG1RoughEnvCfg_PLAY(SDSG1RoughEnvCfg):
-    """SDS Unitree G1 rough terrain environment configuration for play/testing."""
+    """SDS Unitree G1 rough terrain environment configuration for play/testing WITHOUT GAPS."""
     
     # G1 Humanoid tracking - Bipedal optimized camera (lowered further for optimal framing)
     viewer = ViewerCfg(
@@ -100,11 +142,14 @@ class SDSG1RoughEnvCfg_PLAY(SDSG1RoughEnvCfg):
             self.scene.terrain.terrain_generator.num_cols = 5
             self.scene.terrain.terrain_generator.curriculum = False
 
-        # Conservative commands for demonstration
+        # Commands - FIXED: Forward walking for demonstration (no standing still!)
         self.commands.base_velocity.ranges.lin_vel_x = (0.3, 0.6)  # Slower, more stable walking for demos
         self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)  # No lateral movement for clean forward walking
         self.commands.base_velocity.ranges.ang_vel_z = (-0.1, 0.1)  # Minimal turning for straight walking demo
         self.commands.base_velocity.ranges.heading = (0.0, 0.0)   # Straight forward heading
+        
+        # 🚨 EVEN MORE CRITICAL for PLAY: No standing still in demos!
+        self.commands.base_velocity.rel_standing_envs = 0.0  # 0% standing for active demos
         
         # disable randomization for play
         self.observations.policy.enable_corruption = False

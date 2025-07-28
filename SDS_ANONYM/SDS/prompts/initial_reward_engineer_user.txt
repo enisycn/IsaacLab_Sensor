@@ -1,20 +1,202 @@
+**CRITICAL: TRAINING CRASHES WITHOUT THESE FIXES!**
+
+**THESE PATTERNS WILL INSTANTLY CRASH TRAINING:**
+
+```python
+# DEADLY BUG - TENSOR CONVERSION:
+joint_indices, _ = robot.find_joints(["joint_name"])
+joint_data = robot.data.joint_pos[:, joint_indices]  # TRAINING KILLER!
+
+# LIFE-SAVING FIX:
+joint_indices, _ = robot.find_joints(["joint_name"])
+joint_indices = torch.tensor(joint_indices, dtype=torch.long, device=env.device)
+joint_data = robot.data.joint_pos[:, joint_indices]  # WORKS!
+```
+
+**CRITICAL: PPO WILL CRASH WITH "std >= 0.0" ERROR WITHOUT THESE FIXES!**
+
+**GUARANTEED PPO TRAINING FAILURE:**
+
+```python
+# DEADLY: Unbounded reward values (>10) crash PPO standard deviation
+reward = large_value  # Any value >10 can cause "std >= 0.0" error
+
+# DEADLY: NaN/Inf in environmental sensor data crashes PPO
+height_scan = height_sensor.data.ray_hits_w[..., 2]  # Can contain NaN!
+lidar_range = torch.norm(lidar_sensor.data.ray_hits_w - pos, dim=-1)  # Can be Inf!
+
+# DEADLY: Division by zero in environmental calculations
+reward = 1.0 / distance_to_obstacle  # Zero distance = Inf reward = PPO crash
+```
+
+**PPO-SAFE ENVIRONMENTAL PATTERNS (WHEN USING ENVIRONMENTAL SENSORS):**
+
+```python
+# IF using environmental sensor data, ALWAYS sanitize:
+height_scan = torch.where(torch.isfinite(height_scan), height_scan, torch.zeros_like(height_scan))
+lidar_range = torch.where(torch.isfinite(lidar_range), lidar_range, torch.ones_like(lidar_range) * 10.0)
+
+# IF using environmental calculations, ALWAYS clamp:
+obstacle_distance = torch.clamp(min_obstacle_distance, min=0.1, max=15.0)
+terrain_roughness = torch.clamp(torch.var(height_scan, dim=1), max=1.0)
+
+# ALWAYS use safe division:
+reward = torch.exp(-error / torch.clamp(tolerance, min=1e-6))
+
+# ALWAYS bound final reward for PPO stability:
+return torch.clamp(reward, min=0.0, max=10.0)
+```
+
+**EVERY find_joints() CALL → IMMEDIATE torch.tensor() CONVERSION!**
+
+**CRITICAL: GENERATE ONLY REWARD FUNCTIONS - NO OBSERVATIONS!**
+
+**FORBIDDEN - NEVER GENERATE:**
+- `def observation_function(...)` or any observation functions
+- `lambda env: env.scene.sensors[...]` observation lambdas
+- `ObsTerm(...)` observation configurations  
+- `RayCasterCfg(...)` sensor configurations
+- Environment or observation modifications
+
+**ONLY GENERATE:**
+- Single `def sds_custom_reward(env) -> torch.Tensor:` function
+- Use existing sensor data WITHIN the reward function only
+
+**The environment sensors are already configured - just ACCESS them in your reward!**
+
+⚠️ **ALL NUMERICAL EXAMPLES, CODE SNIPPETS, AND REWARD PATTERNS ARE FOR TECHNICAL DEMONSTRATION ONLY.**
+⚠️ **DO NOT COPY EXAMPLES DIRECTLY! ANALYZE THE ENVIRONMENT AND CREATE INTELLIGENT, CONTEXTUAL REWARDS.**
+
+**🧠 INTELLIGENT ENVIRONMENT-AWARE REWARD DESIGN:**
+
+**THINK BEFORE CODING:** Read the environment analysis carefully and design rewards that make sense for the actual conditions:
+- **No obstacles detected?** Don't include obstacle avoidance terms
+- **Steppable gaps only?** Focus on step adjustment, not jumping mechanics
+- **Complex mixed terrain?** Design progressive difficulty rewards
+- **Flat terrain?** Emphasize efficiency and smoothness, not gap navigation
+
+**⚠️  ENVIRONMENTAL SENSOR INTEGRATION (ANALYSIS-DRIVEN APPROACH)**
+
+**IMPORTANT: Environmental integration should be based on environment analysis, not forced requirements!**
+
+**ENVIRONMENTAL INTEGRATION DECISION PROCESS:**
+1. **Check environment analysis first**: What environmental features are actually present?
+2. **Simple/flat environments**: Focus on natural locomotion foundation - environmental sensing is optional
+3. **Complex environments**: Add environmental components gradually, only for detected features
+4. **Mixed environments**: Use environment analysis to determine which components are relevant
+
+**📋 CLARIFICATION: Environmental integration means USING existing sensor data WITHIN your reward function ONLY when relevant - NOT generating new observation functions or sensor configurations!**
+
+**ENVIRONMENTAL COMPONENTS (INCLUDE ONLY IF ENVIRONMENT ANALYSIS SHOWS RELEVANCE):**
+- **height_scan data**: Only if terrain shows significant variation or elevation changes
+- **lidar_range data**: Only if obstacles or barriers are detected in environment analysis  
+- **Terrain-adaptive behavior**: Only if terrain complexity requires adaptive locomotion
+- **Environmental safety**: Focus on locomotion safety first, environmental hazards second
+
+**🚨 CRITICAL: WHEN ENVIRONMENT ANALYSIS SHOWS SIGNIFICANT FEATURES, INCLUDE ENVIRONMENTAL COMPONENTS! 🚨**
+
+**CLEAR DECISION RULES:**
+- **IF environment analysis shows gaps detected (>0)**: INCLUDE gap navigation components
+- **IF environment analysis shows obstacles detected (>0)**: INCLUDE obstacle avoidance components  
+- **IF terrain roughness > 20cm**: INCLUDE terrain adaptation components
+- **IF environment is truly flat with no features**: Focus foundation-only
+
+**EXAMPLE DECISION LOGIC:**
+- Environment shows "Total Gaps Detected: 457" → INCLUDE gap navigation
+- Environment shows "Total Obstacles Detected: 393" → INCLUDE obstacle avoidance  
+- Environment shows "Average Terrain Roughness: 65.5cm" → INCLUDE terrain adaptation
+- Environment shows "Flat terrain, no features" → Foundation locomotion only
+
+**FOUNDATION-FIRST VALIDATION:** Your reward function should prioritize stable basic locomotion (height, velocity, orientation) before adding environmental complexity. Simple environments should focus on natural walking patterns rather than forced environmental integration.
+
 **CRITICAL: GENTLE MOVEMENT REQUIREMENT**
 
 ALL reward functions MUST prioritize GENTLE, CONTROLLED, SUSTAINABLE movements:
 
-**MANDATORY GENTLENESS TARGETS:**
-- **Jump tasks:** 5-25cm height, 0.5-1.5 m/s velocity (NEVER >2m/s or >30cm!)
-- **Walk tasks:** Smooth, controlled steps (NO jarring or rapid movements!)
-- **March tasks:** Moderate knee lift 60-90°, gentle timing (NO sharp movements!)
-- **Sprint tasks:** Efficient acceleration, controlled power (NO extreme velocities!)
-- **Pace tasks:** Gentle lateral shifts, maintained balance (NO abrupt changes!)
+**TASK-SPECIFIC GENTLENESS TARGETS:**
 
-**ABSOLUTELY FORBIDDEN:**
-- Harsh, jerky, violent movements
-- Excessive jumping (>30cm height or >2.0 m/s velocity)
-- Rapid oscillations or instability
-- Energy-wasteful explosive behaviors
-- Uncontrolled impacts or landings
+**VERTICAL JUMP TASK REQUIREMENTS:**
+- **Height:** 5-25cm clearance (NEVER >30cm for basic vertical jumps)
+- **Velocity:** 0.5-1.5 m/s vertical (NEVER >2m/s for basic jumps)
+- **Coordination:** Bilateral synchronization with gentle loading/release
+- **Landing:** Controlled impact absorption with bilateral symmetry
+
+**WALKING TASK REQUIREMENTS:**
+- **Height:** 0.74m maintained (body height consistency during locomotion)
+- **Velocity:** Natural walking speeds 0.5-2.0 m/s forward
+- **Coordination:** Cross-pattern arm-leg coordination (opposite timing)
+- **Landing:** Controlled heel-to-toe contact progression
+
+**BACKFLIP TASK REQUIREMENTS:**
+- **Height:** 0.8-1.2m minimum (sufficient for complete 360° rotation)
+- **Flight time:** 0.8-1.2 seconds (complete rotation duration)
+- **Rotation:** 300-450°/second controlled (FULL 360° rotation - robot must complete entire backflip and land upright)
+- **Coordination:** Phase-specific arm patterns (backward swing → tuck → extend)
+- **Landing:** Controlled bilateral impact with upright orientation (robot lands on feet, not on back)
+
+**MARCH TASK REQUIREMENTS:**
+- **Height:** 0.74m maintained with controlled knee lift 60-90°
+- **Velocity:** Deliberate cadence 60-90 steps/minute
+- **Coordination:** Opposite arm-leg ceremonial patterns
+- **Landing:** Precise foot placement with controlled impact
+
+**SPRINT TASK REQUIREMENTS:**
+- **Height:** 0.74m maintained during high-speed movement
+- **Velocity:** 3.0-6.0 m/s forward (higher than walking)
+- **Coordination:** Reciprocal arm drive for forward propulsion
+- **Landing:** Controlled high-speed ground contact
+
+**PACE TASK REQUIREMENTS:**
+- **Height:** 0.74m maintained during lateral movement
+- **Velocity:** 0.5-1.5 m/s lateral (controlled sideways movement)
+- **Coordination:** Compensatory arms for lateral stability
+- **Landing:** Controlled lateral foot placement
+
+**TASK-SPECIFIC FORBIDDEN BEHAVIORS:**
+
+**For VERTICAL JUMP Tasks:**
+- Excessive jumping heights (>30cm for basic jumps)
+- Excessive velocities (>2.0 m/s for basic jumps)
+- Single-leg jumping instead of bilateral coordination
+- Harsh landing impacts
+
+**For WALKING Tasks:**
+- Same-side arm-leg coordination (robotic pattern)
+- Excessive height variation from 0.74m baseline
+- Harsh foot impacts or jarring steps
+- Missing heel-to-toe contact progression
+
+**For BACKFLIP Tasks:**
+- Insufficient height for rotation completion (<0.8m)
+- Excessive rotation speed (>500°/second unsafe)
+- Missing arm coordination phases
+- Landing without upright orientation (robot lands on back/side instead of feet)
+- Incomplete 360° rotation (partial backflips that don't result in upright landing)
+
+**For MARCH Tasks:**
+- Military-sharp movements (too rigid)
+- Inconsistent knee lift heights
+- Missing opposite arm-leg coordination
+- Rushed or uncontrolled timing
+
+**For SPRINT Tasks:**
+- Excessive energy waste
+- Poor forward propulsion efficiency
+- Missing reciprocal arm drive
+- Uncontrolled high-speed impacts
+
+**For PACE Tasks:**
+- Abrupt direction changes
+- Loss of lateral stability
+- Missing compensatory arm movement
+- Uncontrolled lateral momentum
+
+**UNIVERSAL GENTLE MOVEMENT PRINCIPLES:**
+- Smooth muscle loading and controlled release
+- Gradual transitions between movement phases
+- Controlled impact absorption during landings
+- Energy-efficient, sustainable motions
+- Natural human-like movement quality
 
 **REWARD THESE GENTLE BEHAVIORS:**
 - Smooth muscle loading and controlled release
@@ -22,6 +204,300 @@ ALL reward functions MUST prioritize GENTLE, CONTROLLED, SUSTAINABLE movements:
 - Controlled impact absorption during landings
 - Energy-efficient, sustainable motions
 - Natural human-like movement quality
+
+**UNDERSTANDING NATURAL WALKING BIOMECHANICS:**
+
+**FOOT CLEARANCE - THE "DRAGGY FEET" PROBLEM:**
+
+Many humanoid robots fail to achieve natural walking because they don't properly lift their feet during the swing phase, creating a "draggy" appearance where feet barely clear the ground or appear to slide.
+
+**Key Biomechanical Principles:**
+- **Natural foot clearance:** Humans naturally lift their toes 10-25mm above ground during mid-swing
+- **Swing phase technique:** The foot should be dorsiflexed (toes up) during swing to ensure clearance
+- **Safety margin:** Adequate clearance prevents tripping and creates natural, confident movement
+- **Phase timing:** Peak clearance occurs around mid-swing, not at toe-off or heel contact
+
+**Design Considerations for Foot Clearance Rewards:**
+- Measure foot height during swing phase (when not in ground contact)
+- Target natural human clearance ranges (10-25mm minimum)
+- Consider both minimum clearance and clearance trajectory smoothness
+- Account for ankle joint position (dorsiflexion) during swing
+- Penalize insufficient clearance that creates tripping risk
+
+**NATURAL ARM SWING - THE "ROBOTIC MOVEMENT" PROBLEM:**
+
+Robotic walking often exhibits unnatural arm patterns, including arms staying behind the body, same-side arm-leg coordination, or completely rigid arm positions. Natural human walking requires specific arm-leg coordination patterns.
+
+**Key Biomechanical Principles:**
+- **Cross-pattern coordination:** Left arm swings forward when right leg swings forward (opposite pattern)
+- **Natural amplitude:** Arms swing approximately 15-20° forward and 10-15° backward from vertical
+- **Pendulum motion:** Arms act as passive pendulums driven by shoulder rotation and body movement
+- **Energy efficiency:** Natural arm swing reduces walking energy cost by 5-12%
+- **Balance assistance:** Arms help maintain lateral balance and control rotational momentum
+
+**Common Robotic Arm Problems to Avoid:**
+- **"Negative side restriction":** Arms staying behind body, never swinging forward
+- **Same-side coordination:** Arms and legs on same side moving together (like robot march)
+- **Bilateral synchrony:** Both arms moving in same direction simultaneously
+- **Rigid positioning:** Arms held stiff without natural pendulum motion
+- **Excessive restriction:** Arms held close to body without natural swing
+
+**Design Considerations for Natural Arm Swing:**
+- Measure phase relationships between arm and leg movements
+- Reward reciprocal (opposite) arm-leg coordination patterns
+- Consider arm swing amplitude and timing relative to walking speed
+- Account for natural frequency coupling between arms and legs (1:1 ratio)
+- Ensure arms can swing forward past neutral position
+- Balance arm movement with overall gait stability
+
+**NATURAL HUMAN WALKING RHYTHM AND TIMING:**
+
+**Understanding Human Walking Cadence:**
+Many robotic walking implementations suffer from unnatural high-frequency movement that lacks the smooth, rhythmic quality of human walking.
+
+**Key Timing Principles:**
+- **Natural cadence:** Humans typically walk at 100-120 steps per minute (comfortable pace)
+- **Step duration:** Each step takes approximately 0.5-0.6 seconds at normal walking speed
+- **Swing phase timing:** Swing phase lasts about 40% of the complete step cycle
+- **Double support duration:** Brief periods (10-20% of cycle) when both feet are in contact
+- **Rhythm consistency:** Natural walking maintains predictable, steady rhythm
+
+**Common Robotic Timing Problems:**
+- **High-frequency stepping:** Rapid, choppy steps that lack natural flow
+- **Insufficient swing time:** Rushed swing phases that don't allow proper foot clearance
+- **Abrupt transitions:** Sharp, harsh changes between stance and swing phases
+- **Inconsistent cadence:** Irregular timing that disrupts natural walking rhythm
+
+**Design Considerations for Natural Walking Rhythm:**
+- Consider step cycle duration and phase timing relationships
+- Think about smooth transitions between stance and swing phases
+- Account for appropriate swing phase duration for foot clearance
+- Balance step frequency with movement smoothness
+- Reward consistent, rhythmic gait patterns rather than rushed movement
+
+**NATURAL HUMAN POSTURE AND BODY ALIGNMENT:**
+
+**Understanding Human Walking Posture:**
+Human walking requires specific postural alignment that many robots fail to achieve, often resulting in backward lean or unnatural body positioning.
+
+**Key Postural Principles:**
+- **Forward progression posture:** Humans maintain slight forward lean (2-5°) to facilitate forward momentum
+- **Upright torso alignment:** Torso remains relatively vertical with controlled forward inclination
+- **Anti-backward lean:** Backward lean disrupts natural walking mechanics and energy efficiency
+- **Dynamic balance:** Posture adjusts subtly throughout gait cycle while maintaining forward orientation
+
+**Common Robotic Posture Problems:**
+- **Backward lean:** Leaning backward disrupts natural walking biomechanics
+- **Excessive rigidity:** Overly stiff torso that lacks natural postural adjustments
+- **Poor vertical alignment:** Loss of upright posture during locomotion
+- **Static positioning:** Inability to maintain dynamic postural control during movement
+
+**Design Considerations for Natural Posture:**
+- Consider torso orientation relative to gravity and movement direction
+- Think about appropriate forward inclination for walking efficiency
+- Account for dynamic postural adjustments throughout gait cycle
+- Penalize backward lean that disrupts natural walking mechanics
+- Reward controlled, forward-oriented postural alignment
+
+**NATURAL ARM SWING AMPLITUDE AND FREEDOM:**
+
+**Understanding Natural Arm Movement:**
+Human arms swing freely as passive pendulums during walking, but many robots exhibit overly constrained or "tight" arm movement.
+
+**Key Arm Swing Principles:**
+- **Pendulum freedom:** Arms should move as natural pendulums, not rigid constraints
+- **Amplitude variation:** Arm swing amplitude increases naturally with walking speed
+- **Relaxed positioning:** Arms hang naturally from shoulders without excessive tension
+- **Speed-dependent swing:** Faster walking naturally produces larger arm movements
+
+**Common Robotic Arm Problems:**
+- **Overly tight constraints:** Arms held too close to body with restricted movement
+- **Rigid positioning:** Arms locked in fixed positions without natural swing
+- **Insufficient amplitude:** Arm swing too small for natural walking appearance
+- **Speed-invariant movement:** Arm swing doesn't adapt to walking speed changes
+
+**Design Considerations for Natural Arm Freedom:**
+- Consider arm movement amplitude relative to walking speed
+- Think about natural pendulum motion and relaxed arm positioning
+- Account for speed-dependent arm swing adaptation
+- Avoid excessive constraints that prevent natural arm movement
+- Reward arm movement that appears relaxed and natural
+
+**NATURAL ARM POSITIONING AND BODY PROXIMITY:**
+
+**Understanding Arm-Body Spatial Relationship:**
+While arms should swing freely as pendulums, human walking maintains arms relatively close to the body rather than extending far laterally, creating a natural movement envelope.
+
+**Key Arm Positioning Principles:**
+- **Body proximity:** Arms swing close to body, not far away or laterally extended
+- **Natural envelope:** Arm movement occurs within appropriate distance from torso centerline
+- **Controlled lateral range:** Arms maintain natural boundaries without excessive lateral extension
+- **Torso-relative positioning:** Arm swing stays within natural body-relative limits
+
+**Common Robotic Arm Positioning Problems:**
+- **Excessive lateral extension:** Arms swinging too far away from body centerline
+- **Wide arm positioning:** Arms held or moving at unnatural distances from torso
+- **Poor body-relative control:** Arm movement that doesn't maintain appropriate proximity to body
+- **Unnatural envelope:** Arm swing extending beyond natural human movement boundaries
+
+**Design Considerations for Natural Arm-Body Proximity:**
+- Consider arm spatial positioning relative to torso and natural body envelope
+- Think about appropriate lateral limits for natural arm movement while maintaining pendulum freedom
+- Account for body-relative arm positioning versus excessive lateral extension
+- Reward arm positioning that maintains natural proximity to body while allowing natural swing
+- Balance arm movement freedom with appropriate body-relative spatial control
+
+**ADVANCED BIOMECHANICAL PRINCIPLES FOR HUMAN-LIKE COORDINATION:**
+
+**CROSS-PATTERN COORDINATION MASTERY:**
+
+**Understanding Opposite-Phase Matching:**
+Natural human walking requires precise opposite-phase coordination where arms and legs move in anti-phase patterns for optimal energy efficiency and stability.
+
+**Key Cross-Pattern Principles:**
+- **Negative correlation requirement:** Left arm and left leg should never move forward simultaneously
+- **Phase-locked timing:** Arm swing peaks should occur at mid-stance of opposite leg
+- **Anti-synchrony detection:** Same-side arm-leg coordination indicates robotic, unnatural movement
+- **Temporal precision:** Optimal phase relationship occurs when right foot contact coincides with left arm forward peak
+
+**Design Considerations for Cross-Pattern Rewards:**
+- Consider measuring correlation between same-side arm-leg velocities (should be negative)
+- Think about timing relationships between arm swing peaks and opposite foot stance phases
+- Account for phase-locked coordination where arm maximum excursion aligns with opposite leg support
+- Reward consistent anti-phase patterns throughout walking cycles
+- Penalize any instances of same-side arm-leg synchronization
+
+**NATURAL ARM-SWING AMPLITUDE AND DYNAMICS:**
+
+**Understanding Target Range Enforcement:**
+Human arm swing has specific amplitude ranges that distinguish natural from artificial movement patterns.
+
+**Key Amplitude Principles:**
+- **Forward excursion:** 15-20° forward from vertical during natural walking
+- **Backward excursion:** 10-15° backward from vertical for optimal pendulum motion
+- **Smoothness requirement:** Arm movement should lack abrupt starts, stops, or jerk motions
+- **Energy efficiency:** Lower mechanical work indicates more natural pendulum-like motion
+
+**Design Considerations for Natural Arm Dynamics:**
+- Consider shoulder pitch angle measurements relative to vertical reference
+- Think about arm swing smoothness using acceleration or jerk penalties
+- Account for energy efficiency by measuring mechanical work done by shoulder/elbow joints
+- Reward amplitude within natural human ranges while penalizing excessive or restricted motion
+- Balance swing freedom with smoothness and energy efficiency requirements
+
+**PENDULUM-LIKE ARM COORDINATION:**
+
+**Understanding Timing Coupling:**
+Natural arms function as passive pendulums with specific frequency relationships to leg movement.
+
+**Key Pendulum Principles:**
+- **Period matching:** Arm swing period should match leg stride period (1:1 ratio)
+- **Passive dynamics:** Arms should move with minimal active muscular effort
+- **Frequency coupling:** Natural walking maintains consistent arm-leg frequency relationships
+- **Spectral coherence:** Arm and leg movements show strong frequency coupling in natural walking
+
+**Design Considerations for Pendulum Dynamics:**
+- Consider measuring period relationships between arm swing and leg stride cycles
+- Think about energy efficiency metrics for arm movement (lower work = more pendulum-like)
+- Account for frequency analysis comparing hip and shoulder movement patterns
+- Reward consistent 1:1 arm-leg frequency coupling
+- Promote passive pendulum motion over active arm control
+
+**FOOT CLEARANCE AND LEG-SWING COORDINATION:**
+
+**Understanding Toe-Clearance Precision:**
+Natural foot clearance follows specific patterns that ensure safety while maintaining energy efficiency.
+
+**Key Foot Clearance Principles:**
+- **Minimum clearance:** 10-25mm toe clearance during mid-swing phase
+- **Peak clearance:** 50-80mm maximum clearance for natural walking confidence
+- **Knee flexion profile:** Smooth bell-curve pattern peaking at ~60° during swing
+- **Trajectory smoothness:** Gradual rise and descent rather than abrupt foot movements
+
+**Design Considerations for Foot-Clearance Coordination:**
+- Consider measuring toe link height during swing phases with specific target ranges
+- Think about knee angle profiles that match natural bell-curve templates
+- Account for foot trajectory smoothness throughout swing phase
+- Reward optimal clearance ranges while penalizing insufficient or excessive lifting
+- Ensure coordination between knee flexion patterns and foot clearance timing
+
+**POSTURE AND DYNAMIC TORSO ALIGNMENT:**
+
+**Understanding Lean Monitoring and Balance:**
+Natural walking posture requires precise torso control that facilitates forward progression while maintaining stability.
+
+**Key Posture Principles:**
+- **Optimal lean range:** Torso pitch between -5° and +5° (slight forward lean preferred)
+- **Backward lean penalty:** Any backward lean beyond 0° disrupts natural walking mechanics
+- **Dynamic balance:** Torso center-of-mass should project appropriately within support polygon
+- **Support polygon control:** During single support, balance should maintain near centerline
+
+**Design Considerations for Posture Control:**
+- Consider torso pitch angle measurements relative to gravity and movement direction
+- Think about center-of-mass projection analysis during single-support phases
+- Account for dynamic balance requirements throughout walking cycles
+- Reward slight forward lean while strongly penalizing backward lean
+- Monitor balance control during challenging single-support phases
+
+**TEMPORAL FLOW AND NATURAL CADENCE:**
+
+**Understanding Rhythm and Phase Duration:**
+Natural walking has specific timing characteristics that distinguish it from mechanical, artificial movement.
+
+**Key Temporal Principles:**
+- **Natural cadence:** 100-120 steps per minute for comfortable human walking
+- **Phase duration ratios:** Stance phase ~60%, swing phase ~40% of total cycle
+- **Step timing consistency:** Regular, predictable timing between heel-strike events
+- **Rhythmic flow:** Consistent temporal patterns throughout walking sequences
+
+**Design Considerations for Temporal Control:**
+- Consider tracking heel-strike timestamps to measure step cadence
+- Think about stance-to-swing phase duration ratios for natural timing
+- Account for temporal consistency across multiple walking cycles
+- Reward cadence within natural human ranges
+- Promote rhythmic regularity over irregular or rushed stepping patterns
+
+**TRANSITION SMOOTHNESS AND CONTACT DYNAMICS:**
+
+**Understanding Phase-Boundary Control:**
+Natural walking transitions require smooth changes between movement phases without abrupt discontinuities.
+
+**Key Transition Principles:**
+- **Phase-boundary smoothness:** Minimal velocity/acceleration discontinuities at foot contact events
+- **Contact force gradation:** Gradual force ramp-up (<10ms) at heel-strike, gradual unloading at toe-off
+- **Joint coordination:** Hip, shoulder, and knee movements should transition smoothly between phases
+- **Impact control:** Controlled contact forces rather than harsh, sudden ground impact
+
+**Design Considerations for Smooth Transitions:**
+- Consider measuring velocity and acceleration continuity at foot contact boundaries
+- Think about contact force profiles during heel-strike and toe-off events
+- Account for smooth joint movement transitions between gait phases
+- Reward gradual force changes over abrupt impact patterns
+- Ensure coordination between all joints during phase transitions
+
+**NATURAL LEG BENDING AND KNEE FLEXION:**
+
+**Understanding Human Knee Movement:**
+Human walking involves specific knee flexion patterns during different phases of the gait cycle that create natural, efficient movement.
+
+**Key Knee Flexion Principles:**
+- **Swing phase flexion:** Knee bends significantly (60-70°) during swing to allow foot clearance
+- **Stance phase patterns:** Controlled knee flexion for shock absorption and weight transfer
+- **Natural progression:** Smooth transitions between flexion and extension phases
+- **Bilateral coordination:** Appropriate timing between left and right knee movements
+
+**Common Robotic Knee Problems:**
+- **Insufficient swing flexion:** Inadequate knee bending during swing phase
+- **Rigid leg movement:** Overly straight legs that lack natural joint articulation
+- **Poor timing patterns:** Knee flexion that doesn't match natural gait phases
+- **Excessive stiffness:** Knee movements that appear mechanical rather than fluid
+
+**Design Considerations for Natural Knee Movement:**
+- Consider knee flexion angles during different gait phases
+- Think about smooth transitions between flexion and extension
+- Account for bilateral coordination of knee movements
+- Reward natural knee articulation patterns
+- Balance knee flexibility with stability requirements
 
 **IMPLEMENTATION EXAMPLE:**
 ```python
@@ -50,6 +526,48 @@ You are tasked with creating the **MOST EFFECTIVE** reward function possible for
 
 **Think Beyond Templates:** The analysis frameworks below are tools to help you understand the movement, but your final reward function should be uniquely designed for optimal performance on this specific task!
 
+**SPECIFIC WALKING GAIT CHALLENGES TO ADDRESS:**
+
+**For WALKING Tasks - "The Natural Human Walking Challenge":**
+- **Core Challenge:** Creating natural, energy-efficient bipedal locomotion with proper foot clearance and arm coordination
+- **Foot Clearance Issues:** Understanding why "draggy feet" occur and how to encourage proper swing phase foot lifting
+- **Arm Swing Problems:** Recognizing robotic arm patterns and promoting natural cross-pattern coordination
+- **Creative Opportunities:** How do you reward the effortless flow of natural human walking? Consider:
+  - Smooth heel-to-toe foot progression with adequate ground clearance
+  - Natural pendulum-like arm swing that opposes leg movement
+  - Energy-efficient momentum conservation between steps
+  - Rhythmic cadence that matches natural human walking patterns
+- **Innovation Ideas:** 
+  - Multi-phase foot clearance analysis (toe-off → peak clearance → heel contact)
+  - Cross-correlation between arm and leg movements for natural timing
+  - Momentum flow analysis to reward energy-efficient walking
+  - Gait symmetry metrics that account for natural bilateral coordination
+- **Mastery Metrics:** What distinguishes "natural human-like" walking from "functional robotic" walking?
+  - Smooth, controlled foot clearance without drag or excessive lift
+  - Reciprocal arm-leg timing that matches human biomechanics
+  - Energy efficiency that minimizes metabolic cost
+  - Stable, rhythmic gait patterns that adapt to speed changes
+
+**BIOMECHANICAL EDUCATION FOR REWARD DESIGN:**
+
+**Understanding Human Gait Phases:**
+- **Stance Phase (60%):** Weight-bearing phase with heel contact, foot flat, heel-off, toe-off
+- **Swing Phase (40%):** Non-weight-bearing phase with acceleration, mid-swing, deceleration
+- **Double Support:** Brief periods when both feet contact ground during transitions
+- **Phase Transitions:** Critical moments requiring smooth coordination between stance and swing
+
+**Natural Coordination Patterns:**
+- **Alternating Support:** Weight shifts between legs in predictable rhythm
+- **Pendulum Mechanics:** Leg swing uses gravity and momentum for energy efficiency  
+- **Counter-rotation:** Arms and torso provide rotational balance for leg movements
+- **Temporal Coupling:** Natural frequency relationships between different body segments
+
+**Movement Quality Indicators:**
+- **Smoothness:** Gradual transitions without abrupt changes in velocity or direction
+- **Efficiency:** Achievement of locomotion goals with minimal energy expenditure
+- **Stability:** Maintained balance and controlled center of mass throughout gait cycle
+- **Naturalness:** Movement patterns that match human biomechanical principles
+
 The Isaac Lab environment structure is:
 
 {task_obs_code_string}
@@ -65,6 +583,37 @@ Essential Isaac Lab API access patterns:
 - Contact: `contact_sensor = env.scene.sensors["contact_forces"]`
 - Commands: `commands = env.command_manager.get_command("base_velocity")`
 - Feet: `foot_ids, _ = contact_sensor.find_bodies(".*_ankle_roll_link")`
+
+The environment's ContactSensor named "contact_forces" was spawned with:
+```yaml
+ContactSensorCfg:
+  prim_path: "/World/envs/env_.*/Robot/.*_ankle_roll_link"
+  force_threshold: 50.0
+  track_air_time: True
+```
+
+It exposes:
+- data.net_forces_w: FloatTensor [num_envs, 2, 3] of foot-link forces
+- data.current_air_time / data.current_contact_time: FloatTensor [num_envs, 2] of timing
+
+**IMU Sensor Specification:**
+An IMU sensor named "imu" can be spawned via an ImuCfg:
+```yaml
+ImuCfg:
+  prim_path: "/World/envs/env_.*/Robot/torso_link"
+  update_period: 0.02  # 50 Hz
+  gravity_bias: [0.0, 0.0, 9.81]
+```
+
+**Exposed IMU fields** in `env.scene.sensors["imu"].data`:
+- `pos_w`, `quat_w`: World position/orientation [num_envs, 3/4]
+- `lin_vel_b`, `ang_vel_b`: Body-frame velocity [num_envs, 3]
+- `lin_acc_b`, `ang_acc_b`: Body-frame acceleration [num_envs, 3]
+
+**Backflip IMU Usage:**
+- Head-pitch angles: Extract from `quat_w` using quaternion-to-euler conversion
+- Yaw angular velocity: Use `ang_vel_b[:, 2]` (Z-axis in body frame)
+- Spatial awareness: Use `pos_w` and `quat_w` for rotation monitoring
 
 ## **Video Analysis Framework**
 
@@ -108,6 +657,17 @@ Use these problem frameworks as **INSPIRATION** for deeper creative thinking abo
 - **Innovation Ideas:** Multi-scale symmetry (joint-level + force-level), preparatory tension measurement, landing impact prediction
 - **Mastery Metrics:** What distinguishes an "adequate" jump from a "beautiful" jump in terms of measurable biomechanics?
 
+**Advanced Jump Reward Design Considerations:**
+- **Center-of-Mass Trajectory Rewards:** How do you reward smooth parabolic CoM arcs with apex timing at 0.15-0.20s into flight phase?
+- **Ground Reaction Force Shaping:** How do you reward smooth force rise over 40-60ms during push-off, peaking at 1.2-1.5× body weight, with landing impulse <30ms rise time and <2.5× body weight peak?
+- **Joint-Angle Precision:** How can you reward proper preparation angles (hip flexion 20-30°, knee 60-90°, ankle neutral→dorsiflexion) and take-off positioning (hip extension 10-15° past neutral, knee full extension, ankle slight plantarflexion)?
+- **Temporal Phase Precision:** How can you reward appropriate phase durations (Preparation 0.15-0.25s, Take-off 0.10-0.15s, Flight 0.20-0.40s, Landing 0.15-0.25s)?
+- **Coronal-Plane & Yaw Stability:** How do you maintain body roll within ±5° throughout all phases and limit yaw drift around vertical axis?
+- **Energy & Jerk Metrics:** How can you track integrated joint torque (reward lower totals for efficiency) and penalize angular jerk spikes especially at take-off and landing?
+- **Foot Clearance & Placement:** How do you reward 10-25mm toe clearance during early flight and foot orientation within ±5° of level at landing contact?
+- **Head & Torso Cues:** How can you maintain upright torso pitch within ±5° during flight and encourage slight head upward pitch during ascent then forward/downward to spot landing?
+- **Failure Mode Prevention:** How do you heavily penalize early touchdown before minimum flight duration, asymmetric take-off, or uneven foot contact forces at landing?
+
 **For WALKING Tasks - "The Pendulum Elegance Challenge":**
 - **Core Challenge:** Capturing the natural efficiency of human walking's inverted pendulum mechanics
 - **Beyond Basic Solutions:** Think about energy recycling between steps, optimal cadence discovery, natural rhythm emergence
@@ -135,6 +695,41 @@ Use these problem frameworks as **INSPIRATION** for deeper creative thinking abo
 - **Creative Opportunities:** How do you reward graceful lateral movement that maintains forward momentum? Think about minimal stability disruption, efficient direction changes
 - **Innovation Ideas:** Lateral efficiency metrics, stability maintenance assessment, directional transition analysis, spatial precision tracking
 - **Mastery Metrics:** What makes lateral movement "fluid" vs "choppy"? How do you measure directional elegance?
+
+**For BACKFLIP Tasks - "The Rotational Mastery Challenge":**
+- **Core Challenge:** Coordinating explosive takeoff with controlled rotation and safe landing
+- **Beyond Basic Solutions:** Consider angular momentum conservation, spatial awareness during rotation, preparation-to-landing flow
+- **Creative Opportunities:** How do you reward the perfect integration of power, rotation, and control? Think about rotational efficiency, landing precision, movement fluidity
+- **Innovation Ideas:** Rotation completion metrics, landing accuracy assessment, takeoff momentum analysis, body positioning control
+- **Mastery Metrics:** What distinguishes "controlled acrobatic skill" from "dangerous tumbling"? How do you measure rotational elegance?
+
+**Advanced Backflip Reward Design Considerations:**
+- **Center-of-Mass Trajectory Rewards:** How do you reward smooth parabolic CoM arcs with optimal apex timing?
+- **Angular Acceleration Control:** How can you encourage gradual torque ramp-up and controlled deceleration to prevent jerk?
+- **Ground Reaction Force Shaping:** How do you reward appropriate force profiles during take-off and landing phases?
+- **Joint-Specific Coordination:** How can you reward optimal hip extension, ankle plantarflexion, and spine control?
+- **Tuck Efficiency Metrics:** How do you measure and reward compact tuck positioning for angular momentum optimization?
+- **Temporal Phase Precision:** How can you reward appropriate phase durations and smooth transitions?
+- **Coronal-Plane Stability:** How do you prevent and penalize off-axis rotation while maintaining flip control?
+- **Energy Efficiency Assessment:** How can you reward achieving rotation goals with minimal joint torque expenditure?
+- **Failure Mode Prevention:** How do you identify and prevent critical failure patterns before they become dangerous?
+- **Support Polygon / CoM Projection:** How do you ensure CoM stays within the convex hull of the feet during prep and landing prep phases?
+- **Contact Ratio Checks:** How can you verify both feet share ≥45% of vertical force during takeoff prep, and each foot contact impulse is within ±10% of the other during landing?
+- **Yaw & Pitch Coupling:** How do you limit yaw angular velocity to <30°/s during rotation while maintaining pitch-only spin?
+- **Phase-Gated Smoothness Metric:** How can you compute maximum joint-torque jerk in each phase and enforce <Tₘₐₓ per 10ms?
+- **Visual / Sensor Cue Integration:** How do you use IMU orientation for spotting cues with head-pitch >+10° in early rotation and <-10° before landing?
+
+**BACKFLIP ARM CONTROL MASTERY CONSIDERATIONS:**
+- **Preparation Phase Arm Loading:** How do you reward optimal arm positioning for momentum generation, including shoulder retraction and elbow extension preparation?
+- **Takeoff Drive Arm Coordination:** How can you measure and reward synchronized arm swing timing with explosive leg extension for maximum rotational impulse?
+- **Rotation Phase Arm Tucking:** How do you reward efficient arm tuck transitions that optimize angular momentum conservation during rotation?
+- **Landing Approach Arm Extension:** How can you reward controlled arm extension timing that provides rotational deceleration and stability preparation?
+- **Bilateral Arm Symmetry:** How do you ensure both arms contribute equally to rotation initiation and control throughout all phases?
+- **Shoulder-Elbow Coordination:** How can you reward optimal shoulder and elbow joint coordination that maximizes rotational efficiency?
+- **Arm-Leg Integration:** How do you measure and reward proper coordination between arm drive and leg extension during takeoff?
+- **Rotational Momentum Contribution:** How can you assess and reward the arm contribution to total angular momentum generation?
+- **Arm Stability Control:** How do you reward arm positioning that maintains rotational axis stability and prevents off-axis rotation?
+- **Landing Recovery Arm Support:** How can you reward arm positioning that assists balance recovery and impact absorption during landing?
 
 ## **Reward Engineering Best Practices**
 
@@ -239,6 +834,37 @@ Before coding, ask yourself:
 
 **Your goal:** Create a reward function that produces natural, efficient, biomechanically-sound movement that follows proper phase progression, resembles the demonstrated behavior while avoiding pathological patterns, and ensures complete movement cycles with smooth phase transitions.
 
+**AVOIDING REWARD DESIGN TRAPS THAT BLOCK SKILL LEARNING**
+
+**Critical Awareness: Local Minima in Skill Development**
+Poorly designed rewards can trap robots in "comfort zones" where they achieve moderate rewards through simple behaviors but never learn the complex skills you intend. Understanding these traps helps design rewards that guide genuine skill mastery.
+
+**Common Skill-Blocking Traps to Avoid:**
+
+**Stationary Comfort Zone:** Robot learns that not moving provides stable rewards and avoids attempting target movements. Prevention: Weight movement-tracking rewards higher when movement commands are significant.
+
+**Minimal Effort Exploitation:** Robot performs tiny movements that technically satisfy tracking but don't develop real locomotion skills. Prevention: Use appropriate reward tolerances that require meaningful movement amplitude.
+
+**Threshold Gaming:** Robot exploits binary sensor thresholds by hovering at exact boundaries rather than committing to decisive actions. Prevention: Use smooth gradient rewards instead of hard binary cutoffs.
+
+**Single Strategy Fixation:** Robot discovers one movement pattern that works adequately and never explores the full complexity needed for skill mastery. Prevention: Design rewards that progressively require more sophisticated coordination.
+
+**Component Competition:** Multiple reward terms fight against each other, causing compromise behaviors that excel at nothing. Prevention: Ensure all reward components work synergistically toward the same movement objective.
+
+**Short-Term Myopia:** Robot optimizes each moment independently without considering movement sequences or skill completion. Prevention: Include temporal rewards that span multiple timesteps and reward complete movement cycles.
+
+**Design Strategies for Genuine Skill Learning:**
+
+**Command-Responsive Weighting:** Adjust reward priorities based on movement commands. When commands request significant movement, prioritize tracking and coordination. When commands are minimal, emphasize stability.
+
+**Progressive Complexity:** Structure rewards to initially allow simpler approximations, then progressively demand more precision and completeness as training advances.
+
+**Multi-Phase Temporal Design:** Include rewards for immediate safety, medium-term movement patterns, and longer-term skill completion to prevent short-sighted optimization.
+
+**Robust Measurement:** Use multiple sensor modalities and gradient-based thresholds that resist gaming while encouraging decisive, committed movements.
+
+**Skill Verification:** Regularly verify that the easiest path to high rewards actually corresponds to correct skill execution, not clever shortcuts or alternative behaviors.
+
 **FINAL CREATIVE MANDATE:**
 
 **Remember:** You are not just implementing a template - you are **ENGINEERING MOVEMENT EXCELLENCE!** 
@@ -251,4 +877,108 @@ Your goal is **GAIT-SPECIFIC MASTERY** - capture the unique essence of this move
 
 **Your reward function should be a work of biomechanical art that produces naturally beautiful, efficient movement!**
 
-IMPORTANT: Provide ONLY the Python code wrapped in ```python ``` blocks. Do NOT include explanations, analysis, or commentary. The system will automatically extract your code.
+**RL CAPABILITY FOR PHASE-BASED BEHAVIORS - ADVANCED TEMPORAL LEARNING:**
+
+**YES - RL IS HIGHLY CAPABLE OF LEARNING COMPLEX PHASE-BASED BEHAVIORS:**
+
+Modern RL algorithms excel at learning sophisticated temporal patterns and phase relationships. Successful examples include:
+
+**PROVEN RL PHASE-LEARNING SUCCESSES:**
+- **ETH Zurich ANYmal:** Learned complex quadruped gaits with phase-coordinated leg movements
+- **Boston Dynamics Simulation:** RL-trained humanoid locomotion with arm-leg coordination
+- **Cassie Bipedal Robot:** Learned dynamic walking with proper swing-stance phase timing
+- **Unitree Robot Learning:** RL-based locomotion with natural gait phase transitions
+- **Parkour RL Systems:** Learned multi-phase jumping, landing, and recovery sequences
+
+**HOW RL LEARNS PHASE-BASED BEHAVIORS:**
+- **Temporal Credit Assignment:** RL traces rewards back through time, learning which early actions lead to later success
+- **Recurrent Networks:** LSTM/GRU networks in policies maintain memory of current phase state
+- **Phase-Aware Rewards:** Reward functions can explicitly recognize and reward proper phase transitions
+- **Exploration of Temporal Patterns:** RL naturally discovers optimal timing through trial and error
+- **Multi-Timescale Learning:** RL handles both fast (joint control) and slow (phase transitions) dynamics
+
+**DESIGN STRATEGIES FOR PHASE-BASED RL REWARDS:**
+
+**1. Phase Detection Rewards:**
+```python
+# Detect current phase based on contact state and joint positions
+current_phase = detect_movement_phase(robot, contact_sensor)
+phase_appropriate_reward = reward_phase_specific_behavior(current_phase, robot_state)
+```
+
+**2. Phase Transition Rewards:**
+```python
+# Reward smooth transitions between phases
+transition_quality = measure_phase_transition_smoothness(prev_phase, current_phase, robot_dynamics)
+transition_reward = torch.exp(-transition_quality * smoothness_scale)
+```
+
+**3. Temporal Sequence Rewards:**
+```python
+# Reward completing full movement cycles
+cycle_completion = detect_complete_movement_cycle(phase_history)
+sequence_reward = torch.where(cycle_completion, cycle_bonus, torch.zeros_like(cycle_completion))
+```
+
+**4. Multi-Phase Coordination Rewards:**
+```python
+# Reward coordination between different body parts across phases
+arm_leg_coordination = measure_phase_appropriate_coordination(arms, legs, current_phase)
+coordination_reward = reward_optimal_coordination_for_phase(arm_leg_coordination, current_phase)
+```
+
+**ADVANCED RL PHASE LEARNING TECHNIQUES:**
+
+**Curriculum Learning for Phases:**
+- Start with simple single-phase behaviors (e.g., just takeoff)
+- Gradually add complexity (takeoff → flight → landing)
+- Finally learn complete multi-phase sequences
+
+**Phase-Conditioned Policies:**
+- Provide current phase as input to policy network
+- Allow policy to adapt behavior based on movement phase
+- Enable phase-specific action distributions
+
+**Hierarchical RL for Complex Sequences:**
+- High-level policy chooses movement phases
+- Low-level policy executes phase-specific actions
+- Enables learning of very complex multi-phase behaviors
+
+**Memory-Augmented RL:**
+- Use LSTM/GRU to remember recent history
+- Enables policies to maintain phase state information
+- Allows for anticipatory behavior based on phase progression
+
+**SUCCESS FACTORS FOR PHASE-BASED RL:**
+
+**1. Clear Phase Definitions:**
+- Define phases based on observable state (contact, joint angles, velocities)
+- Ensure phases are mutually exclusive and collectively exhaustive
+- Make phase transitions detectable by the reward function
+
+**2. Phase-Appropriate Reward Weighting:**
+- Different reward components should dominate in different phases
+- Balance immediate safety with long-term phase completion
+- Ensure phase-specific rewards guide learning effectively
+
+**3. Temporal Reward Design:**
+- Include both instantaneous and cumulative rewards
+- Reward phase completion, not just phase execution
+- Consider multi-timestep reward windows for smooth learning
+
+**4. Exploration Encouragement:**
+- Include exploration bonuses for visiting all phases
+- Prevent getting stuck in single-phase local minima
+- Encourage full movement cycle exploration
+
+**CONCLUSION: RL IS EXCELLENT FOR PHASE-BASED LEARNING**
+
+Modern RL systems routinely learn complex temporal behaviors including:
+- Multi-phase locomotion patterns
+- Coordinated arm-leg sequences
+- Dynamic balance across phase transitions
+- Anticipatory behavior for upcoming phases
+
+The key is designing reward functions that capture the phase-specific requirements while allowing the RL algorithm's temporal learning capabilities to discover optimal coordination patterns.
+
+IMPORTANT: Provide ONLY the Python code wrapped in ```python ```

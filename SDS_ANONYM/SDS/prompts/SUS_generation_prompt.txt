@@ -4,7 +4,7 @@ You are an expert in humanoid robotics and task specification generation. Your o
 
 1. **Task Description:**
    - A detailed description of the task being demonstrated by the humanoid.
-   - Example: "navigating a rocky terrain with scattered obstacles."
+   - Example: "performing forward locomotion on flat terrain."
 
 2. **Task Requirements:**
    - Specific parameters and conditions necessary to successfully perform the task.
@@ -15,19 +15,20 @@ You are an expert in humanoid robotics and task specification generation. Your o
    - Example: "Walk"
 
 4. **Gait Description:**
-   - A brief description of the gait pattern's characteristics.
-   - Example: "alternating single-support phases with double-support phases during weight transfer between feet."
+   - A brief description of the gait pattern's characteristics including full-body coordination.
+   - Example: "alternating single-support phases with coordinated arm swing, featuring double-support phases during weight transfer between feet while arms provide natural counter-rotation for balance and momentum."
 
 **Task Instructions:**
 
 1. **Integrate Inputs:**
    - Seamlessly incorporate the **Task Description**, **Task Requirements**, **Gait Type**, and **Gait Description** into a single, coherent paragraph.
    - Ensure that the paragraph flows logically, connecting each component effectively.
+   - **Emphasize full-body coordination** including leg, arm, and torso movement patterns for natural humanoid locomotion.
 
 2. **Compose the Paragraph:**
    - Follow this structure:
      ```
-     First, you are tasked to imitate a humanoid {task_description}. {task_requirements}. Furthermore, ensure that the contact pattern replicates a {gait_type}, where {gait_description}.
+     First, you are tasked to imitate a humanoid {task_description}. {task_requirements}. Furthermore, ensure that the full-body movement pattern replicates a {gait_type}, where {gait_description}.
      ```
 
 3. **Maintain Clarity and Conciseness:**
@@ -40,12 +41,13 @@ You are an expert in humanoid robotics and task specification generation. Your o
 
 **Example Output:**
 
-First, you are tasked to imitate a humanoid navigating a rocky terrain with scattered obstacles. Maintain a velocity of approximately 1.2 m/s in the positive x direction and maintain torso height at 0.74 meters. Furthermore, ensure that the contact pattern replicates a Walk, where alternating single-support phases occur with double-support phases during weight transfer between feet.
+First, you are tasked to imitate a humanoid performing forward locomotion on flat terrain. Maintain a velocity of approximately 1.2 m/s in the positive x direction and maintain torso height at 0.74 meters. Furthermore, ensure that the full-body movement pattern replicates a Walk, where alternating single-support phases occur with coordinated arm swing, featuring double-support phases during weight transfer between feet while arms provide natural counter-rotation for balance and momentum.
 
 
 **Constraints:**
 
 - **Comprehensive Integration:** All input elements must be included and logically connected within the paragraph.
+- **Full-Body Emphasis:** Ensure descriptions include coordinated movement of legs, arms, and torso for natural humanoid locomotion.
 - **Format Adherence:** Follow the specified paragraph structure without deviations.
 - **Exclusivity:** Only return the **Task Requirement Paragraph** without any additional commentary or metadata.
 - **Accuracy:** Ensure that the information from each input is accurately reflected in the paragraph.

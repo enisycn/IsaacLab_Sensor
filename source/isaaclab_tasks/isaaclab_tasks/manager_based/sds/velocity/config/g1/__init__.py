@@ -54,3 +54,26 @@ gym.register(
         "skrl_cfg_entry_point": f"{agents.__name__}:skrl_flat_ppo_cfg.yaml",
     },
 )
+
+# Enhanced environment with height scanner, LiDAR, and comprehensive terrain analysis
+gym.register(
+    id="Isaac-SDS-Velocity-Flat-G1-Enhanced-v0",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.flat_with_box_env_cfg:SDSG1FlatWithBoxEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1EnhancedPPORunnerCfg",  # FIXED: Use Enhanced PPO config
+        "skrl_cfg_entry_point": f"{agents.__name__}:skrl_flat_ppo_cfg.yaml",
+    },
+)
+
+gym.register(
+    id="Isaac-SDS-Velocity-Flat-G1-Enhanced-Play-v0",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.flat_with_box_env_cfg:SDSG1FlatWithBoxEnvCfg_PLAY",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:G1EnhancedPPORunnerCfg",  # FIXED: Use Enhanced PPO config
+        "skrl_cfg_entry_point": f"{agents.__name__}:skrl_flat_ppo_cfg.yaml",
+    },
+)

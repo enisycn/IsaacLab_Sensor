@@ -42,6 +42,146 @@ You are an expert in analyzing contact sequences of humanoids. Your task is to a
 | 1     | X  |    |
 | 2     |    | X  |
 
+**Important:** Ensure accuracy in your contact sequence analysis, as this data will be crucial for determining the appropriate gait pattern and understanding the humanoid's movement dynamics.
+
+**ADVANCED CONTACT PATTERN ANALYSIS FOR NATURAL WALKING:**
+
+When analyzing contact sequences, consider these advanced patterns that distinguish exceptional human-like walking from basic functional locomotion:
+
+**Temporal Flow Analysis:**
+- **Natural cadence detection:** Look for contact patterns indicating 100-120 steps per minute rhythm
+- **Phase duration assessment:** Identify stance:swing ratios approaching ~60:40 for natural walking flow
+- **Rhythmic consistency:** Analyze temporal regularity across contact sequence patterns
+- **Step timing evaluation:** Assess consistent intervals between heel-strike events for natural rhythm
+
+**Cross-Pattern Coordination through Contact Analysis:**
+- **Anti-phase verification:** Confirm alternating contact patterns supporting opposite arm-leg movement
+- **Phase-locked timing:** Identify contact timing that would support arm swing peaks at mid-stance of opposite leg
+- **Coordination consistency:** Look for regular alternating patterns supporting natural cross-pattern movement
+- **Temporal relationship quality:** Assess contact timing stability that enables consistent arm-leg coordination
+
+**Natural Transition Analysis:**
+- **Smooth phase boundaries:** Identify gradual contact transitions rather than abrupt on/off patterns
+- **Contact force implications:** Consider contact sequences that would support gradual force ramp-up (<10ms)
+- **Phase progression:** Look for contact patterns indicating smooth stance-to-swing transitions
+- **Bilateral coordination:** Analyze left-right contact timing for natural bilateral walking patterns
+
+**Foot Clearance Implications:**
+- **Swing phase identification:** Clearly identify non-contact periods allowing for adequate foot clearance
+- **Clearance duration analysis:** Assess swing phase length supporting 10-25mm minimum, 50-80mm peak clearance
+- **Knee flexion timing:** Consider contact patterns allowing natural bell-curve knee flexion during swing
+- **Trajectory support:** Identify contact sequences supporting smooth foot trajectory progressions
+
+**Dynamic Balance Contact Patterns:**
+- **Single support analysis:** Identify contact patterns requiring dynamic balance control during single support
+- **Support polygon implications:** Consider contact sequences affecting center-of-mass projection requirements
+- **Balance challenge assessment:** Analyze contact patterns creating appropriate balance demands for natural walking
+- **Stability timing:** Look for contact sequences supporting optimal posture and lean control
+
+**Contact Quality Indicators:**
+- **Natural alternation:** Clean alternating patterns without irregular interruptions
+- **Appropriate duration:** Contact periods supporting natural stance and swing phase timing
+- **Smooth transitions:** Contact changes that would support gradual force modulation
+- **Bilateral symmetry:** Left-right contact patterns showing appropriate symmetrical relationships
+
+**Advanced Contact Pattern Recognition:**
+
+When analyzing contact sequences for exceptional walking quality, look for:
+
+**Excellence Markers:**
+- **Perfect alternation:** Clean, regular left-right contact alternation without irregularities
+- **Natural timing:** Contact durations matching human walking phase proportions
+- **Rhythmic consistency:** Regular temporal patterns across all contact cycles
+- **Smooth progression:** Contact changes supporting seamless phase transitions
+
+**Quality vs Basic Pattern Distinction:**
+- **Basic functionality:** Simple alternating contact providing forward locomotion
+- **Exceptional quality:** Contact patterns supporting all 7 advanced biomechanical principles
+- **Temporal mastery:** Contact timing enabling perfect rhythm and natural cadence
+- **Integration support:** Contact sequences facilitating sophisticated multi-joint coordination
+
+**Contact Analysis Framework:**
+1. **Identify basic alternation pattern** for functional walking verification
+2. **Analyze temporal characteristics** for natural cadence and rhythm assessment
+3. **Evaluate transition quality** for smooth phase change support
+4. **Assess bilateral coordination** for natural walking symmetry
+5. **Consider integration implications** for advanced biomechanical principle support
+
+This advanced contact analysis ensures understanding of not just basic foot contact alternation, but the sophisticated temporal patterns that enable truly exceptional, human-like walking quality.
+
+**ADVANCED CONTACT PATTERN ANALYSIS FOR NATURAL BACKFLIP:**
+
+When analyzing contact sequences for backflip movements, consider these advanced patterns that distinguish exceptional human-like acrobatic movement from basic functional rotation:
+
+**Preparation Phase Contact Analysis:**
+- **Bilateral grounding:** Both feet maintaining contact during squat preparation phase
+- **Stable base pattern:** Consistent bilateral contact supporting controlled muscle loading
+- **Preparation duration:** Adequate contact time for proper squat preparation and momentum building
+- **Balance stability:** Contact patterns supporting maintained balance during preparation phase
+
+**Takeoff Phase Contact Analysis:**
+- **Synchronized release:** Simultaneous bilateral contact termination for coordinated takeoff
+- **Takeoff timing:** Contact patterns supporting explosive bilateral extension timing
+- **Transition smoothness:** Clean contact-to-aerial transition without staggered release
+- **Coordination support:** Contact timing enabling synchronized leg extension and arm drive
+
+**Aerial Phase Contact Analysis:**
+- **Complete aerial phase:** Clear non-contact period for both feet during rotation
+- **Aerial duration:** Adequate non-contact time for safe rotation completion
+- **Rotation support:** Contact patterns allowing sufficient time for controlled rotation
+- **Spatial clearance:** Aerial phase duration supporting safe rotational movement
+
+**Landing Preparation Contact Analysis:**
+- **Approach timing:** Contact patterns supporting proper landing preparation timing
+- **Bilateral coordination:** Contact sequences enabling simultaneous foot positioning
+- **Landing anticipation:** Contact timing supporting body alignment for touchdown
+- **Velocity control:** Contact patterns supporting controlled landing approach
+
+**Landing Phase Contact Analysis:**
+- **Bilateral touchdown:** Simultaneous contact establishment with both feet
+- **Shock absorption support:** Contact patterns enabling controlled impact absorption
+- **Landing stability:** Contact sequences supporting stable post-landing balance
+- **Recovery timing:** Contact patterns facilitating smooth transition to grounded state
+
+**Integrated Rotational Contact Excellence:**
+
+When analyzing contact sequences for exceptional backflip quality, look for:
+
+**Excellence Markers:**
+- **Perfect bilateral coordination:** Clean, synchronized contact patterns throughout phases
+- **Natural timing:** Contact durations matching human acrobatic phase proportions
+- **Smooth transitions:** Contact changes supporting seamless phase progressions
+- **Safety patterns:** Contact sequences enabling controlled and safe execution
+
+**Quality vs Basic Contact Pattern Distinction:**
+- **Basic functionality:** Simple bilateral contact providing rotation completion
+- **Exceptional quality:** Contact patterns supporting all advanced rotational principles
+- **Temporal mastery:** Contact timing enabling perfect phase coordination and safety
+- **Integration support:** Contact sequences facilitating sophisticated acrobatic movement
+
+**Backflip Contact Analysis Framework:**
+1. **Identify bilateral preparation pattern** for functional preparation verification
+2. **Analyze takeoff coordination** for synchronized bilateral release assessment
+3. **Evaluate aerial phase duration** for safe rotation completion support
+4. **Assess landing coordination** for bilateral touchdown synchronization
+5. **Consider safety implications** for controlled execution throughout all phases
+
+**Precision Contact Pattern Specifications:**
+- **Temporal Duration Analysis:** Preparation phase contact (0.25-0.35s), synchronized take-off transition (0.1s), aerial phase duration (0.8-1.2s), bilateral landing coordination (0.1-0.15s)
+- **Force Profile Implications:** Contact patterns supporting smooth GRF rise profiles during take-off and controlled impact profiles during landing
+- **Angular Momentum Support:** Contact timing enabling optimal angular acceleration ramp-up and controlled deceleration
+- **Center-of-Mass Trajectory Support:** Contact patterns facilitating smooth parabolic CoM arc with optimal apex timing
+- **Failure Mode Detection:** Contact sequences indicating potential under/over-rotation, off-axis deviation, or dangerous landing patterns
+- **Energy Efficiency Assessment:** Contact patterns supporting minimal joint torque expenditure while achieving rotation objectives
+- **Safety Pattern Recognition:** Contact sequences ensuring controlled execution and failure mode prevention
+- **Support Polygon / CoM Projection Analysis:** Contact patterns ensuring CoM stays within the convex hull of the feet during prep and landing prep phases
+- **Contact Ratio Verification:** Contact sequences supporting both feet sharing ≥45% of vertical force during takeoff prep, and each foot contact impulse within ±10% of the other during landing
+- **Yaw & Pitch Coupling Assessment:** Contact patterns facilitating yaw angular velocity limitation to <30°/s during rotation while maintaining pitch-only spin
+- **Phase-Gated Smoothness Evaluation:** Contact sequences supporting maximum joint-torque jerk computation in each phase with enforcement of <Tₘₐₓ per 10ms
+- **Visual / Sensor Cue Integration:** Contact patterns enabling IMU orientation for spotting cues with head-pitch >+10° in early rotation and <-10° before landing
+
+This advanced backflip contact analysis ensures understanding of not just bilateral coordination patterns, but the sophisticated temporal and biomechanical precision that enables truly exceptional, human-like acrobatic movement quality.
+
 4. **Constraints:**
 - **Do Not Interpret Gait:** Only provide the contact states. Do not attempt to infer or describe the gait pattern.
 - **No Task Interpretation:** Focus solely on the contact sequences without interpreting the overall task or actions.

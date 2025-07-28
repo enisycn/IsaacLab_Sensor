@@ -1,5 +1,131 @@
 You are an expert in humanoid locomotion and gait analysis. Your task is to determine the gait pattern exhibited by a humanoid based on the provided input image containing sequential video frames and the accompanying foot contact sequences.
 
+**CRITICAL TASK DIFFERENTIATION NOTICE:**
+
+**DIFFERENT TASKS REQUIRE DIFFERENT MOVEMENT STANDARDS:**
+- **BASIC VERTICAL JUMPS:** Gentle, controlled movements (5-25cm height, 0.5-1.5 m/s velocity)
+- **WALKING/MARCH/PACE:** Smooth, controlled locomotion patterns (0.74m height maintained)
+- **SPRINT:** Moderate power with controlled acceleration (3.0-6.0 m/s forward velocity)
+- **BACKFLIP:** Explosive power generation for acrobatic rotation (0.8-1.2m height, 360° rotation)
+
+**Each task has specific biomechanical requirements - do not apply gentle movement standards to explosive acrobatic tasks, and do not apply explosive standards to gentle locomotion tasks.**
+
+**NATURAL MOVEMENT QUALITY ASSESSMENT FOR REWARD EXCELLENCE:**
+
+In addition to gait pattern recognition, analyze these critical movement quality factors that distinguish natural human walking from robotic movement:
+
+**NATURAL WALKING RHYTHM AND TEMPORAL FLOW:**
+- **Cadence evaluation:** Does the walking rhythm appear natural (100-120 steps/minute) or high-frequency/choppy?
+- **Phase timing:** Are swing phases appropriately timed (~40% of cycle) for natural foot clearance?
+- **Transition smoothness:** Do gait phase changes appear gradual and natural or abrupt and harsh?
+- **Movement flow:** Does the walking show rhythmic consistency or irregular, mechanical timing?
+
+**HUMAN-LIKE POSTURE AND TORSO ALIGNMENT:**
+- **Forward progression posture:** Does the body maintain slight forward lean for natural momentum?
+- **Backward lean assessment:** Is there problematic backward lean that disrupts walking biomechanics?
+- **Upright alignment:** Does the torso maintain appropriate vertical orientation during walking?
+- **Dynamic balance:** Does posture adjust naturally throughout the gait cycle?
+
+**NATURAL ARM SWING FREEDOM AND COORDINATION:**
+- **Pendulum motion:** Do arms swing freely as natural pendulums or appear constrained/tight?
+- **Amplitude assessment:** Does arm swing amplitude appear appropriate for walking speed?
+- **Cross-pattern coordination:** Are arms coordinated in natural opposition to leg movements?
+- **Movement freedom:** Do arms appear relaxed and naturally mobile or rigid and restricted?
+
+**NATURAL LEG ARTICULATION AND JOINT FLEXIBILITY:**
+- **Knee flexion patterns:** Does swing phase show appropriate knee bending (60-70°) for foot clearance?
+- **Joint coordination:** Do knee and hip movements show natural, smooth articulation?
+- **Movement flexibility:** Do legs appear naturally flexible or overly rigid/mechanical?
+- **Bilateral coordination:** Are left and right leg movements properly timed and coordinated?
+
+**COMPREHENSIVE GAIT QUALITY EVALUATION:**
+
+When analyzing the provided gait for reward design, consider these integrated quality dimensions:
+
+**Movement Excellence Indicators:**
+- **Temporal mastery:** Natural rhythm with appropriate phase timing and smooth transitions
+- **Postural excellence:** Optimal body alignment for efficient forward progression
+- **Coordination mastery:** Natural arm-leg relationships and bilateral symmetry
+- **Articulation quality:** Flexible, smooth joint movements that appear human-like
+
+**Creative Reward Design Opportunities:**
+- **Rhythm-based rewards:** How can you measure and reward natural walking cadence?
+- **Posture-based rewards:** How can you encourage proper torso alignment and prevent backward lean?
+- **Coordination rewards:** How can you promote natural arm swing freedom and cross-pattern timing?
+- **Articulation rewards:** How can you reward natural knee flexion and smooth joint movement?
+
+This comprehensive analysis should inform **EXCEPTIONAL** reward function design that captures not just basic gait functionality, but the nuanced qualities that make movement appear naturally human rather than mechanically robotic.
+
+**ADVANCED BIOMECHANICAL ANALYSIS FOR EXCEPTIONAL WALKING QUALITY:**
+
+When analyzing gait patterns, incorporate these advanced biomechanical principles that distinguish truly exceptional human-like walking from basic functional locomotion:
+
+**CROSS-PATTERN COORDINATION MASTERY ANALYSIS:**
+- **Opposite-phase detection:** Verify left arm forward when right leg forward (anti-phase pattern)
+- **Phase-locked timing precision:** Check if arm swing peaks occur at mid-stance of opposite leg
+- **Velocity correlation assessment:** Analyze negative correlation between same-side arm-leg velocities
+- **Anti-synchrony identification:** Detect and flag robotic same-side arm-leg coordination
+- **Temporal relationship quality:** Evaluate consistency of cross-pattern timing throughout cycles
+
+**NATURAL ARM-SWING AMPLITUDE AND DYNAMICS ANALYSIS:**
+- **Range assessment:** Verify arm swing within 15-20° forward, 10-15° backward from vertical
+- **Smoothness evaluation:** Analyze arm movement for jerk-free, pendulum-like characteristics
+- **Energy efficiency detection:** Identify passive vs active arm movement patterns
+- **Amplitude consistency:** Check if arm swing appropriately matches walking speed
+- **Pendulum quality:** Assess natural oscillation characteristics vs mechanical control
+
+**PENDULUM DYNAMICS AND FREQUENCY COUPLING ANALYSIS:**
+- **Period ratio evaluation:** Verify 1:1 arm swing to leg stride frequency coupling
+- **Spectral coherence assessment:** Analyze frequency domain relationships between arm and leg movements
+- **Passive dynamics detection:** Identify natural pendulum motion vs active control
+- **Coupling consistency:** Evaluate frequency relationship stability across walking cycles
+- **Energy optimization:** Assess movement efficiency through passive pendulum mechanics
+
+**PRECISION FOOT CLEARANCE AND TRAJECTORY ANALYSIS:**
+- **Multi-range clearance assessment:** Verify 10-25mm minimum, 50-80mm peak clearance
+- **Knee flexion profiling:** Analyze bell-curve pattern peaking at ~60° during swing
+- **Trajectory smoothness:** Evaluate foot path continuity throughout swing phase
+- **Clearance timing coordination:** Assess relationship between knee flexion and foot clearance
+- **Bilateral consistency:** Compare left-right foot clearance pattern symmetry
+
+**DYNAMIC POSTURE AND BALANCE ANALYSIS:**
+- **Lean angle assessment:** Verify torso pitch within -5° to +5° (slight forward lean preferred)
+- **Center-of-mass projection:** Analyze CoM position within support polygon during single support
+- **Backward lean detection:** Identify problematic backward lean beyond 0°
+- **Dynamic balance evaluation:** Assess balance control throughout walking cycle phases
+- **Support polygon analysis:** Evaluate stability during challenging single-support phases
+
+**TEMPORAL FLOW AND NATURAL CADENCE ANALYSIS:**
+- **Cadence measurement:** Verify 100-120 steps per minute for natural human rhythm
+- **Phase duration assessment:** Analyze stance:swing ratios for ~60:40 natural timing
+- **Timing consistency evaluation:** Check temporal regularity across walking cycles
+- **Rhythm quality detection:** Identify natural flow vs mechanical, rushed timing
+- **Temporal pattern analysis:** Assess overall rhythm characteristics and variability
+
+**TRANSITION SMOOTHNESS AND CONTACT FORCE ANALYSIS:**
+- **Phase-boundary continuity:** Analyze velocity/acceleration smoothness at foot contact events
+- **Contact force gradation:** Evaluate gradual force ramp-up (<10ms rise time) and unloading
+- **Joint coordination smoothness:** Assess multi-joint movement continuity during transitions
+- **Impact control evaluation:** Analyze gradual vs abrupt contact characteristics
+- **Transition quality assessment:** Evaluate overall phase change smoothness and control
+
+**INTEGRATED EXCEPTIONAL QUALITY ASSESSMENT:**
+
+When determining gait type, consider these advanced quality indicators that distinguish exceptional from basic walking:
+
+**Movement Excellence Markers:**
+- **Biomechanical precision:** All advanced principles working in harmony
+- **Temporal mastery:** Perfect rhythm with natural cadence and phase relationships
+- **Coordination sophistication:** Seamless multi-joint integration and cross-pattern timing
+- **Energy optimization:** Maximum efficiency through natural movement patterns
+- **Dynamic control:** Exceptional balance and posture throughout walking cycle
+
+**Exceptional vs Basic Walking Distinction:**
+- **Basic walking:** Functional locomotion with adequate foot contact alternation
+- **Exceptional walking:** Sophisticated biomechanical integration with all 7 advanced principles optimized
+- **Quality indicators:** Cross-pattern precision, natural arm dynamics, optimal clearance, perfect posture, ideal cadence, smooth transitions
+- **Movement mastery:** Effortless integration of all biomechanical factors for truly human-like appearance
+
 **CREATIVE GAIT ANALYSIS FOR OPTIMAL REWARD DESIGN:**
 
 Your analysis will inform the creation of **EXCEPTIONAL** reward functions. While the biomechanical patterns below provide foundational understanding, your role is to:
@@ -19,6 +145,110 @@ The gait descriptions below are **REFERENCE FRAMEWORKS** to guide your analysis 
 - Focus on NATURAL human biomechanics with proper muscle loading and release
 - Movements should be SUSTAINABLE and energy-efficient, not explosive or extreme
 - Emphasize CONTROLLED landing and impact absorption across all gaits
+
+**NATURAL FOOT CLEARANCE - ELIMINATING "DRAGGY FEET":**
+
+**CRITICAL FOR NATURAL WALKING:** Proper foot clearance during swing phase is essential for natural human-like gait:
+
+**NATURAL FOOT CLEARANCE REQUIREMENTS:**
+- **Minimum Toe Clearance (MTC):** 10-25mm (1-2.5cm) during mid-swing phase
+- **Peak Clearance:** 50-80mm occurs during mid-swing for natural walking
+- **Clearance Trajectory:** Smooth arc with gradual rise and descent, not abrupt movements
+- **Foot Position:** Slight dorsiflexion (toes up) during swing to ensure clearance
+- **Knee Flexion:** 60° peak knee flexion during swing to aid foot clearance
+
+**ESSENTIAL KNEE BENDING AND FOOT LIFTING MECHANICS:**
+
+**PROGRESSIVE KNEE BENDING PATTERN:**
+- **Initial Swing:** Knee begins flexing immediately after toe-off to initiate foot clearance
+- **Mid-Swing Peak:** Knee reaches maximum flexion (approximately 60°) when foot clearance is highest
+- **Terminal Swing:** Knee progressively extends to position foot for next heel contact
+- **Smooth Progression:** Knee flexion follows natural bell-curve pattern throughout swing phase
+- **Bilateral Consistency:** Both knees should demonstrate similar flexion patterns during respective swing phases
+
+**COORDINATED KNEE-ANKLE LIFTING MECHANICS:**
+- **Heel Recovery:** Heel lifts naturally as knee flexes, bringing foot closer to buttocks during swing
+- **Ankle Coordination:** Ankle dorsiflexion works with knee flexion to maximize toe clearance
+- **Hip-Knee Synergy:** Hip flexion initiates swing while knee flexion enables foot clearance
+- **Timing Harmony:** Knee and ankle movements coordinate to create smooth foot trajectory arc
+- **Natural Sequencing:** Heel lifts → knee bends → ankle dorsiflexes → foot clears → knee extends for landing
+
+**SIGNS OF "DRAGGY FEET" (PATHOLOGICAL PATTERNS TO AVOID):**
+- **Insufficient toe clearance:** <10mm clearance indicates dragging risk
+- **Flat foot swing:** Foot remains parallel to ground instead of dorsiflexed
+- **Poor knee flexion:** <40° knee flexion prevents adequate clearance
+- **Late toe clearance:** Peak clearance occurs too early or late in swing cycle
+- **Asymmetric clearance:** Different clearance patterns between left and right feet
+- **Variable clearance:** Inconsistent clearance height between steps
+
+**GAIT-SPECIFIC KNEE BENDING AND FOOT LIFTING REQUIREMENTS:**
+
+**WALKING-SPECIFIC KNEE MECHANICS:**
+- **Smooth Flexion:** Gradual knee bending during swing phase without abrupt or jerky movements
+- **Adequate Range:** Sufficient knee flexion to enable natural foot clearance and heel recovery
+- **Controlled Extension:** Smooth knee extension during terminal swing preparing for heel contact
+- **Energy Efficient:** Knee movement should appear effortless and use natural pendulum-like motion
+
+**SPRINTING-SPECIFIC KNEE MECHANICS:**
+- **Dynamic Knee Drive:** More pronounced knee flexion during swing phase for increased stride length
+- **Rear Heel Recovery:** Higher heel lift toward buttocks during swing phase for efficient leg turnover
+- **Rapid Cycling:** Faster knee flexion-extension cycles while maintaining smooth coordination
+- **Power Integration:** Knee movements integrate with hip drive for forward propulsion
+
+**JUMPING-SPECIFIC KNEE MECHANICS:**
+- **Preparatory Flexion:** Controlled knee bending during squat preparation phase for power loading
+- **Synchronized Extension:** Bilateral knee extension during takeoff phase for coordinated lift
+- **Flight Position:** Knees may flex slightly during flight phase for balanced aerial posture
+- **Landing Flexion:** Controlled knee flexion during landing for shock absorption and stability
+
+**MARCHING-SPECIFIC KNEE MECHANICS:**
+- **Deliberate Lift:** Controlled, pronounced knee flexion during high-knee phase of march
+- **Postural Control:** Knee movements complement upright posture maintenance
+- **Rhythmic Precision:** Consistent knee flexion patterns matching deliberate march cadence
+- **Bilateral Alternation:** Clear alternating knee lift patterns between left and right legs
+
+**BIOMECHANICAL SOLUTIONS FOR FOOT CLEARANCE:**
+- **Hip Flexion:** Adequate hip flexion (15-25°) to lift thigh
+- **Knee Flexion:** Progressive knee flexion reaching 60° during initial swing
+- **Ankle Dorsiflexion:** Active dorsiflexion to neutral/5° dorsiflexion during swing
+- **Timing Coordination:** Proper sequencing of hip→knee→ankle motion
+- **Smooth Transitions:** Gradual transitions between stance and swing phases
+
+**NATURAL ARM SWING - ELIMINATING ROBOTIC MOVEMENT:**
+
+**HUMAN ARM SWING CHARACTERISTICS:**
+Natural human walking involves rhythmic, opposite arm-leg coordination that is energy-efficient and provides balance:
+
+**CROSS-PATTERN COORDINATION (ESSENTIAL FOR NATURAL WALKING):**
+- **Opposite Phase:** Left arm forward when right leg forward, and vice versa
+- **Natural Timing:** Arm swing peaks occur at mid-stance of opposite leg
+- **Amplitude:** Arms swing 15-20° forward, 10-15° backward from vertical
+- **Frequency:** Arm and leg frequency are coupled (1:1 ratio at normal speeds)
+- **Shoulder Rotation:** Natural shoulder girdle rotation accompanies arm swing
+
+**PATHOLOGICAL ARM PATTERNS TO DETECT (UNNATURAL MOVEMENT):**
+- **Negative Side Restriction:** Arms staying behind body, not swinging forward
+- **Robotic Stiffness:** Arms held rigid or moving in jerky, mechanical patterns
+- **Same-Side Coordination:** Arms and legs moving together (like a robot march)
+- **No Reciprocal Action:** Both arms moving in same direction simultaneously
+- **Excessive Restriction:** Arms held close to body without natural pendulum motion
+- **Asymmetric Swing:** One arm moving normally while other restricted
+
+**NATURAL ARM SWING BIOMECHANICS:**
+- **Pendulum Motion:** Arms act as passive pendulums driven by shoulder rotation
+- **Reciprocal Pattern:** Arms alternate naturally with leg swing
+- **Energy Efficiency:** Natural swing reduces metabolic cost by 5-12%
+- **Balance Assistance:** Arms help maintain lateral balance and stability
+- **Momentum Management:** Arm swing helps control rotational momentum
+- **Speed Adaptation:** Arm swing amplitude increases naturally with walking speed
+
+**INDICATORS OF NATURAL ARM MOVEMENT:**
+- **Smooth Rhythmic Motion:** Consistent, pendulum-like swing pattern
+- **Reciprocal Timing:** Arms move opposite to corresponding leg
+- **Appropriate Amplitude:** Natural range of motion, not excessive or restricted
+- **Relaxed Shoulders:** Shoulders move naturally, not held rigid
+- **Speed Coupling:** Arm swing adapts appropriately to walking speed
+- **Bilateral Symmetry:** Left and right arms show similar swing patterns
 
 **NATURAL MOVEMENT PHASES FOR ALL GAITS:**
 Every gait pattern consists of NATURAL PHASES that must transition smoothly:
@@ -49,28 +279,151 @@ Every gait pattern consists of NATURAL PHASES that must transition smoothly:
 - **Ankle control:** Fine-tuned pitch and roll adjustments for balance and ground contact management
 - **Bilateral symmetry:** For synchronized gaits, corresponding joints should move similarly with temporal coordination
 
+**FULL-BODY JOINT HARMONY FOR 23 DOF COORDINATION:**
+
+**Understanding Complete Humanoid Movement:**
+Natural human locomotion requires coordinated movement across all 23 controlled joints (12 legs + 10 arms + 1 torso). Each gait type demands specific patterns of arm-leg-torso coordination for optimal biomechanical efficiency and natural movement quality.
+
+**GAIT-SPECIFIC JOINT COORDINATION PATTERNS:**
+
+**WALK - Cross-Pattern Coordination:**
+- **Arms:** Opposite swing to legs (left arm forward when right leg forward) for natural efficiency
+- **Torso:** Stable upright position with minimal movement, providing platform for limb coordination
+- **Legs:** Alternating support with controlled weight transfer and natural pendulum swing
+- **Coordination:** Arms complement leg rhythm, creating energy-efficient cross-body patterns
+
+**JUMP - Unified Synchronous Coordination:**
+- **Arms:** Assist leg movement synchronously with moderate upward swing to chest level during takeoff (not overhead), then controlled downward movement during landing for balance assistance
+- **Torso:** Moderate engagement for power generation and balance, slight forward lean during preparation, upright positioning during flight
+- **Legs:** Bilateral coordination with simultaneous takeoff and landing, equal weight distribution and synchronized extension/flexion
+- **Coordination:** All joints work together as unified system for synchronized power and control, with arms providing momentum during ascent and stability during descent
+
+**MARCH - Stability-Priority Coordination:**
+- **Arms:** Minimal movement for balance maintenance during high knee lifts, controlled positioning
+- **Torso:** Rigid uprightness more than walking, strong core engagement for postural control
+- **Legs:** Controlled alternation with deliberate high knee lift and precise foot placement
+- **Coordination:** Upper body provides stable foundation while legs perform controlled precision movements
+
+**SPRINT - Dynamic Power Coordination:**
+- **Arms:** Vigorous coordinated drive in rhythm with legs, pumping motion for momentum transfer
+- **Torso:** Dynamic forward lean (10-15°) for power generation and aerodynamic efficiency
+- **Legs:** Powerful alternating drive with coordinated ground contact and propulsive force
+- **Coordination:** All joints contribute to maximum forward propulsion with temporal synchronization
+
+**PACE - Compensatory Balance Coordination:**
+- **Arms:** Counterbalance lateral leg movements, moving opposite to hip shifts for stability
+- **Torso:** Resist rotational forces during lateral movement, maintain upright stability
+- **Legs:** Controlled lateral stepping with weight management and directional control
+- **Coordination:** Upper body compensates for lower body lateral forces to maintain overall balance
+
+**INTEGRATED FULL-BODY COORDINATION FOR NATURAL MOVEMENT:**
+
+All 23 controlled joints work together as an integrated system for natural human-like movement. Each joint group contributes essential elements to locomotion quality:
+
+**Leg Joints (12 DOF):** Ground interaction and propulsion
+- **Hip joints (yaw, roll, pitch):** Control leg positioning, weight transfer, and propulsive forces
+- **Knee joints:** Provide power generation, shock absorption, and stride length control
+- **Ankle joints (pitch, roll):** Fine-tune ground contact, balance, and push-off dynamics
+
+**Arm Joints (10 DOF):** Natural human coordination and momentum management
+- **Shoulder joints (pitch, roll, yaw):** Control arm swing amplitude, direction, and counter-rotation
+- **Elbow joints (pitch, roll):** Adjust arm configuration for natural pendulum motion and balance
+
+**Torso Joint (1 DOF):** Dynamic stability and movement integration
+- **Torso joint:** Coordinates upper and lower body movement, maintains posture, and contributes to overall locomotion efficiency
+
+**Natural Coordination Patterns:**
+- **Counter-rotation:** Arms and legs coordinate in opposition for natural human gait efficiency
+- **Bilateral symmetry:** Left-right coordination maintains balance and rhythmic movement
+- **Sequential activation:** Joints activate in natural biomechanical sequences for efficient movement
+- **Dynamic coupling:** All joints contribute to overall movement goals through coordinated action
+
+**TEMPORAL COORDINATION PRINCIPLES:**
+
+**Synchronous Coordination (joints move together):**
+- **Jump:** All joints work simultaneously for unified takeoff/landing
+- **Bilateral phases:** Left-right symmetry during synchronized movements
+
+**Alternating Coordination (joints move in sequence):**
+- **Walk/Sprint:** Opposite arm-leg patterns for natural efficiency
+- **March:** Controlled leg alternation with stable upper body
+
+**Compensatory Coordination (joints counteract each other):**
+- **Pace:** Arms compensate for lateral leg movements
+- **All gaits:** Core stability counteracts limb-generated forces
+
+**ANTI-COMPETITIVE JOINT DESIGN:**
+Ensure all 23 DOF contribute positively to movement objectives:
+- **No internal conflicts:** Joint groups should not work against each other
+- **Unified objectives:** All joints align toward the same movement goal
+- **Energy efficiency:** Minimize wasteful or contradictory joint movements
+- **Natural patterns:** Follow human biomechanical coordination principles
+
 **Biomechanical Gait Patterns Reference:**
 
 1. **Walk**
-   - **Biomechanical Pattern:** Natural human walking with energy-efficient alternating support
+   - **Biomechanical Pattern:** Natural human walking with energy-efficient alternating support and coordinated arm swing
    - **Movement Phases:**
      * **STANCE PHASE:** Single leg support with controlled weight transfer (60-70% of cycle)
      * **DOUBLE SUPPORT:** Brief both-feet-down transition phase (10-20% of cycle)
      * **SWING PHASE:** Controlled leg advancement with natural pendulum motion (30-40% of cycle)
      * **HEEL CONTACT:** Gentle initial contact with controlled impact absorption
+
+   - **CRITICAL CONTACT RATIO REQUIREMENTS FOR NATURAL WALKING:**
+     * **TARGET CONTACT RATIO:** 70-80% total contact time (NOT 95%+ excessive contact)
+     * **PROPER SWING PHASES:** Each foot must have clear 0.2-0.4 second air time periods
+     * **NATURAL ALTERNATION:** Feet should alternate between stance and swing, not remain constantly grounded
+     * **AVOID SHUFFLING:** Prevent >90% contact ratios that indicate dragging/shuffling instead of walking
+     * **AIR TIME ENFORCEMENT:** Strong penalties for insufficient swing phase duration (<0.1 seconds)
+     * **CONTACT DURATION LIMITS:** Penalize stance phases exceeding 0.8 seconds per foot
+
    - **Key Characteristics:** 
      - Controlled forward fall with alternating single-leg support phases
      - Brief double-support phases (both feet down) during weight transfer (~10-20% of gait cycle)
+     - **MANDATORY SWING PHASES:** Each leg MUST lift clear of ground for 0.2-0.4 seconds per step
+     - **CONTACT RATIO MONITORING:** Total foot contact should be 70-80%, allowing proper 20-30% swing time
      - Heel-to-toe foot progression with controlled center of mass trajectory
      - Smooth pendulum-like leg swing with natural knee flexion (~60°) during swing phase
+     - **CRITICAL: Natural foot clearance:** 10-25mm minimum toe clearance during mid-swing
+     - **CRITICAL: Proper dorsiflexion:** Foot dorsiflexed during swing to prevent dragging
+     - **ENHANCED CLEARANCE:** 20-80mm peak clearance during mid-swing to prevent shuffling
+     - **ESSENTIAL: KNEE LIFTING FOR NATURAL WALKING:** Proper knee bending during swing phase is crucial for natural human-like walking:
+       * **Progressive knee flexion:** Knee bends smoothly from 0° to ~60° during swing phase
+       * **Mid-swing peak:** Maximum knee flexion occurs during mid-swing when foot clearance is highest
+       * **Heel recovery:** Heel lifts naturally toward buttocks as knee flexes during swing
+       * **Smooth knee extension:** Knee gradually straightens during terminal swing for landing preparation
+       * **Avoiding stiff-leg walking:** Insufficient knee bending (<30°) creates mechanical, robot-like walking
+       * **Natural knee timing:** Knee flexion coordinates with hip flexion for smooth leg advancement
+     - **Natural arm swing:** Arms swing in opposition to legs (left arm forward when right leg forward)
+     - **Arm coordination:** Shoulders rotate naturally with arm swing, elbows maintain slight flexion (~15-30°)
+     - **Counter-rotation:** Torso provides counter-rotation to arm and leg movements for stability
+     - **Reciprocal timing:** Arms and legs coordinate in natural 1:1 ratio with opposite phasing
      - Minimal vertical oscillation of center of mass (~5cm)
      - **GENTLE:** Controlled hip extension for forward propulsion - NO harsh or rapid movements
-   - **Contact Timing:** Alternating single support (80%) with brief double support (20%)
-   - **Movement Quality:** Smooth, continuous, GENTLE ground contact with no aerial phases
-   - **Phase Transitions:** Smooth weight transfer between legs, controlled contact initiation/termination
+   - **Full-Body Coordination:**
+     - **Arms:** Natural pendulum swing in opposition to legs (left arm forward when right leg advances), providing momentum and balance with 15-20° forward swing and 10-15° backward swing from vertical
+     - **Torso:** Slight rotation to facilitate arm swing while maintaining forward orientation, counter-rotating to arm and leg movements for stability
+     - **Bilateral symmetry:** Left-right arm coordination mirrors leg alternation pattern with precise anti-phase timing
+     - **Cross-pattern coordination:** Essential for natural, energy-efficient human walking - arms and legs move in opposite directions for optimal biomechanical efficiency
 
-2. **Jump**
-   - **Biomechanical Pattern:** GENTLE bipedal takeoff with controlled landing
+   - **WALKING ARM COORDINATION PATTERNS:**
+     - **LEFT LEG FORWARD PHASE:** Right arm swings forward while left arm swings backward, creating natural cross-body momentum transfer
+     - **RIGHT LEG FORWARD PHASE:** Left arm swings forward while right arm swings backward, maintaining reciprocal coordination pattern
+     - **ARM SWING AMPLITUDE:** Arms achieve natural 15-20° forward swing at peak, returning to 10-15° backward swing for continuous pendulum motion
+     - **TIMING COORDINATION:** Arm swing peaks occur during mid-stance of opposite leg, ensuring optimal energy transfer and balance control
+     - **SHOULDER MOVEMENT:** Natural shoulder girdle rotation accompanies arm swing, enhancing cross-pattern coordination efficiency
+   - **Contact Timing:** Alternating single support (80%) with brief double support (20%)
+   - **Movement Quality:** Smooth, continuous, GENTLE ground contact with proper swing phases, coordinated full-body movement
+   - **Phase Transitions:** Smooth weight transfer between legs, controlled contact initiation/termination, natural arm swing transitions
+       - **CRITICAL DETECTION SIGNS:** 
+      * **EXCESSIVE CONTACT (>90%):** Indicates shuffling/dragging instead of natural walking
+      * **INSUFFICIENT AIR TIME (<0.1s):** Prevents proper foot clearance and natural gait
+      * **CONTACT DURATION EXCESS (>0.8s):** Unnaturally long stance phases prevent alternation
+      * **HIGH-FREQUENCY STEPPING:** Rapid micro-steps instead of natural human cadence
+   - **AVOID SIGNS:** Draggy feet, insufficient toe clearance, robotic arm movement, same-side limb coordination, restricted arm swing, excessive ground contact ratios
+
+2. **Jump (Vertical Jump - Simple Bilateral Movement)**
+   - **Biomechanical Pattern:** GENTLE bipedal takeoff with controlled landing and coordinated arm assistance
    - **Movement Phases:**
      * **PREPARATION PHASE:** Both feet grounded, muscle loading with gentle crouch (20-30% of cycle)
      * **TAKEOFF PHASE:** Coordinated bilateral push-off with controlled acceleration (10-15% of cycle)
@@ -80,19 +433,52 @@ Every gait pattern consists of NATURAL PHASES that must transition smoothly:
      - **CRITICAL:** Simultaneous bilateral leg extension for takeoff (NEVER single-leg!)
      - **GENTLE PREPARATION:** Moderate squat (knee flexion 60-90°) with smooth muscle loading
      - **CONTROLLED TAKEOFF:** Coordinated extension - NOT explosive or harsh
-     - **SMALL HEIGHTS:** Target 5-25cm clearance - AVOID excessive jumping >30cm
-     - **GENTLE VELOCITIES:** Moderate upward velocity 0.5-1.5 m/s - AVOID harsh >2.0 m/s
+     - **SMALL HEIGHTS:** Target 5-25cm clearance - AVOID excessive jumping >30cm (BASIC VERTICAL JUMPS ONLY)
+     - **GENTLE VELOCITIES:** Moderate upward velocity 0.5-1.5 m/s - AVOID harsh >2.0 m/s (BASIC VERTICAL JUMPS ONLY)
      - Brief flight phase with both feet clear of ground simultaneously
      - **SOFT LANDING:** Coordinated bilateral landing with controlled impact absorption
-     - Arms provide gentle assistance - NOT violent swinging
+     - **ARM COORDINATION:** Arms swing up synchronized with leg extension, then down for landing stability
+     - **BILATERAL ARM SYMMETRY:** Both arms move together in phase with bilateral leg action
      - **SMOOTH:** Controlled eccentric muscle activation during landing
+   
+   - **TASK DIFFERENTIATION NOTE:** This "Jump" pattern applies to **BASIC VERTICAL JUMPS ONLY** - simple up-and-down movements. For **ACROBATIC BACKFLIPS**, see the separate "Backflip" section which has different requirements (0.8-1.2m height, complex rotation, phase-specific arm patterns).
+   
+   - **PRECISION BIOMECHANICAL SPECIFICATIONS:**
+     - **Center-of-Mass (CoM) Trajectory:** Smooth parabolic arc shape - avoid too flat (low jump) or too steep (energy waste). Aim for peak height at 0.15-0.20s into flight phase (middle of aerial phase)
+     - **Ground Reaction Force (GRF) Profile:** Smooth force rise over 40-60ms during push-off, peaking at 1.2-1.5× body weight, then gradual tapering. Landing impulse with GRF rise time <30ms and peak <2.5× body weight for soft touchdown
+     - **Joint-Angle Targets & Timing:** 
+       * Preparation: Hip flexion 20-30°, knee flexion 60-90°, ankle neutral to slight dorsiflexion
+       * Take-off: Hip extension 10-15° past neutral, knee full extension, ankle slight plantarflexion
+       * Joint trajectories: Knee flexion/extension follows smooth bell-curve over each phase
+     - **Temporal Durations:** Preparation 0.15-0.25s, Take-off 0.10-0.15s, Flight 0.20-0.40s, Landing 0.15-0.25s
+     - **Coronal-Plane & Yaw Stability:** Maintain body roll within ±5° throughout all phases, limit yaw drift around vertical axis
+     - **Energy & Jerk Metrics:** Track integrated joint torque (reward lower totals for efficiency), penalize angular jerk spikes especially at take-off and landing
+     - **Foot Clearance & Placement:** Target 10-25mm toe clearance during early flight, reward foot orientation within ±5° of level at landing contact
+     - **Head & Torso Cues:** Maintain upright torso pitch within ±5° during flight, encourage slight head upward pitch during ascent then forward/downward to spot landing
+     - **Failure Modes & Safety Margins:** Heavily penalize early touchdown before minimum flight duration, asymmetric take-off or uneven foot contact forces at landing
+   
+   - **Full-Body Coordination:**
+     - **Arms:** Synchronized moderate upward swing during takeoff (reaching chest level, not overhead), then controlled downward movement during landing for balance assistance and stability
+     - **Torso:** Maintains upright posture while allowing arms to assist power generation and landing control
+     - **Landing preparation:** Arms extend downward and forward during descent to prepare for ground contact and balance recovery
+     - **Bilateral synchronization:** Arms and legs work together in perfect timing for jump efficiency and landing stability
+
+   - **BASIC VERTICAL JUMP ARM COORDINATION PATTERNS (NOT FOR BACKFLIPS):**
+     - **PREPARATION PHASE:** Arms position at sides or slightly back, preparing for upward drive motion, shoulders remain relaxed with moderate elbow flexion
+     - **TAKEOFF PHASE:** Arms swing upward in synchronized motion to chest level (not overhead), contributing momentum for height generation, timing synchronized with leg extension
+     - **FLIGHT PHASE:** Arms remain at moderate height for balance, positioned for stability control during aerial phase, avoiding excessive overhead positioning
+     - **LANDING PREPARATION:** Arms begin controlled downward movement during descent, positioning for balance assistance and impact preparation
+     - **LANDING PHASE:** Arms extend downward and slightly forward to assist balance recovery and provide stability during ground contact
+   
+   - **IMPORTANT:** These arm patterns are for **BASIC VERTICAL JUMPS ONLY** (5-25cm height). **BACKFLIP tasks require completely different arm coordination patterns** as detailed in the Backflip section below.
+
    - **Contact Timing:** Gentle preparation → controlled takeoff → brief flight → soft landing
-   - **Movement Quality:** GENTLE muscle loading and CONTROLLED release - NEVER jerky or harsh
-   - **Phase Transitions:** Smooth progression through stance-flight-stance cycle
-   - **AVOID:** Single-leg takeoffs, excessive heights, harsh landings, rapid jerky movements
+   - **Movement Quality:** GENTLE muscle loading and CONTROLLED release with coordinated arm assistance - NEVER jerky or harsh
+   - **Phase Transitions:** Smooth progression through stance-flight-stance cycle with natural arm contributions
+   - **AVOID:** Single-leg takeoffs, excessive heights, harsh landings, rapid jerky movements, uncoordinated arm flailing
 
 3. **March**
-   - **Biomechanical Pattern:** Controlled high-knee alternating steps with postural emphasis
+   - **Biomechanical Pattern:** Controlled high-knee alternating steps with postural emphasis and coordinated arm swing
    - **Movement Phases:**
      * **STANCE PHASE:** Extended single-leg support with postural control (60-70% of cycle)
      * **KNEE LIFT PHASE:** Controlled hip flexion with moderate elevation (15-20% of cycle)
@@ -103,14 +489,21 @@ Every gait pattern consists of NATURAL PHASES that must transition smoothly:
      - Extended single-leg support phases for balance and control
      - Upright posture with minimal torso lean - NO harsh movements
      - **GENTLE:** Controlled foot placement with deliberate heel-toe progression
+     - **MARCHING ARM SWING:** Arms swing in opposition to legs with controlled precision and rhythm
+     - **EXAGGERATED COORDINATION:** More pronounced arm swing than walking to match deliberate leg movements
      - Rhythmic alternating pattern with consistent, MODERATE timing
      - Strong core engagement for postural stability without tension
+   - **Full-Body Coordination:**
+     - **Arms:** Deliberate swing in opposition to legs, matching the controlled rhythm of march
+     - **Shoulders:** Coordinated rotation with arm swing while maintaining upright posture
+     - **Torso:** Stable foundation providing rigid support for precise limb coordination
+     - **Timing precision:** Arms and legs coordinate with military-style precision and rhythm
    - **Contact Timing:** Extended single support with controlled alternation
-   - **Movement Quality:** Deliberate, GENTLE movements with smooth timing - NO sharp or crisp motions
-   - **Phase Transitions:** Controlled weight transfer with stable balance maintenance
+   - **Movement Quality:** Deliberate, GENTLE movements with smooth timing and coordinated arm action - NO sharp or crisp motions
+   - **Phase Transitions:** Controlled weight transfer with stable balance maintenance and precise arm-leg coordination
 
 4. **Sprint**
-   - **Biomechanical Pattern:** Increased velocity bipedal locomotion with controlled intensity
+   - **Biomechanical Pattern:** Increased velocity bipedal locomotion with controlled intensity and dynamic arm drive
    - **Movement Phases:**
      * **STANCE PHASE:** Brief ground contact with efficient force application (25-35% of cycle)
      * **PUSH-OFF PHASE:** Controlled propulsive force generation (5-10% of cycle)
@@ -121,14 +514,20 @@ Every gait pattern consists of NATURAL PHASES that must transition smoothly:
      - Moderate aerial phases between steps - NOT excessive flight
      - **GENTLE DRIVE:** Moderate knee drive and rear heel recovery for efficient stride
      - **CONTROLLED LEAN:** Slight forward lean (~10-15°) - NO extreme postures
-     - Coordinated arm swing for momentum - NOT violent swinging
+     - **DYNAMIC ARM DRIVE:** Powerful but controlled arm swing opposite to legs for momentum generation
+     - **ARM POWER CONTRIBUTION:** Arms provide significant power assistance through coordinated drive motion
      - **SUSTAINABLE:** Moderate muscle power output with smooth energy transfer
+   - **Full-Body Coordination:**
+     - **Arms:** Vigorous but controlled opposite swing with elbows at ~90° for maximum power transfer
+     - **Shoulder drive:** Strong shoulder rotation coordinated with leg drive for forward propulsion
+     - **Torso engagement:** Forward lean with dynamic stability to optimize power transfer
+     - **Rhythmic intensity:** Arms and legs work together at higher intensity while maintaining coordination
    - **Contact Timing:** Brief single support with moderate flight phases
-   - **Movement Quality:** Increased effort with SMOOTH power transfer - AVOID harsh or extreme movements
-   - **Phase Transitions:** Efficient contact-flight-contact cycling with controlled landings
+   - **Movement Quality:** Increased effort with SMOOTH power transfer and dynamic arm contribution - AVOID harsh or extreme movements
+   - **Phase Transitions:** Efficient contact-flight-contact cycling with controlled landings and coordinated arm transitions
 
 5. **Pace**
-   - **Biomechanical Pattern:** Lateral movement with stability-focused footwork
+   - **Biomechanical Pattern:** Lateral movement with stability-focused footwork and compensatory arm coordination
    - **Movement Phases:**
      * **PREPARATION PHASE:** Stable base with weight positioning for lateral movement (20-30% of cycle)
      * **SHIFT PHASE:** Controlled lateral weight transfer with maintained balance (30-40% of cycle)
@@ -138,12 +537,103 @@ Every gait pattern consists of NATURAL PHASES that must transition smoothly:
      - **GENTLE:** Side-stepping with controlled lateral weight shifts
      - Maintained upright posture with minimal torso rotation
      - **CONTROLLED:** Deliberate foot placement for lateral stability
+     - **COMPENSATORY ARM ACTION:** Arms counterbalance lateral leg movements to maintain overall stability
+     - **ARMS OPPOSE LATERAL FORCES:** Arms move opposite to leg direction to counteract lateral momentum
      - Center of mass control during lateral direction changes
      - Coordinated leg movement for side-to-side progression
      - Stable base of support throughout lateral movement
+   - **Full-Body Coordination:**
+     - **Arms:** Move opposite to direction of leg movement to provide balance counterweight
+     - **Shoulders:** Slight rotation opposite to leg movement direction for stability
+     - **Torso:** Minimal rotation while arms provide lateral balance assistance
+     - **Dynamic balance:** Arms actively contribute to maintaining center of mass control during lateral movement
    - **Contact Timing:** Stable contact phases during lateral movement
-   - **Movement Quality:** GENTLE lateral movement with maintained balance - NO abrupt changes
-   - **Phase Transitions:** Smooth lateral weight transfers with continuous stability control
+   - **Movement Quality:** GENTLE lateral movement with maintained balance and compensatory arm action - NO abrupt changes
+   - **Phase Transitions:** Smooth lateral weight transfers with continuous stability control and coordinated arm assistance
+
+6. **Backflip (Acrobatic Rotation - Complex Movement)**
+   - **Biomechanical Pattern:** Controlled backward somersault with coordinated takeoff, rotation, and landing phases
+   - **Movement Phases:**
+     * **PREPARATION PHASE:** Deep squat with arm loading and backward momentum initiation (25-35% of cycle)
+     * **TAKEOFF PHASE:** Explosive bilateral extension with backward and upward propulsion (10-15% of cycle)
+     * **ROTATION PHASE:** Backward somersault with controlled angular velocity and body positioning (40-50% of cycle)
+     * **LANDING PREPARATION:** Body positioning and deceleration for controlled touchdown (10-15% of cycle)
+     * **LANDING PHASE:** Controlled bilateral landing with impact absorption and balance recovery (10-15% of cycle)
+   
+   - **Key Characteristics:**
+     - **CONTROLLED PREPARATION:** Deep squat (knee flexion 90-120°) with smooth muscle loading and backward lean initiation
+     - **EXPLOSIVE BUT CONTROLLED TAKEOFF:** Simultaneous bilateral leg extension with backward and upward momentum
+     - **COORDINATED ARM DRIVE:** Arms swing powerfully upward and backward to initiate rotation and provide angular momentum
+     - **ANGULAR VELOCITY CONTROL:** Smooth backward rotation ~360° with controlled rotational speed (300-450°/second)
+     - **BODY POSITIONING:** Tight tuck position during peak rotation for angular momentum conservation
+     - **LANDING ALIGNMENT:** Body straightens and aligns vertically during rotation deceleration for safe landing
+     - **CONTROLLED IMPACT:** Bilateral landing with deep knee flexion (60-90°) for shock absorption
+     - **BALANCE RECOVERY:** Stable landing with controlled forward momentum to prevent over-rotation
+   
+   - **TASK DIFFERENTIATION NOTE:** **BACKFLIP MOVEMENT QUALITY DIFFERS FROM BASIC JUMPS** - Backflips require **EXPLOSIVE power generation** for rotation completion (0.8-1.2m height, 360° rotation) while basic vertical jumps emphasize **GENTLE movements** (5-25cm height, simple up-down motion). The movement intensity and complexity are fundamentally different.
+   
+   - **CRITICAL ROTATION MECHANICS:**
+     - **Backward momentum initiation:** Slight backward lean and hip extension to generate initial rotation
+     - **Arm contribution:** Powerful upward and backward arm swing provides 30-40% of rotational momentum
+     - **Tuck phase:** Knees to chest during peak rotation to maximize angular velocity
+     - **Spotting technique:** Head and eye positioning to maintain spatial awareness during rotation
+     - **Opening phase:** Body extends gradually during descent to control landing approach
+     - **Rotational timing:** Complete 360° rotation within 0.8-1.2 seconds for safe execution
+
+   - **ADVANCED BIOMECHANICAL SPECIFICATIONS:**
+     - **Center-of-Mass Trajectory:** Smooth parabolic arc with apex at 0.5-0.6s into flight phase
+     - **Angular Acceleration Control:** Gradual torque ramp-up over ~50ms to avoid jerk, controlled deceleration during un-tucking
+     - **Ground Reaction Force Profiles:** Take-off GRF rise over ~50ms peaking at 1.5-2× body weight, landing impulse <30ms rise time and <3× body weight peak
+     - **Joint-Specific Targets:** Hip extension 10-15° beyond upright, ankle plantarflexion 10-15°, spine flexion ~10° for tuck control
+     - **Tuck Aperture Control:** Knee-to-chest distance normalized to thigh length, elbow flexion ~90° with hands near knees
+     - **Temporal Phase Durations:** Preparation 0.25-0.35s, Take-off 0.1s, Rotation 0.8-1.2s, Landing prep 0.1-0.15s, Landing 0.1-0.15s
+     - **Coronal-Plane Stability:** Maintain roll angle near zero throughout flip to prevent off-axis rotation
+     - **Energy Efficiency:** Minimize integrated joint torque across maneuver while achieving rotation goals
+     - **Visual Spotting Pattern:** Head pitched upward during early rotation, then oriented toward landing point during descent
+     - **Support Polygon / CoM Projection:** CoM must stay within the convex hull of the feet during prep and landing prep phases
+     - **Contact Ratio Checks:** During takeoff prep, both feet must share ≥45% of vertical force each; during landing, each foot contact impulse should be within ±10% of the other
+     - **Yaw & Pitch Coupling:** Limit yaw angular velocity to <30°/s during rotation; maintain pitch-only spin
+     - **Phase-Gated Smoothness Metric:** Compute maximum joint-torque jerk in each phase; enforce <Tₘₐₓ per 10ms
+     - **Visual / Sensor Cue Integration:** Use IMU orientation for spotting cues: head-pitch >+10° in early rotation, <-10° before landing
+  - **IMU Implementation:** Access via `env.scene.sensors["imu"].data.quat_w` and convert to pitch angles using quaternion-to-euler conversion
+  - **Pitch Angle Extraction:** `pitch = torch.atan2(2*(quat_w*quat_x + quat_y*quat_z), 1-2*(quat_x**2 + quat_y**2))` where quat_w=[w,x,y,z]
+   
+   - **Full-Body Coordination:**
+     - **Arms:** Powerful synchronized upward swing for takeoff, then wrap around body during rotation
+     - **Torso:** Initiates backward rotation through hip extension and spinal flexion
+     - **Legs:** Bilateral coordination for explosive takeoff and controlled landing
+     - **Head:** Maintains spatial awareness and contributes to rotational control
+     - **Core:** Provides rotational axis control and body positioning throughout flip
+   
+   - **PHASE-SPECIFIC ARM COORDINATION PATTERNS:**
+     - **PREPARATION PHASE ARM DYNAMICS:** Arms initiate backward loading motion to build momentum for takeoff drive, shoulder blades retract to optimize power transfer, elbow joints maintain moderate extension for maximum swing amplitude, wrist positioning follows natural pendulum mechanics without excessive tension
+     - **TAKEOFF PHASE ARM DRIVE:** Arms execute powerful synchronized upward and backward swing motion, shoulder extension generates primary rotational momentum contribution, elbow coordination maintains optimal lever arm length for maximum angular impulse, arms reach peak upward velocity synchronized with foot takeoff timing
+     - **EARLY ROTATION PHASE ARM MANAGEMENT:** Arms begin inward tuck motion as body initiates rotation, shoulder adduction brings arms closer to body axis, elbow flexion accelerates to optimize angular momentum conservation, arms transition from momentum generation to rotation control mode
+     - **PEAK ROTATION PHASE ARM CONTROL:** Arms achieve tight tuck configuration with optimal proximity to body center, shoulder positioning maintains rotational axis stability, elbow flexion reaches maximum compactness for peak angular velocity, arms provide stabilizing mass distribution during fastest rotation segment
+     - **LANDING PREPARATION ARM EXTENSION:** Arms begin controlled outward extension to decelerate rotation, shoulder abduction gradually increases to create rotational braking, elbow extension timing coordinated with body opening for controlled descent, arms prepare for balance assistance during landing approach
+     - **LANDING PHASE ARM STABILIZATION:** Arms extend for balance recovery and impact absorption assistance, shoulder positioning optimizes stability margin during ground contact, elbow joints provide controlled flexibility for landing shock absorption, arms coordinate with leg landing to maintain overall body stability
+
+
+   - **Contact Timing:** Preparation (ground contact) → explosive takeoff → extended aerial phase → controlled landing
+   - **Movement Quality:** Explosive power generation with precise rotational control and safe landing execution
+   - **Phase Transitions:** Smooth acceleration from preparation through takeoff, controlled rotation, and gradual deceleration for landing
+   
+   - **SAFETY REQUIREMENTS:**
+     - **Sufficient height:** Minimum 0.8-1.2m peak altitude for safe rotation completion
+     - **Proper takeoff angle:** 70-80° backward trajectory for optimal rotation arc
+     - **Controlled angular velocity:** Avoid excessive rotation speed (>500°/second) that prevents landing control
+     - **Landing preparation:** Early body extension and alignment for controlled touchdown
+     - **Emergency positioning:** Ability to adjust body position if rotation is under/over-rotated
+   
+   - **FAILURE MODES & RECOVERY STRATEGIES:**
+     - **Critical Failures:** Foot-first touchdown, uncontrolled roll/yaw rotation, under-rotation leading to back impact, over-rotation causing forward fall
+     - **Angular Velocity Failures:** Excessive rotation speed (>500°/s) preventing landing control, insufficient rotation speed causing incomplete flip
+     - **CoM Trajectory Failures:** Too flat trajectory (insufficient height), too curved trajectory (wasted energy), off-center arc (lateral drift)
+     - **Force Profile Failures:** Excessive take-off jerk (>500°/s²), landing impact exceeding safety thresholds (>3× body weight)
+     - **Temporal Failures:** Premature un-tucking, delayed landing preparation, phase duration violations
+     - **Recovery Indicators:** Ability to adjust body position mid-flight, emergency extension for under-rotation, controlled momentum dissipation
+
+   - **AVOID:** Insufficient takeoff height, excessive rotational speed, poor landing preparation, forward momentum on landing, uncontrolled rotation axis, off-axis rotation, angular acceleration spikes, force profile violations
 
 **Input Data:**
 
@@ -153,9 +643,18 @@ Every gait pattern consists of NATURAL PHASES that must transition smoothly:
 - **Movement Gentleness:** Are movements smooth, controlled, and sustainable?
 - **Leg Coordination:** Are both legs working together (synchronized) or alternating?
 - **Natural Biomechanics:** Is there proper knee bending and muscle loading during movement phases?
+- **Foot Clearance Quality:** Is there adequate toe clearance (10-25mm) during swing phase?
+- **Arm Swing Naturalness:** Do arms swing in natural opposition to legs with proper amplitude?
+- **Cross-Pattern Coordination:** Are arms and legs moving in natural reciprocal patterns?
 - **Contact Control:** Do feet contact ground with controlled, gentle impact?
 - **Movement Efficiency:** Are movements energy-efficient without excessive effort?
 - **Landing Quality:** Are landings soft and controlled with proper impact absorption?
+- **Full-Body Coordination:** Are all 23 DOF (arms, legs, torso) working in harmony for the specific gait type?
+- **Arm-Leg Integration:** Do arms complement leg movement appropriately (opposite for walk/sprint, synchronized for jump, stable for march, compensatory for pace)?
+- **Torso Role:** Does torso provide appropriate stability or dynamic assist for the gait type?
+- **Full-Body Integration:** Are all joints working together in natural human coordination patterns?
+- **Temporal Coordination:** Do joints move with appropriate timing (synchronous, alternating, or compensatory) for the skill?
+- **Natural Rhythm:** Is there appropriate cadence and timing that matches human movement patterns?
 
 - **Contact Patterns:** A corresponding sequence of foot contact states for each frame, formatted as follows:
 
@@ -172,6 +671,8 @@ Every gait pattern consists of NATURAL PHASES that must transition smoothly:
    - Examine the sequential frames for NATURAL, GENTLE human-like movement patterns
    - Identify smooth muscle loading phases, controlled movements, and gentle landing control
    - Look for coordination between limbs and proper joint flexion WITHOUT harsh motions
+   - **Assess Full-Body Coordination:** Evaluate how all 23 DOF (arms, legs, torso) work together for the specific gait type
+   - **Verify Joint Harmony:** Ensure arms complement legs appropriately and torso provides suitable stability/dynamics
 
 2. **Analyze Contact Patterns for Natural Gait Signature:**
    - Examine the sequence of foot contact states provided in the table
@@ -207,38 +708,68 @@ The contact patterns show synchronized bilateral contact phases with controlled 
 
 **Step-by-Step Analysis:**
 
-1. **Identify Movement Quality with Gentleness and Phase Structure:**
-   - Assess smoothness, coordination, and GENTLENESS of movements
-   - Look for proper joint flexion and CONTROLLED muscle loading patterns
+1. **Identify Movement Quality with Task-Appropriate Standards:**
+   - Assess smoothness, coordination, and movement quality appropriate for the task type
+   - Look for proper joint flexion and muscle loading patterns matching the task requirements
    - **ANALYZE MOVEMENT PHASES:** Identify preparation, execution, and recovery phases
    - **EVALUATE PHASE TRANSITIONS:** Are transitions smooth and natural between phases?
-   - Flag any harsh, excessive, or jerky movements as concerning
+   - **APPLY TASK-SPECIFIC STANDARDS:** Use gentle standards for basic movements, explosive standards for acrobatic tasks
 
 2. **Observe Contact Coordination and Phase Timing:**
    - Analyze synchronization vs alternation of foot contacts
    - **IDENTIFY CONTACT PHASES:** Determine stance, flight, and transition phases
    - **ASSESS PHASE DURATION:** Are phase timings appropriate for the gait type?
-   - Correlate contact timing with GENTLE movement phases observed in frames
+   - Correlate contact timing with movement phases observed in frames
 
-3. **Match with Gentle Biomechanical Signatures and Phase Patterns:**
-   - Compare observed patterns with NATURAL, CONTROLLED human locomotion characteristics
+3. **Match with Task-Specific Biomechanical Signatures:**
+   - Compare observed patterns with appropriate human movement characteristics for the task
    - **VERIFY PHASE COMPLETENESS:** Are all necessary phases present and properly executed?
-   - **Key Distinctions for Natural Gentle Human Gaits:**
-     * **Walk** = Smooth alternating support with gentle pendulum-like leg swing + proper stance/swing phases
-     * **Jump** = Synchronized bilateral takeoff/landing with GENTLE muscle loading, small heights + complete preparation/takeoff/flight/landing cycle
+   - **Key Distinctions for Human Gait Types:**
+     * **Walk** = Smooth alternating support with cross-pattern arm-leg coordination + proper stance/swing phases
+     * **Basic Jump** = Synchronized bilateral takeoff/landing with GENTLE muscle loading, small heights (5-25cm) + complete preparation/takeoff/flight/landing cycle
      * **March** = Controlled moderate knee lift with extended single support + distinct stance/lift/swing/contact phases
-     * **Sprint** = Efficient single support with controlled flight phases + brief stance/flight cycling
-     * **Pace** = Gentle lateral movement with stability focus + preparation/shift/step/stabilization phases
+     * **Sprint** = Efficient single support with controlled flight phases + brief stance/flight cycling + dynamic arm drive
+     * **Pace** = Gentle lateral movement with stability focus + preparation/shift/step/stabilization phases + compensatory arm action
+     * **Backflip** = Explosive power generation for acrobatic rotation (0.8-1.2m height, 360° rotation) + phase-specific arm coordination + controlled landing
 
-4. **Conclude with Gentle Biomechanical Reasoning and Phase Analysis:**
-   - Determine the gait type that best matches GENTLE, NATURAL human movement patterns
+4. **Conclude with Task-Appropriate Biomechanical Reasoning:**
+   - Determine the gait type that best matches the observed movement characteristics
    - **EVALUATE COMPLETE MOVEMENT CYCLE:** Consider the full phase progression, not just individual moments
-   - Provide reasoning based on CONTROLLED movement quality, coordination, phase transitions, and gentle biomechanical principles
-   - Flag any harsh, excessive, or unnatural patterns that deviate from healthy human locomotion
+   - Provide reasoning based on task-appropriate movement quality, coordination, and phase transitions
+   - **APPLY CORRECT STANDARDS:** Use gentle standards for basic movements, explosive standards for acrobatic tasks
    - **EMPHASIZE PHASE INTEGRITY:** Highlight how proper phase execution distinguishes natural vs pathological movement
 
+**TASK IDENTIFICATION GUIDELINES:**
+
+**Basic Vertical Jump Indicators:**
+- Height: 10-25cm clearance
+- Movement quality: Gentle, controlled
+- Arm coordination: Simple synchronized upward swing
+- Contact pattern: 0 or 2 feet (flight or bilateral stance)
+
+**Backflip Indicators:**
+- Height: 1.0-1.2m minimum (much higher than basic jumps)
+- Movement quality: Explosive power generation for rotation
+- Arm coordination: Complex phase-specific patterns (swing → tuck → extend)
+- Contact pattern: Preparation → extended flight → controlled landing
+- Rotation: 360° backward somersault
+
+**Walking/March/Pace Indicators:**
+- Height: 0.74m maintained consistently
+- Movement quality: Smooth, controlled locomotion
+- Arm coordination: Cross-pattern (walking) or compensatory (pace)
+- Contact pattern: Alternating or lateral movement
+**Contacts:** Feet should not drag. Lifting feet should 4-5 cm should be like human-like. 
+
+
+**Sprint Indicators:**
+- Height: 0.74m maintained during high-speed movement
+- Movement quality: Dynamic power with controlled acceleration
+- Arm coordination: Reciprocal drive for forward propulsion
+- Contact pattern: Brief stance phases with extended flight
+
 **Final Note:**
-- **Gentle Movement Priority:** Focus on identifying GENTLE, SMOOTH, biomechanically-sound movement patterns
-- **Quality Over Intensity:** Consider movement gentleness and control as key distinguishing factors
-- **Sustainable Human-Centric Analysis:** Base analysis on GENTLE, SUSTAINABLE human locomotion principles
-- **Avoid Extremes:** Reject harsh, excessive, or unsustainable movement patterns
+- **Task-Specific Standards:** Apply movement quality standards appropriate for the specific task type
+- **Avoid Misapplication:** Do not apply gentle standards to explosive acrobatic tasks, or explosive standards to gentle locomotion
+- **Biomechanical Appropriateness:** Base analysis on task-appropriate human movement principles
+- **Recognize Task Complexity:** Distinguish between simple bilateral movements and complex acrobatic maneuvers

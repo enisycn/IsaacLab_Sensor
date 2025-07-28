@@ -1,7 +1,31 @@
 Please carefully analyze the policy feedback and provide a new, improved reward function that can better solve the task. Some helpful tips for analyzing the policy feedback:
     (1) If the values for a certain reward component are near identical throughout, then this means RL is not able to optimize this component as it is written. You may consider
         (a) Changing its scale or the value of its temperature parameter
-        (b) Re-writing the reward component 
-        (c) Discarding the reward component
+        (b) Re-writing the reward components
+        (c) Discarding the reward components
+        (d) Add new reward components
     (2) If some reward components' magnitude is significantly larger, then you must re-scale its value to a proper range
+    (3) **Full-Body Coordination Check:** Ensure the reward function includes proper coordination between all controlled joints (legs, arms, torso) for natural humanoid locomotion. Consider adding missing components like arm swing coordination, bilateral symmetry, and upper body integration.
+    (4) **Foundation-First Stability Analysis:** If training is crashing or mean reward is zero:
+        (a) **FIRST**: Check if basic locomotion foundation is stable (height, velocity, orientation)
+        (b) **SECOND**: Verify mathematical stability (no aggressive exponentials, tight tolerances, or multiplicative chains)
+        (c) **THIRD**: Check if environmental components are conflicting with basic locomotion
+        (d) **SOLUTION**: Start with foundation-only reward, then add complexity incrementally
+    (5) **Environmental Integration Issues:** If mean reward is consistently zero despite environmental data being available:
+        (a) **Check environmental analysis first** - only include components for detected features (gaps, obstacles, terrain roughness)
+        (b) **Reference actual environmental data** from environment_aware_task_descriptor_system.txt to determine relevant components
+        (c) **For simple environments**: Skip environmental sensing entirely and focus on natural locomotion
+        (d) **For mixed gap environments**: If both steppable and jumpable gaps are present, implement adaptive gap navigation using real-time sensor data to classify gap sizes and activate appropriate behaviors (step for small gaps ≤30cm, jump for medium gaps 30-60cm, avoid for large gaps >60cm)
+        (e) Check if complex mathematical operations in environmental components are causing numerical instability
+        (f) Simplify environmental sensing components and test incrementally
+        (g) Start with basic locomotion foundation before adding environmental sensing
+        (h) Add environmental components one at a time: contacts → terrain → obstacles
+        (i) Verify sensor access is working correctly (test without error handling if needed)
+        (j) Ensure environmental weights don't overwhelm basic locomotion components
+    (6) **Mathematical Stability Check:** If rewards are consistently zero or training crashes:
+        (a) Replace aggressive exponentials (factors >3.0) with moderate ones (0.5-2.0)
+        (b) Use relaxed tolerances (0.3-1.0) instead of tight ones (0.1 or smaller)
+        (c) Switch from multiplicative to additive reward combinations
+        (d) Add baseline bonus (+0.2 to +0.5) to ensure non-zero minimum
+        (e) Use safe division patterns and clamp final rewards to min=0.1
 Please analyze each existing reward component in the suggested manner above first, and then write the reward function code. 

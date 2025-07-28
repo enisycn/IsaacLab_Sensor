@@ -29,7 +29,7 @@ SDS uses large language models to automatically generate reward functions for hu
 
 ---
 
-## Directory Structure
+## Directory Structure (!Rename IsaacLab_Humanoid to IsaacLab)
 
 ```
 IsaacLab/

@@ -24,7 +24,7 @@ from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.scene import InteractiveSceneCfg
-from isaaclab.sensors import ContactSensorCfg, RayCasterCfg, patterns
+from isaaclab.sensors import ContactSensorCfg, ImuCfg, RayCasterCfg, patterns
 from isaaclab.terrains import TerrainImporterCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
@@ -39,6 +39,50 @@ import isaaclab_tasks.manager_based.sds.velocity.mdp as mdp
 from isaaclab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort: skip
 from isaaclab.sensors import patterns  # isort: skip
 
+##
+# Gap terrain configuration for environmental sensing testing
+##
+import isaaclab.terrains as terrain_gen
+from isaaclab.terrains.terrain_generator_cfg import TerrainGeneratorCfg
+
+GAP_TEST_TERRAIN_CFG = TerrainGeneratorCfg(
+    size=(8.0, 8.0),
+    border_width=20.0,
+    num_rows=10,
+    num_cols=20,
+    horizontal_scale=0.1,
+    vertical_scale=0.005,
+    slope_threshold=0.75,
+    use_cache=False,
+    sub_terrains={
+        # Gap terrain - creates actual gaps that can be detected
+        "gap_terrain": terrain_gen.MeshGapTerrainCfg(
+            proportion=0.5,  # 50% gap terrain for testing
+            gap_width_range=(0.4, 0.9),  # 40cm to 90cm gaps 
+            platform_width=1.8,  # 1.8m platform in center
+        ),
+        # Discrete obstacles with holes (creates additional gaps)
+        "discrete_obstacles": terrain_gen.HfDiscreteObstaclesTerrainCfg(
+            proportion=0.3,  # 30% discrete obstacles
+            obstacle_height_mode="choice",  # Mix of positive and negative heights
+            obstacle_width_range=(0.2, 0.6),
+            obstacle_height_range=(0.05, 0.3),  # 5cm to 30cm obstacles/pits
+            num_obstacles=12,
+            platform_width=1.5,
+        ),
+        # Some rough terrain for variety
+        "random_rough": terrain_gen.HfRandomUniformTerrainCfg(
+            proportion=0.2,
+            noise_range=(0.03, 0.12),  # Moderate roughness
+            noise_step=0.02,
+            border_width=0.25
+        ),
+    },
+)
+
+# Configuration flag for environmental sensing testing
+# Set to True to test environmental sensing with gaps, False for normal terrain
+ENABLE_GAP_TESTING = True  # Change this to True to enable gap terrain for testing
 
 ##
 # Scene definition for SDS
@@ -53,7 +97,7 @@ class MySceneCfg(InteractiveSceneCfg):
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",
         terrain_type="generator",
-        terrain_generator=ROUGH_TERRAINS_CFG,
+        terrain_generator=GAP_TEST_TERRAIN_CFG if ENABLE_GAP_TESTING else ROUGH_TERRAINS_CFG,
         max_init_terrain_level=5,
         collision_group=-1,
         physics_material=sim_utils.RigidBodyMaterialCfg(
@@ -61,6 +105,7 @@ class MySceneCfg(InteractiveSceneCfg):
             restitution_combine_mode="multiply",
             static_friction=1.0,
             dynamic_friction=1.0,
+            restitution=0.0,  # ✅ Explicit zero bounce for stable locomotion
         ),
         visual_material=sim_utils.MdlFileCfg(
             mdl_path=f"{ISAACLAB_NUCLEUS_DIR}/Materials/TilesMarbleSpiderWhiteBrickBondHoned/TilesMarbleSpiderWhiteBrickBondHoned.mdl",
@@ -77,12 +122,14 @@ class MySceneCfg(InteractiveSceneCfg):
         offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
         attach_yaw_only=True,
         pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6, 1.0]),
-        debug_vis=False,
+        debug_vis=False, # Disable height scanner rays for cleaner visualization
         mesh_prim_paths=["/World/ground"],
     )
-    contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*_ankle_roll_link", history_length=3, track_air_time=True)
+    contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*_ankle_roll_link", history_length=3, track_air_time=True, force_threshold=50.0)
     # Separate contact sensor for torso/body contact detection
     torso_contact = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/torso_link", history_length=3, track_air_time=False)
+    # IMU sensor for backflip orientation tracking
+    imu = ImuCfg(prim_path="{ENV_REGEX_NS}/Robot/torso_link", update_period=0.02, gravity_bias=(0.0, 0.0, 9.81), debug_vis=False)  # Disable RED arrows
     # lights
     sky_light = AssetBaseCfg(
         prim_path="/World/skyLight",
@@ -104,16 +151,16 @@ class CommandsCfg:
 
     base_velocity = mdp.UniformVelocityCommandCfg(
         asset_name="robot",
-        resampling_time_range=(10.0, 10.0),
-        rel_standing_envs=0.02,
+        resampling_time_range=(8.0, 12.0),
+        rel_standing_envs=0.3,  # 30% standing still for stability learning
         rel_heading_envs=1.0,
         heading_command=True,
         heading_control_stiffness=0.5,
-        debug_vis=False,  # Disabled to remove arrows from training footage
+        debug_vis=True,   # Enable BLUE velocity arrows
         ranges=mdp.UniformVelocityCommandCfg.Ranges(
-            lin_vel_x=(0.0, 0.0),     # Zero forward velocity for stationary jumping
-            lin_vel_y=(0.0, 0.0),     # Zero lateral movement for stationary jumping  
-            ang_vel_z=(0.0, 0.0),     # Zero turning for stationary jumping
+            lin_vel_x=(0.0, 0.4),     # Slow forward velocity for stable learning
+            lin_vel_y=(-0.1, 0.1),    # Small lateral movement
+            ang_vel_z=(-0.2, 0.2),    # Small turning for stable learning
             heading=(-math.pi, math.pi)
         ),
     )
@@ -123,8 +170,8 @@ class CommandsCfg:
 class ActionsCfg:
     """Action specifications for the MDP."""
 
-    # LOCOMOTION CONTROL: Legs and torso only (13 DOF) - arms fixed for stability
-    # This focuses control on essential locomotion joints while keeping arms at default poses
+    # FULL BODY CONTROL: All joints except hand fingers (23 DOF) - complete humanoid control
+    # Includes legs, torso, and arms for comprehensive humanoid locomotion and manipulation
     joint_pos = mdp.JointPositionActionCfg(
         asset_name="robot", 
         joint_names=[
@@ -132,12 +179,16 @@ class ActionsCfg:
             ".*_hip_yaw_joint", ".*_hip_roll_joint", ".*_hip_pitch_joint", 
             ".*_knee_joint", ".*_ankle_pitch_joint", ".*_ankle_roll_joint",
             # TORSO (1 DOF) - for upper body posture
-            "torso_joint"
+            "torso_joint",
+            # ARMS (10 DOF) - for balance and natural movement
+            ".*_shoulder_pitch_joint", ".*_shoulder_roll_joint", ".*_shoulder_yaw_joint",
+            ".*_elbow_pitch_joint", ".*_elbow_roll_joint"
         ], 
-        scale=0.25,  # Reduced from 1.0 to prevent awkward excessive joint movements - enables smoother locomotion
+        scale=0.1,   # Further reduced for stable learning - prevent instability
         use_default_offset=True
     )
-    # NOTE: Arms (10 DOF) and hands (14 DOF) excluded - maintain default poses for stable locomotion
+    # NOTE: Hand finger joints (14 DOF) excluded - finger joints maintain default poses for stability
+    # Excluded finger joints: .*_zero_joint, .*_one_joint, .*_two_joint, .*_three_joint, .*_four_joint, .*_five_joint, .*_six_joint
 
 
 @configclass
@@ -156,8 +207,39 @@ class ObservationsCfg:
             noise=Unoise(n_min=-0.05, n_max=0.05),
         )
         velocity_commands = ObsTerm(func=mdp.generated_commands, params={"command_name": "base_velocity"})
-        joint_pos = ObsTerm(func=mdp.joint_pos_rel, noise=Unoise(n_min=-0.01, n_max=0.01))
-        joint_vel = ObsTerm(func=mdp.joint_vel_rel, noise=Unoise(n_min=-1.5, n_max=1.5))
+        # FIXED: Joint observations must match action space (23 DOF) - exclude hand finger joints for efficiency
+        joint_pos = ObsTerm(
+            func=mdp.joint_pos_rel, 
+            params={"asset_cfg": SceneEntityCfg("robot", joint_names=[
+                # LEGS (8 DOF) - Hip and knee joints for locomotion
+                ".*_hip_yaw_joint", ".*_hip_roll_joint", ".*_hip_pitch_joint", ".*_knee_joint",
+                # FEET (4 DOF) - Ankle joints for balance and ground contact
+                ".*_ankle_pitch_joint", ".*_ankle_roll_joint", 
+                # TORSO (1 DOF) - Upper body posture control
+                "torso_joint",
+                # ARMS (10 DOF) - Shoulder and elbow joints for balance and natural movement
+                ".*_shoulder_pitch_joint", ".*_shoulder_roll_joint", ".*_shoulder_yaw_joint",
+                ".*_elbow_pitch_joint", ".*_elbow_roll_joint"
+                # NOTE: Hand finger joints explicitly excluded (.*_zero_joint, .*_one_joint, etc.)
+            ])},
+            noise=Unoise(n_min=-0.01, n_max=0.01)
+        )
+        joint_vel = ObsTerm(
+            func=mdp.joint_vel_rel, 
+            params={"asset_cfg": SceneEntityCfg("robot", joint_names=[
+                # LEGS (8 DOF) - Hip and knee joints for locomotion
+                ".*_hip_yaw_joint", ".*_hip_roll_joint", ".*_hip_pitch_joint", ".*_knee_joint",
+                # FEET (4 DOF) - Ankle joints for balance and ground contact
+                ".*_ankle_pitch_joint", ".*_ankle_roll_joint", 
+                # TORSO (1 DOF) - Upper body posture control
+                "torso_joint",
+                # ARMS (10 DOF) - Shoulder and elbow joints for balance and natural movement
+                ".*_shoulder_pitch_joint", ".*_shoulder_roll_joint", ".*_shoulder_yaw_joint",
+                ".*_elbow_pitch_joint", ".*_elbow_roll_joint"
+                # NOTE: Hand finger joints explicitly excluded (.*_zero_joint, .*_one_joint, etc.)
+            ])},
+            noise=Unoise(n_min=-1.5, n_max=1.5)
+        )
         actions = ObsTerm(func=mdp.last_action)
         height_scan = ObsTerm(
             func=mdp.height_scan,
@@ -259,8 +341,8 @@ class EventCfg:
 class RewardsCfg:
     """Reward terms for the MDP."""
 
-    # -- SDS Dynamic Reward (ONLY reward term)
-    # GPT will generate completely new reward functions each iteration
+    # -- SDS Custom Reward (using proven Isaac Lab patterns)
+    # Now combines all the best Isaac Lab functions into one reward
     sds_custom = RewTerm(func=mdp.sds_custom_reward, weight=1.0)
 
 
@@ -306,8 +388,8 @@ class SDSVelocityRoughEnvCfg(ManagerBasedRLEnvCfg):
     def __post_init__(self):
         """Post initialization."""
         # general settings
-        self.decimation = 8  # Decreased control frequency: 200Hz ÷ 8 = 25Hz (was 50Hz)
-        self.episode_length_s = 20.0
+        self.decimation = 4  # Higher control frequency: 200Hz ÷ 4 = 50Hz (better for dynamic tasks like backflips)
+        self.episode_length_s = 30.0  # REVISION 1: Increased from 20s to give more learning time
         # simulation settings
         self.sim.dt = 0.005
         self.sim.render_interval = self.decimation
@@ -319,6 +401,8 @@ class SDSVelocityRoughEnvCfg(ManagerBasedRLEnvCfg):
             self.scene.height_scanner.update_period = self.decimation * self.sim.dt
         if self.scene.contact_forces is not None:
             self.scene.contact_forces.update_period = self.sim.dt
+        if self.scene.imu is not None:
+            self.scene.imu.update_period = self.decimation * self.sim.dt  # IMU at control frequency (50Hz)
 
         # check if terrain levels curriculum is enabled - if so, enable curriculum for terrain generator
         # this generates terrains with increasing difficulty and is useful for training

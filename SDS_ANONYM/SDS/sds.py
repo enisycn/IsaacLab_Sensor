@@ -17,7 +17,7 @@ from utils.vid_utils import create_grid_image,encode_image,save_grid_image
 from utils.easy_vit_pose import vitpose_inference
 import cv2
 import os
-from agents import SUSGenerator
+from agents import SUSGenerator, EnhancedSUSGenerator
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -85,8 +85,31 @@ def main(cfg):
     
     encoded_gt_frame_grid = encode_image(f'{workspace_dir}/gt_demo.png')
     
-    sus_generator = SUSGenerator(cfg,prompt_dir)
-    SUS_prompt = sus_generator.generate_sus_prompt(encoded_gt_frame_grid, cfg.task.description)
+    # Choose SUS generator based on configuration
+    enable_env_analysis = getattr(cfg, 'enable_environment_analysis', True)
+    
+    if enable_env_analysis:
+        # Use enhanced SUS generator with environment awareness
+        sus_generator = EnhancedSUSGenerator(cfg, prompt_dir)
+        
+        # Generate environment-aware SUS prompt
+        num_envs_for_analysis = getattr(cfg, 'environment_analysis_robots', 50)
+        logging.info(f"Using environment-aware SUS generation with {num_envs_for_analysis} robots for terrain analysis")
+        
+        SUS_prompt = sus_generator.generate_enhanced_sus_prompt(
+            encoded_gt_frame_grid, 
+            cfg.task.description,
+            num_envs=num_envs_for_analysis
+        )
+    else:
+        # Use original SUS generator (video-only analysis)
+        sus_generator = SUSGenerator(cfg, prompt_dir)
+        logging.info("Using original SUS generation (video-only analysis)")
+        
+        SUS_prompt = sus_generator.generate_sus_prompt(
+            encoded_gt_frame_grid, 
+            cfg.task.description
+        )
     
     initial_reward_engineer_system = initial_reward_engineer_system.format(task_reward_signature_string=reward_signature,task_obs_code_string=task_obs_code_string) + code_output_tip
 
@@ -170,7 +193,7 @@ def main(cfg):
 
             # Remove unnecessary imports
             lines = code_string.split("\n")
-            lines = [" "*4 + line for line in lines]
+            # Find the start of the function definition (skip imports/comments)
             for i, line in enumerate(lines):
                 if line.strip().startswith("def "):
                     code_string = "\n".join(lines[i:])
@@ -178,7 +201,7 @@ def main(cfg):
             
             
             def ensure_proper_indentation(code_str):
-                """Ensure the function has proper Python indentation (0 for def, 4 for body)."""
+                """Ensure the function has proper Python indentation (0 for def, preserve nested structure)."""
                 lines = code_str.splitlines()
                 
                 if not lines:
@@ -190,13 +213,28 @@ def main(cfg):
                     raise ValueError(f"Generated code must start with 'def sds_custom_reward', got: {first_line}")
 
                 adjusted_lines = []
+                
+                # Find the base indentation level (function body level)
+                base_indent = None
+                for line in lines[1:]:  # Skip the def line
+                    if line.strip():  # First non-empty line after def
+                        base_indent = len(line) - len(line.lstrip())
+                        break
+                
+                if base_indent is None:
+                    base_indent = 4  # Default to 4 if no body found
+                
                 for i, line in enumerate(lines):
                     if i == 0:
                         # Function definition at file level (no indentation)
                         adjusted_lines.append(first_line)
                     elif line.strip():  # Non-empty line
-                        # Function body with 4-space indentation
-                        adjusted_lines.append("    " + line.strip())
+                        # Calculate current indentation relative to base
+                        current_indent = len(line) - len(line.lstrip())
+                        # Preserve relative indentation, but ensure function body starts at 4 spaces
+                        relative_indent = max(0, current_indent - base_indent)
+                        new_indent = 4 + relative_indent
+                        adjusted_lines.append(" " * new_indent + line.strip())
                     else:
                         # Empty line
                         adjusted_lines.append("")
@@ -281,10 +319,11 @@ def main(cfg):
             isaac_lab_root = find_isaac_lab_root()
             
             # Use Isaac Lab training command with G1 humanoid task
+            # Note: SDS_ANALYSIS_MODE is NOT set, so gravity will be ENABLED for training
             command = [
                 f"{isaac_lab_root}/isaaclab.sh",
                 "-p", "scripts/reinforcement_learning/rsl_rl/train.py",
-                f"--task=Isaac-SDS-Velocity-Flat-G1-v0",
+                f"--task=Isaac-SDS-Velocity-Flat-G1-Enhanced-v0",
                 f"--num_envs={cfg.num_envs}",
                 f"--max_iterations={cfg.train_iterations}",
                 "--headless"
@@ -323,7 +362,7 @@ def main(cfg):
                         
                         # Process new code the same way
                         lines = new_code_string.split("\n")
-                        lines = [" "*4 + line for line in lines]
+                        # Find the start of the function definition (skip imports/comments)
                         for i, line in enumerate(lines):
                             if line.strip().startswith("def "):
                                 new_code_string = "\n".join(lines[i:])
@@ -474,8 +513,8 @@ def main(cfg):
                 eval_command = [
                     f"{isaac_lab_root}/isaaclab.sh",
                     "-p", "scripts/reinforcement_learning/rsl_rl/play.py",
-                    "--task=Isaac-SDS-Velocity-Flat-G1-Play-v0",
-                    "--num_envs=1",
+                    "--task=Isaac-SDS-Velocity-Flat-G1-Enhanced-Play-v0",
+                    "--num_envs=200",
                     f"--checkpoint={latest_checkpoint}",
                     "--video",
                     f"--video_length={cfg.video_length}",
@@ -511,7 +550,7 @@ def main(cfg):
                 contact_command = [
                     f"{isaac_lab_root}/isaaclab.sh",
                     "-p", "scripts/reinforcement_learning/rsl_rl/play_with_contact_plotting.py",
-                    "--task=Isaac-SDS-Velocity-Flat-G1-Play-v0",
+                    "--task=Isaac-SDS-Velocity-Flat-G1-Enhanced-Play-v0",
                     "--num_envs=1",
                     f"--checkpoint={latest_checkpoint}",
                     f"--plot_steps={cfg.video_length}",

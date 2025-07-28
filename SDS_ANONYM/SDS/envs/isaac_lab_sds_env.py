@@ -12,20 +12,19 @@ class SDSIsaacLabEnvironment:
     Isaac Lab Manager-Based RL Environment for SDS Humanoid Locomotion
     
     Environment Details:
-    - Robot: Unitree G1 humanoid (37 DOF total, 13 DOF controlled for locomotion)
-    - Action Space: 13 DOF legs-only joints for cleaner locomotion debugging
-    - Task: Velocity tracking locomotion  
+    - Robot: Unitree G1 humanoid (37 DOF total, 23 DOF controlled for complete humanoid control)
+    - Action Space: 23 DOF full body joints for comprehensive humanoid locomotion
+    - Task: Velocity tracking locomotion with full body coordination
     - Framework: Isaac Lab ManagerBasedRLEnv
     - Control: 50Hz (20ms timestep, 4x decimation from 200Hz physics)
     
-    Controlled Joints for Locomotion (13 DOF):
-    - Legs: 8 DOF (hip yaw/roll/pitch, knee per leg)
-    - Ankles: 4 DOF (pitch/roll per ankle)  
+    Controlled Joints for Full Body Locomotion (23 DOF):
+    - Legs: 12 DOF (hip yaw/roll/pitch, knee, ankle pitch/roll per leg)
+    - Arms: 10 DOF (shoulder pitch/roll/yaw, elbow pitch/roll per arm)
     - Torso: 1 DOF (torso_joint)
     
-    Fixed Joints (24 DOF):
-    - Arms: 10 DOF maintained at default poses for stability
-    - Hands: 14 DOF maintained at default poses for walking stability
+    Fixed Joints (14 DOF):
+    - Hand Fingers: 14 DOF maintained at default poses (zero/one/two/three/four/five/six_joint per hand)
     """
     
     def __init__(self):
@@ -55,7 +54,8 @@ class SDSIsaacLabEnvironment:
                     root_lin_vel_b = None  # [num_envs, 3] Linear velocity in BODY frame  
                     root_ang_vel_b = None  # [num_envs, 3] Angular velocity in BODY frame
                     
-                    # Joint state (37 joints: 12 legs + 1 torso + 10 arms + 14 hands)
+                    # Joint state (37 joints: 12 legs + 1 torso + 10 arms + 14 hand fingers)
+                    # CONTROLLED JOINTS (23 DOF): 12 legs + 1 torso + 10 arms (all except hand fingers)
                     joint_pos = None       # [num_envs, 37] Joint positions (rad)
                     joint_vel = None       # [num_envs, 37] Joint velocities (rad/s)
                     joint_acc = None       # [num_envs, 37] Joint accelerations (rad/s²)
@@ -131,14 +131,12 @@ G1_BODY_NAMES = {
 
 # Joint Configuration (37 DOF for G1 EDU U4 - VERIFIED FROM ISAAC LAB SOURCE)
 G1_JOINT_NAMES = [
-    # Leg joints (9 DOF - 4 per leg + 1 torso) - VERIFIED FROM ISAAC LAB
+    # Leg and Torso joints (13 DOF - 12 leg + 1 torso, part of 23 controlled DOF) - VERIFIED FROM ISAAC LAB
     "left_hip_yaw_joint", "left_hip_roll_joint", "left_hip_pitch_joint", "left_knee_joint",
-    "right_hip_yaw_joint", "right_hip_roll_joint", "right_hip_pitch_joint", "right_knee_joint",
-    "torso_joint",
-    
-    # Ankle joints (4 DOF - 2 per foot) - VERIFIED FROM ISAAC LAB
     "left_ankle_pitch_joint", "left_ankle_roll_joint",
+    "right_hip_yaw_joint", "right_hip_roll_joint", "right_hip_pitch_joint", "right_knee_joint", 
     "right_ankle_pitch_joint", "right_ankle_roll_joint",
+    "torso_joint",
     
     # Arm joints (10 DOF - 5 per arm) - VERIFIED FROM ISAAC LAB
     "left_shoulder_pitch_joint", "left_shoulder_roll_joint", "left_shoulder_yaw_joint",
@@ -156,9 +154,15 @@ G1_JOINT_NAMES = [
 # Robot specifications based on Isaac Lab implementation and official specs
 G1_SPECS = {
     "total_joints": 37,             # VERIFIED: Isaac Lab G1 EDU U4 with dexterous hands (full robot)
-    "action_space": 13,             # LEGS-ONLY: Controlled joints for locomotion debugging (6 legs + 4 ankles + 1 torso)
-    "arm_joints": 10,               # Fixed at default poses during locomotion
-    "hand_joints": 14,              # Fixed at default poses during locomotion
+    "action_space": 23,             # FULL BODY: Controlled joints for complete humanoid control (12 legs + 1 torso + 10 arms)
+    "controlled_joints": {
+        "legs": 12,                 # Controlled: All leg joints for locomotion
+        "torso": 1,                 # Controlled: Torso joint for posture
+        "arms": 10,                 # Controlled: All arm joints for balance and natural movement
+    },
+    "fixed_joints": {
+        "hand_fingers": 14,         # Fixed: Hand finger joints at default poses
+    },
     "nominal_height": 0.74,         # VERIFIED: Isaac Lab init position z=0.74m
     "contact_threshold": 50.0,      # CORRECTED: Appropriate for 35kg humanoid robot
     "foot_bodies": ["left_ankle_roll_link", "right_ankle_roll_link"],  # FIXED: Contact detection bodies (links not joints)

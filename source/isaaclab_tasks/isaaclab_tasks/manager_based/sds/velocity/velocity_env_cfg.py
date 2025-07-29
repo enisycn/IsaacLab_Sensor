@@ -40,51 +40,6 @@ from isaaclab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort: skip
 from isaaclab.sensors import patterns  # isort: skip
 
 ##
-# Gap terrain configuration for environmental sensing testing
-##
-import isaaclab.terrains as terrain_gen
-from isaaclab.terrains.terrain_generator_cfg import TerrainGeneratorCfg
-
-GAP_TEST_TERRAIN_CFG = TerrainGeneratorCfg(
-    size=(8.0, 8.0),
-    border_width=20.0,
-    num_rows=10,
-    num_cols=20,
-    horizontal_scale=0.1,
-    vertical_scale=0.005,
-    slope_threshold=0.75,
-    use_cache=False,
-    sub_terrains={
-        # Gap terrain - creates actual gaps that can be detected
-        "gap_terrain": terrain_gen.MeshGapTerrainCfg(
-            proportion=0.5,  # 50% gap terrain for testing
-            gap_width_range=(0.4, 0.9),  # 40cm to 90cm gaps 
-            platform_width=1.8,  # 1.8m platform in center
-        ),
-        # Discrete obstacles with holes (creates additional gaps)
-        "discrete_obstacles": terrain_gen.HfDiscreteObstaclesTerrainCfg(
-            proportion=0.3,  # 30% discrete obstacles
-            obstacle_height_mode="choice",  # Mix of positive and negative heights
-            obstacle_width_range=(0.2, 0.6),
-            obstacle_height_range=(0.05, 0.3),  # 5cm to 30cm obstacles/pits
-            num_obstacles=12,
-            platform_width=1.5,
-        ),
-        # Some rough terrain for variety
-        "random_rough": terrain_gen.HfRandomUniformTerrainCfg(
-            proportion=0.2,
-            noise_range=(0.03, 0.12),  # Moderate roughness
-            noise_step=0.02,
-            border_width=0.25
-        ),
-    },
-)
-
-# Configuration flag for environmental sensing testing
-# Set to True to test environmental sensing with gaps, False for normal terrain
-ENABLE_GAP_TESTING = True  # Change this to True to enable gap terrain for testing
-
-##
 # Scene definition for SDS
 ##
 
@@ -97,7 +52,7 @@ class MySceneCfg(InteractiveSceneCfg):
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",
         terrain_type="generator",
-        terrain_generator=GAP_TEST_TERRAIN_CFG if ENABLE_GAP_TESTING else ROUGH_TERRAINS_CFG,
+        terrain_generator=ROUGH_TERRAINS_CFG,
         max_init_terrain_level=5,
         collision_group=-1,
         physics_material=sim_utils.RigidBodyMaterialCfg(
@@ -158,9 +113,9 @@ class CommandsCfg:
         heading_control_stiffness=0.5,
         debug_vis=True,   # Enable BLUE velocity arrows
         ranges=mdp.UniformVelocityCommandCfg.Ranges(
-            lin_vel_x=(0.0, 0.4),     # Slow forward velocity for stable learning
-            lin_vel_y=(-0.1, 0.1),    # Small lateral movement
-            ang_vel_z=(-0.2, 0.2),    # Small turning for stable learning
+            lin_vel_x=(-0.1, 0.4),    # Allow backward movement + forward velocity for stable learning
+            lin_vel_y=(-0.15, 0.15),  # Increased lateral movement range
+            ang_vel_z=(-0.3, 0.3),    # Increased turning range for better maneuverability
             heading=(-math.pi, math.pi)
         ),
     )
@@ -186,7 +141,7 @@ class ActionsCfg:
         ], 
         scale=0.1,   # Further reduced for stable learning - prevent instability
         use_default_offset=True
-    )
+    ) 
     # NOTE: Hand finger joints (14 DOF) excluded - finger joints maintain default poses for stability
     # Excluded finger joints: .*_zero_joint, .*_one_joint, .*_two_joint, .*_three_joint, .*_four_joint, .*_five_joint, .*_six_joint
 

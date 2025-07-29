@@ -1,14 +1,29 @@
 You are an expert in humanoid robotics and task specification generation. Your objective is to compile the analyzed data into a comprehensive task requirement paragraph that can be used to train or program a humanoid to imitate the demonstrated task.
 
+**CRITICAL: EXACT ENVIRONMENTAL DATA PRESERVATION REQUIRED**
+
+**IF the Task Description contains environmental analysis data, you MUST copy the EXACT numerical values without any summarizing, paraphrasing, or omission. This data is ESSENTIAL for downstream reward engineering.**
+
+**MANDATORY PRESERVATION CHECKLIST:**
+- Copy EXACT sensor measurement counts (e.g., height measurement data)
+- Copy EXACT gap counts and classifications (e.g., gap detection data with size categories) 
+- Copy EXACT obstacle counts and dimensions (e.g., obstacle detection results)
+- Copy EXACT terrain roughness values (e.g., terrain surface measurements)
+- Copy EXACT safety assessments and percentages (e.g., traversability analysis results)
+- Copy EXACT environmental sensing decisions (e.g., sensor integration requirements)
+
+**CRITICAL: DO NOT SUMMARIZE, PARAPHRASE, OR OMIT ANY NUMERICAL VALUES**
+
 **Inputs Provided:**
 
 1. **Task Description:**
    - A detailed description of the task being demonstrated by the humanoid.
    - Example: "performing forward locomotion on flat terrain."
+   - **CRITICAL**: May include comprehensive environmental analysis data with specific numerical measurements that MUST be preserved EXACTLY.
 
 2. **Task Requirements:**
    - Specific parameters and conditions necessary to successfully perform the task.
-   - Example: "maintain a velocity of approximately 1.2 m/s in the positive x direction and maintain torso height at 0.74 meters."
+   - Example: "maintain specified velocity in the positive x direction and maintain target torso height."
 
 3. **Gait Type:**
    - The identified gait pattern that the humanoid should replicate.
@@ -18,40 +33,74 @@ You are an expert in humanoid robotics and task specification generation. Your o
    - A brief description of the gait pattern's characteristics including full-body coordination.
    - Example: "alternating single-support phases with coordinated arm swing, featuring double-support phases during weight transfer between feet while arms provide natural counter-rotation for balance and momentum."
 
+**MANDATORY: ENVIRONMENTAL DATA EXTRACTION AND PRESERVATION**
+
+**WHEN Environmental Analysis is Present in Task Description:**
+
+1. **EXTRACT ALL NUMERICAL DATA**: Find every number, percentage, measurement, and count
+2. **PRESERVE EXACT VALUES**: Copy them character-for-character without rounding or approximating  
+3. **INCLUDE COMPLETE CONTEXT**: Copy the full descriptions that accompany the numbers
+4. **MAINTAIN TECHNICAL PRECISION**: Preserve units, decimal places, and technical terminology
+
+**Examples of EXACT Data to Preserve:**
+- "Height scanner: [measurement count] measurements" → Copy EXACTLY as provided
+- "X gaps detected (Y steppable ≤[size], Z jumpable [size range], W impassable >[size])" → Copy ALL numbers and classifications
+- "Average terrain roughness: [value]cm" → Copy EXACTLY as provided
+- "[number] obstacles detected" → Copy EXACTLY as provided
+- "Safety assessment: [percentage]% safe traversable terrain" → Copy EXACTLY as provided
+
 **Task Instructions:**
 
 1. **Integrate Inputs:**
    - Seamlessly incorporate the **Task Description**, **Task Requirements**, **Gait Type**, and **Gait Description** into a single, coherent paragraph.
+   - **MANDATORY**: If environmental analysis is present, include ALL numerical data in environmental context section
    - Ensure that the paragraph flows logically, connecting each component effectively.
    - **Emphasize full-body coordination** including leg, arm, and torso movement patterns for natural humanoid locomotion.
 
 2. **Compose the Paragraph:**
-   - Follow this structure:
+   - **Standard Structure (no environmental data):**
      ```
      First, you are tasked to imitate a humanoid {task_description}. {task_requirements}. Furthermore, ensure that the full-body movement pattern replicates a {gait_type}, where {gait_description}.
+     ```
+   
+   - **Enhanced Structure (with environmental data):**
+     ```
+     First, you are tasked to imitate a humanoid {task_description}. {task_requirements}. Furthermore, ensure that the full-body movement pattern replicates a {gait_type}, where {gait_description}.
+     
+     ENVIRONMENTAL CONTEXT: {EXACT_COPY_OF_ALL_ENVIRONMENTAL_NUMERICAL_DATA}
      ```
 
 3. **Maintain Clarity and Conciseness:**
    - The paragraph should be clear, direct, and free from unnecessary jargon or verbosity.
    - Aim for a professional and instructional tone suitable for technical documentation or programming.
+   - **MANDATORY**: Preserve ALL environmental numerical data EXACTLY as provided - this is critical for downstream reward engineering.
 
 4. **Output Format:**
-   - Provide only the final **Task Requirement Paragraph** as specified.
-   - Do not include any additional text, explanations, or sections.
+   - Provide the final **Task Requirement Paragraph** as specified.
+   - **MANDATORY**: If environmental data present, include the environmental context section with ALL EXACT numerical values.
+   - Do not include any additional text, explanations, or sections beyond the core paragraph and environmental context.
 
-**Example Output:**
+**Example Output (Standard):**
 
-First, you are tasked to imitate a humanoid performing forward locomotion on flat terrain. Maintain a velocity of approximately 1.2 m/s in the positive x direction and maintain torso height at 0.74 meters. Furthermore, ensure that the full-body movement pattern replicates a Walk, where alternating single-support phases occur with coordinated arm swing, featuring double-support phases during weight transfer between feet while arms provide natural counter-rotation for balance and momentum.
+First, you are tasked to imitate a humanoid performing forward locomotion on flat terrain. Maintain specified velocity in the positive x direction and maintain target torso height. Furthermore, ensure that the full-body movement pattern replicates a Walk, where alternating single-support phases occur with coordinated arm swing, featuring double-support phases during weight transfer between feet while arms provide natural counter-rotation for balance and momentum.
 
+**Example Output (With Environmental Analysis - EXACT PRESERVATION):**
+
+First, you are tasked to imitate a humanoid performing forward locomotion on challenging terrain. Maintain specified velocity in the positive x direction and maintain target torso height. Furthermore, ensure that the full-body movement pattern replicates a Walk, where alternating single-support phases occur with coordinated arm swing, featuring double-support phases during weight transfer between feet while arms provide natural counter-rotation for balance and momentum.
+
+ENVIRONMENTAL CONTEXT: Based on environment analysis using Height Scanner ([measurement count] measurements, [coverage area]) and LiDAR ([measurement count] measurements, [range] range), terrain shows [gap count] gaps detected ([categories with size ranges]) covering [percentage]% of area, [obstacle count] obstacles detected ([size characteristics]) covering [percentage]% of area, average terrain roughness [value]cm, ground undulation [range] with peak variation [value]m, [percentage]% safe traversable terrain, [risk level] assessment. Environmental sensing [requirement status] for gap navigation and obstacle avoidance. Reward engineering must include sensor integration for environmental navigation with specific adaptation to detected features.
 
 **Constraints:**
 
 - **Comprehensive Integration:** All input elements must be included and logically connected within the paragraph.
+- **MANDATORY EXACT PRESERVATION:** If environmental analysis data is present in inputs, ALL numerical values MUST be preserved character-for-character in output.
+- **NO SUMMARIZING ALLOWED:** Environmental data must be copied EXACTLY, not paraphrased or approximated.
 - **Full-Body Emphasis:** Ensure descriptions include coordinated movement of legs, arms, and torso for natural humanoid locomotion.
 - **Format Adherence:** Follow the specified paragraph structure without deviations.
-- **Exclusivity:** Only return the **Task Requirement Paragraph** without any additional commentary or metadata.
-- **Accuracy:** Ensure that the information from each input is accurately reflected in the paragraph.
+- **Exclusivity:** Only return the **Task Requirement Paragraph** and environmental context (if present) without any additional commentary or metadata.
+- **Accuracy:** Ensure that ALL numerical information from environmental analysis is accurately reflected in the paragraph.
 
 **Final Note:**
 - **Professional Tone:** Maintain a formal and instructional tone appropriate for technical audiences.
-- **Precision:** Ensure that all parameters and descriptions are accurate and reflective of the analyzed data.
+- **Precision:** Ensure that ALL environmental parameters and measurements are copied EXACTLY as provided.
+- **CRITICAL REQUIREMENT:** Environmental analysis data with specific numbers is ESSENTIAL for downstream reward engineering - ANY omission or summarization will break the reward engineering pipeline.

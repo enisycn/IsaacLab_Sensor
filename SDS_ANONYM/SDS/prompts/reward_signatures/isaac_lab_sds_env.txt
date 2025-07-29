@@ -1,14 +1,170 @@
+**PROVEN ISAAC LAB LOCOMOTION PATTERNS - PRIORITIZE THESE!**
+
+These patterns are battle-tested and known to work for humanoid locomotion. Use them as a foundation:
+
+**1. YAW-ALIGNED VELOCITY TRACKING (SUPERIOR TO BODY FRAME):**
+```python
+# PROVEN: Much better than basic body frame tracking
+from isaaclab.utils.math import quat_apply_inverse, yaw_quat
+
+commands = env.command_manager.get_command("base_velocity")
+command_magnitude = torch.norm(commands[:, :2], dim=1)
+
+# Transform to yaw-aligned frame (removes pitch/roll interference)
+vel_yaw = quat_apply_inverse(yaw_quat(robot.data.root_quat_w), robot.data.root_lin_vel_w[:, :3])
+lin_vel_error = torch.sum(torch.square(commands[:, :2] - vel_yaw[:, :2]), dim=1)
+vel_reward = torch.exp(-lin_vel_error / (1.0**2))
+
+# CRITICAL: No reward for zero commands (prevents stationary exploitation)
+vel_reward *= (command_magnitude > 0.1).float()
+```
+
+**2. PROPER BIPEDAL GAIT PATTERNS:**
+```python
+# PROVEN: Rewards single stance phases (proper walking pattern)
+foot_ids, _ = contact_sensor.find_bodies(".*_ankle_roll_link")
+foot_ids = torch.tensor(foot_ids, dtype=torch.long, device=env.device)
+
+air_time = contact_sensor.data.current_air_time[:, foot_ids]
+contact_time = contact_sensor.data.current_contact_time[:, foot_ids]
+in_contact = contact_time > 0.0
+
+# Reward single stance (one foot contact at a time)
+single_stance = torch.sum(in_contact.int(), dim=1) == 1
+in_mode_time = torch.where(in_contact, contact_time, air_time)
+gait_reward = torch.min(torch.where(single_stance.unsqueeze(-1), in_mode_time, 0.0), dim=1)[0]
+gait_reward = torch.clamp(gait_reward, max=0.5) * (command_magnitude > 0.1).float()
+```
+
+**3. CONTACT-AWARE FOOT SLIDING PENALTY:**
+```python
+# PROVEN: Only penalize sliding when foot is actually in contact
+forces = contact_sensor.data.net_forces_w_history[:, :, foot_ids, :]
+contacts = forces.norm(dim=-1).max(dim=1)[0] > 1.0
+body_vel = robot.data.body_lin_vel_w[:, foot_ids, :2]
+slide_penalty = torch.sum(body_vel.norm(dim=-1) * contacts, dim=1)
+```
+
+**CRITICAL ISAAC LAB INSIGHTS:**
+- **Command scaling**: Never reward when commands are near zero
+- **Yaw alignment**: Removes pitch/roll interference from velocity tracking  
+- **Single stance**: Encourages proper alternating foot pattern
+- **Contact awareness**: Only apply penalties when actually relevant (foot in contact)
+- **Capped rewards**: Air time and other metrics should have reasonable upper bounds
+
+## ISAAC LAB REWARD COMPUTATION PATTERNS
+
+**Focus: Technical implementation for reward functions, not biomechanical theory**
+
+** ENHANCED ENVIRONMENT REWARD PATTERNS (NEW - FOR ADVANCED LOCOMOTION):**
+
+**4. VELOCITY-OBSTACLE CONFLICT RESOLUTION MATH:**
+```python
+# Enhanced sensor-based dynamic target modification for reward computation
+height_scan = env.scene.sensors["height_scanner"].data.ray_hits_w[..., 2]
+lidar_range = env.scene.sensors["lidar"].data.ray_hits_w[..., 2]
+commands = env.command_manager.get_command("base_velocity")
+
+# Adaptive velocity scaling based on forward terrain
+scan_size = int(torch.sqrt(torch.tensor(height_scan.shape[1])))
+height_grid = height_scan.view(env.num_envs, scan_size, scan_size)
+forward_terrain = height_grid[:, :scan_size//3, scan_size//3:2*scan_size//3]
+terrain_clearance = torch.min(forward_terrain.view(env.num_envs, -1), dim=1)[0]
+
+# Dynamic velocity target modification for rewards
+obstacle_factor = torch.clamp((terrain_clearance + 0.2) / 0.4, min=0.1, max=1.0)
+adaptive_commands = commands.clone()
+adaptive_commands[:, 0] *= obstacle_factor  # Scale forward velocity by terrain clearance
+
+# Compute velocity reward with adaptive targets
+vel_error = torch.sum((robot.data.root_lin_vel_b[:, :2] - adaptive_commands[:, :2])**2, dim=1)
+velocity_reward = torch.exp(-vel_error / 1.0) * (commands[:, :2].norm(dim=1) > 0.1).float()
+```
+
+**5. STAIR VS GAP DETECTION FOR REWARDS:**
+```python
+# Mathematical patterns for stair/gap distinction in reward computation
+height_scan = env.scene.sensors["height_scanner"].data.ray_hits_w[..., 2]
+current_height = robot.data.root_pos_w[:, 2]
+
+# Height differential analysis for step detection
+scan_size = int(torch.sqrt(torch.tensor(height_scan.shape[1])))
+height_grid = height_scan.view(env.num_envs, scan_size, scan_size)
+forward_strip = height_grid[:, :scan_size//2, scan_size//3:2*scan_size//3]
+
+# Stair pattern: gradual height change, gap pattern: abrupt drop then rise
+height_gradient = torch.diff(forward_strip.mean(dim=2), dim=1)
+is_stair_pattern = (torch.abs(height_gradient) < 0.15).all(dim=1)  # Gradual changes
+is_gap_pattern = (height_gradient.min(dim=1)[0] < -0.3) & (height_gradient.max(dim=1)[0] > 0.1)
+
+# Reward height adaptation based on terrain type
+target_height = torch.where(is_stair_pattern, 
+                          current_height - 0.05,  # Slight descent for stairs
+                          torch.tensor(0.74, device=env.device))  # Normal height otherwise
+height_reward = torch.exp(-torch.abs(current_height - target_height) / 0.1)
+```
+
+**6. GAP-SPECIFIC BEHAVIOR SWITCHING IN REWARDS:**
+```python
+# Mathematical gap size classification for reward computation
+lidar_range = env.scene.sensors["lidar"].data.ray_hits_w[..., 2]
+forward_rays = lidar_range[:, :len(lidar_range[0])//4]  # Forward-facing rays
+min_forward_distance = torch.min(forward_rays, dim=1)[0]
+
+# Gap size classification thresholds
+small_gap = (min_forward_distance > 0.3) & (min_forward_distance < 0.8)   # Steppable
+medium_gap = (min_forward_distance >= 0.8) & (min_forward_distance < 1.5)  # Jumpable  
+large_gap = min_forward_distance >= 1.5  # Avoidable
+
+# Adaptive gait rewards based on gap type
+foot_ids, _ = contact_sensor.find_bodies(".*_ankle_roll_link")
+foot_ids = torch.tensor(foot_ids, dtype=torch.long, device=env.device)
+contact_time = contact_sensor.data.current_contact_time[:, foot_ids]
+air_time = contact_sensor.data.current_air_time[:, foot_ids]
+
+# Different gait patterns for different gap types
+stepping_reward = torch.where(small_gap.unsqueeze(-1), 
+                            torch.clamp(contact_time.max(dim=1)[0], max=0.3), 
+                            torch.zeros_like(contact_time.max(dim=1)[0]))
+jumping_reward = torch.where(medium_gap.unsqueeze(-1),
+                           torch.clamp(air_time.max(dim=1)[0], max=0.8),
+                           torch.zeros_like(air_time.max(dim=1)[0]))
+```
+
+**7. BACKWARD MOVEMENT CAPABILITY REWARDS:**
+```python
+# Enhanced velocity tracking for backward movement support
+commands = env.command_manager.get_command("base_velocity")
+vel_yaw = quat_apply_inverse(yaw_quat(robot.data.root_quat_w), robot.data.root_lin_vel_w[:, :3])
+
+# Backward movement reward computation (updated ranges: x: -0.1 to 0.4)
+backward_commands = commands[:, 0] < 0.0
+forward_commands = commands[:, 0] >= 0.0
+
+# Separate tracking for forward/backward to handle different dynamics
+backward_error = torch.where(backward_commands, 
+                           torch.abs(vel_yaw[:, 0] - commands[:, 0]),
+                           torch.zeros_like(commands[:, 0]))
+forward_error = torch.where(forward_commands,
+                          torch.abs(vel_yaw[:, 0] - commands[:, 0]), 
+                          torch.zeros_like(commands[:, 0]))
+
+# Combined velocity reward with backward capability
+vel_reward = torch.exp(-(backward_error + forward_error) / 0.8)
+vel_reward *= (torch.abs(commands[:, 0]) > 0.05).float()  # Avoid zero command rewards
+```
+
 **CRITICAL: TRAINING WILL FAIL WITHOUT THESE FIXES!**
 
-**❌ GUARANTEED TRAINING FAILURE - COMMON BUGS THAT CRASH THE SYSTEM:**
+**GUARANTEED TRAINING FAILURE - COMMON BUGS THAT CRASH THE SYSTEM:**
 
 1. **TENSOR CONVERSION BUG (CAUSES TypeError):**
    ```python
-   # ❌ TRAINING KILLER - NEVER DO THIS:
+   # TRAINING KILLER - NEVER DO THIS:
    indices, _ = robot.find_joints(["joint_name"])
    data = robot.data.joint_pos[:, indices]  # INSTANT CRASH!
    
-   # ✅ MANDATORY FIX - ALWAYS DO THIS:
+   # MANDATORY FIX - ALWAYS DO THIS:
    indices, _ = robot.find_joints(["joint_name"])
    indices = torch.tensor(indices, dtype=torch.long, device=env.device)
    data = robot.data.joint_pos[:, indices]  # WORKS!
@@ -16,62 +172,35 @@
 
 2. **NUMERICAL INSTABILITY BUG (CAUSES "std >= 0.0" ERROR):**
    ```python
-   # ❌ TRAINING KILLER:
+   # TRAINING KILLER:
    reward = torch.exp(-huge_value)  # Creates NaN/inf!
    
-   # ✅ MANDATORY FIX:
+   # MANDATORY FIX:
    reward = torch.exp(-torch.clamp(value, max=10.0))
    reward = torch.where(torch.isfinite(reward), reward, torch.zeros_like(reward))
    ```
 
 **EVERY SINGLE find_joints() CALL MUST BE FOLLOWED BY torch.tensor() CONVERSION!**
 
-⚠️ **ALL NUMERICAL EXAMPLES, CODE SNIPPETS, AND REWARD PATTERNS IN THIS PROMPT ARE FOR TECHNICAL DEMONSTRATION ONLY.**
-⚠️ **DO NOT COPY EXAMPLES DIRECTLY! ANALYZE THE ENVIRONMENT AND CREATE INTELLIGENT, CONTEXTUAL REWARDS.**
+**ALL NUMERICAL EXAMPLES, CODE SNIPPETS, AND REWARD PATTERNS IN THIS PROMPT ARE FOR TECHNICAL DEMONSTRATION ONLY.**
+**DO NOT COPY EXAMPLES DIRECTLY! UNDERSTAND THE PRINCIPLES AND ADAPT TO YOUR ENVIRONMENT.**
 
-**🔥 CRITICAL: NO HELPER FUNCTIONS ALLOWED! 🔥**
+** CRITICAL: NO HELPER FUNCTIONS ALLOWED! **
 
-**❌ ABSOLUTELY FORBIDDEN:**
+** ABSOLUTELY FORBIDDEN:**
 - `def get_velocity_tracking_error(...)` - NO HELPER FUNCTIONS!
 - `def calculate_foot_contacts(...)` - NO HELPER FUNCTIONS!
 - `def any_helper_function(...)` - NO HELPER FUNCTIONS!
 
-**✅ REQUIRED PATTERN: ALL LOGIC INLINE**
+**REQUIRED PATTERN: ALL LOGIC INLINE**
 ```python
 def sds_custom_reward(env) -> torch.Tensor:
     import torch
     # ALL your calculation logic goes here directly - no function calls!
-    lin_vel_error = torch.norm(robot.data.root_lin_vel_b[:, :2] - commands[:, :2], dim=1)  # ✅ INLINE
-    # NOT: lin_err, ang_err = get_velocity_tracking_error(...)  # ❌ FORBIDDEN
+    lin_vel_error = torch.norm(robot.data.root_lin_vel_b[:, :2] - commands[:, :2], dim=1)  #  INLINE
+    # NOT: lin_err, ang_err = get_velocity_tracking_error(...)  #  FORBIDDEN
     return reward.clamp(min=0.0, max=10.0)
 ```
-
-**🧠 INTELLIGENT DESIGN MANDATE:**
-- **Think before coding:** What skills should the robot learn for THIS specific environment?
-- **Use environment analysis:** Design rewards based on actual terrain conditions, not hypothetical examples
-- **Context-aware design:** Flat terrain vs. gap-filled terrain need completely different reward strategies
-- **Progressive learning:** Guide robot from simple to complex behaviors appropriate for the environment
-
-Isaac Lab Reward Function Format:
-
-**CRITICAL: JOINT INDEXING REQUIREMENT**
-
-**COMMON BUG - WILL CAUSE TRAINING FAILURE:**
-```python
-# WRONG - robot.find_joints() returns LISTS, not tensors!
-joint_indices, _ = robot.find_joints(["joint_name"])
-joint_data = robot.data.joint_pos[:, joint_indices]  # TypeError!
-```
-
-**CORRECT PATTERN - ALWAYS CONVERT TO TENSOR:**
-```python
-# RIGHT - Convert list to tensor for proper indexing
-joint_indices, _ = robot.find_joints(["joint_name"])
-joint_indices = torch.tensor(joint_indices, dtype=torch.long, device=env.device)
-joint_data = robot.data.joint_pos[:, joint_indices]  # Works!
-```
-
-**MANDATORY: Every time you use robot.find_joints(), immediately convert the result to a tensor!**
 
 **CRITICAL: ONLY GENERATE REWARD FUNCTIONS - NO OBSERVATION CONFIGURATIONS!**
 
@@ -98,300 +227,106 @@ height_scan = height_sensor.data.ray_hits_w[..., 2]  # Can contain NaN!
 reward += torch.mean(height_scan)  # NaN propagates, crashes PPO
 
 # DEADLY: Unbounded reward values crash PPO standard deviation  
-reward = torch.exp(huge_value)  # >10 causes "std >= 0.0" error
+reward = some_large_calculation  # Can be >100, causes std <= 0 error
 
 # DEADLY: Division by zero in environmental calculations
-reward = reward_weight / torch.norm(sensor_data)  # Zero norm = Inf = crash
+reward = 1.0 / distance_to_obstacle  # Zero distance = Inf reward = PPO crash
 ```
 
 **PPO-SAFE ENVIRONMENTAL PATTERNS (WHEN USING ENVIRONMENTAL SENSORS):**
 
 ```python
-# ALWAYS sanitize sensor data first:
-height_scan = height_sensor.data.ray_hits_w[..., 2].view(env.num_envs, -1)
-height_scan = torch.where(torch.isfinite(height_scan), height_scan, torch.zeros_like(height_scan))
-height_scan = torch.clamp(height_scan, min=-10.0, max=10.0)
-
-# ALWAYS clamp calculations before exponentials:
-error = torch.clamp(torch.abs(current - target), max=5.0)
-reward_component = torch.exp(-error / 0.5)
-
-# ALWAYS prevent division by zero:
-denominator = torch.clamp(denominator, min=1e-6)
-
-# ALWAYS bound final reward for PPO:
-reward = torch.where(torch.isfinite(reward), reward, torch.zeros_like(reward))
-return torch.clamp(reward, min=0.0, max=10.0)
-```
-
-**CRITICAL: NUMERICAL STABILITY REQUIREMENTS**
-
-**❌ NUMERICAL INSTABILITY - WILL CAUSE TRAINING FAILURE:**
-- Infinite or NaN values in rewards
-- Division by zero in sensor processing
-- Unclamped exponential functions
-- Very large tensor values
-
-**✅ MANDATORY STABILITY PATTERNS:**
-```python
-# Always check sensor data for finite values
+# IF using environmental sensor data, ALWAYS sanitize:
 height_scan = torch.where(torch.isfinite(height_scan), height_scan, torch.zeros_like(height_scan))
 lidar_range = torch.where(torch.isfinite(lidar_range), lidar_range, torch.ones_like(lidar_range) * 10.0)
 
-# Always clamp extreme values before exponentials
-error = torch.clamp(error, max=10.0)  # Prevent exp(-huge_number)
-reward_component = torch.exp(-error / std)
+# IF using environmental calculations, ALWAYS clamp:
+obstacle_distance = torch.clamp(min_obstacle_distance, min=0.1, max=15.0)
+terrain_roughness = torch.clamp(torch.var(height_scan, dim=1), max=1.0)
 
-# Always prevent division by zero
-denominator = torch.clamp(denominator, min=1e-6)
+# ALWAYS use safe division:
+reward = torch.exp(-error / torch.clamp(tolerance, min=1e-6))
 
-# Always ensure final reward is finite and bounded
-reward = torch.where(torch.isfinite(reward), reward, torch.zeros_like(reward))
+# ALWAYS bound final reward for PPO stability:
 return torch.clamp(reward, min=0.0, max=10.0)
 ```
 
-Your reward function must follow this exact structure with proper 4-space indentation:
+Isaac Lab Reward Function Format:
 
-def sds_custom_reward(env) -> torch.Tensor:
-    """Your reward function description here."""
-    import torch  # Only import torch - no other imports allowed
-    
-    # ACCESS RULES: Use ONLY these data access patterns
-    # ALLOWED: import torch (Do not import anything more than this)
-    # AVAILABLE FUNCTIONS: quat_apply_inverse, yaw_quat, matrix_from_quat (already imported at module level)
-    # FORBIDDEN: from omni.isaac.core.* (not available in Isaac Lab)
-    # FORBIDDEN: import omni.* (not available in Isaac Lab)
-    # FORBIDDEN: from isaacgym.* (not available in Isaac Lab)
-    
-    # Access environment data
-    robot = env.scene["robot"]
-    contact_sensor = env.scene.sensors["contact_forces"]
-    commands = env.command_manager.get_command("base_velocity")
-    
-    # Your reward calculation logic here
-    # ALL logic must be inline - no helper functions!
-    
-    return reward.clamp(min=0.0, max=10.0)
+**CRITICAL: JOINT INDEXING REQUIREMENT**
+
+**COMMON BUG - WILL CAUSE TRAINING FAILURE:**
+```python
+# WRONG - robot.find_joints() returns LISTS, not tensors!
+joint_indices, _ = robot.find_joints(["joint_name"])
+joint_data = robot.data.joint_pos[:, joint_indices]  # TypeError!
 ```
 
-**🧠 INTELLIGENT DESIGN MANDATE:**
-- **Think before coding:** What skills should the robot learn for THIS specific environment?
-- **Use environment analysis:** Design rewards based on actual terrain conditions, not hypothetical examples
-- **Context-aware design:** Flat terrain vs. gap-filled terrain need completely different reward strategies
-- **Progressive learning:** Guide robot from simple to complex behaviors appropriate for the environment
-    
-    # CONTACT SENSOR CONFIGURATION:
-    # The environment's ContactSensor "contact_forces" was spawned with:
-    # ContactSensorCfg:
-    #   prim_path: "/World/envs/env_.*/Robot/.*_ankle_roll_link"  
-    #   force_threshold: 50.0
-    #   track_air_time: True
-    # It exposes:
-    # - data.net_forces_w: FloatTensor [num_envs, 2, 3] of foot-link forces
-    # - data.current_air_time / data.current_contact_time: FloatTensor [num_envs, 2] of timing
-    
-    # ⚠️  OPTIONAL ENVIRONMENTAL SENSOR INTEGRATION (WHEN RELEVANT):
-    # Include environmental sensor data only when environment analysis shows complex terrain features
-    
-    # OPTIONAL: HEIGHT SCANNER ("height_scanner") INTEGRATION:
-    # Provides detailed terrain elevation mapping around the robot (1,200 measurements per robot)
-    # Use only if terrain shows significant variation - usage patterns:
-    height_sensor = env.scene.sensors["height_scanner"]
-    height_scan = height_sensor.data.ray_hits_w[..., 2].view(env.num_envs, -1)  # [num_envs, 1200] - height data
-    # Raw sensor access for advanced processing (already available as height_sensor above):
-    terrain_heights = height_sensor.data.ray_hits_w[..., 2]  # [num_envs, scan_points] World Z coordinates
-    robot_height = height_sensor.data.pos_w[:, 2]  # [num_envs] Scanner position height
-    
-    # HEIGHT SCAN INTERPRETATION:
-    # - Shape: [num_envs, 1200] (40 x 30 grid pattern at 0.1m resolution, 4m x 3m coverage)
-    # - Values: Height differences relative to robot (offset subtracted)
-    # - Range: Typically -2.0m to +10.0m for practical terrain mapping
-    # - Usage: local_terrain = torch.mean(height_scan.view(num_envs, -1), dim=1)
-    
-    # LIDAR SCANNER ("lidar") - REQUIRED:
-    # Provides 360-degree obstacle detection and distance measurements
-    lidar_sensor = env.scene.sensors["lidar"]
-    lidar_range = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1).view(env.num_envs, -1)  # [num_envs, 1152] - distances
-    # Raw sensor access (already available as lidar_sensor above):
-    hit_points = lidar_sensor.data.ray_hits_w  # [num_envs, rays, 3] - 3D hit coordinates
-    hit_distances = lidar_sensor.data.ray_distances  # [num_envs, rays] - distance measurements
-    
-    # LIDAR INTERPRETATION:
-    # - Shape: [num_envs, 1152] (16 channels x 72 horizontal rays at 5° resolution)
-    # - Values: Distance to nearest obstacle along each ray
-    # - Range: 0.0m (immediate contact) to 15.0m max_range (no obstacle detected)
-    # - Usage: forward_obstacles = torch.min(lidar_range[:, forward_indices], dim=1)[0]
-    
-    # ENVIRONMENTAL DATA PROCESSING PATTERNS:
-    # 1. Local Terrain Analysis:
-    local_terrain_level = torch.mean(height_scan.view(env.num_envs, -1), dim=1)
-    
-    # 2. Forward-Looking Terrain Analysis:
-    # Extract forward-facing portion of height scan for predictive processing
-    scan_size = int(torch.sqrt(torch.tensor(height_scan.shape[1])))  # Usually 462
-    height_grid = height_scan.view(env.num_envs, scan_size, scan_size)
-    forward_terrain = height_grid[:, :scan_size//4, scan_size//4:3*scan_size//4]  # Forward quarter
-    forward_height_characteristics = torch.mean(forward_terrain.view(env.num_envs, -1), dim=1)
-    
-    # 3. Terrain Characteristic Analysis:
-    terrain_variance = torch.var(height_scan.view(env.num_envs, -1), dim=1)
-    terrain_roughness_indicator = terrain_variance  # Higher values indicate rougher terrain
-    
-    # 4. Obstacle Detection (LiDAR-based):
-    if 'lidar_range' in env.observation_manager._group_obs_terms['policy']:
-        forward_lidar_indices = slice(0, len(lidar_range[0]) // 4)  # Forward-facing rays
-        min_obstacle_distance = torch.min(lidar_range[:, forward_lidar_indices], dim=1)[0]
-        obstacle_proximity_info = min_obstacle_distance  # Use for proximity-based adaptations
-    
-    # ENVIRONMENTAL SENSOR PROCESSING TECHNICAL EXAMPLES:
-    
-    # Height Scan Processing Patterns:
-    # - Local terrain level: torch.mean(height_scan.view(num_envs, -1), dim=1)
-    # - Terrain roughness: torch.var(height_scan.view(num_envs, -1), dim=1) 
-    # - Terrain gradient: torch.std(height_scan.view(num_envs, -1), dim=1)
-    # - Forward terrain slice: height_grid[:, :rows//4, cols//4:3*cols//4]
-    # - Terrain height range: torch.max(height_scan, dim=1)[0] - torch.min(height_scan, dim=1)[0]
-    
-    # LiDAR Range Processing Patterns:
-    # - Forward obstacle detection: torch.min(lidar_range[:, :num_rays//4], dim=1)[0]
-    
-    # ====================================================================
-    # 📋 COMPREHENSIVE ENVIRONMENT ANALYSIS FOR INTELLIGENT REWARD DESIGN
-    # ====================================================================
-    
-    # 🧠 INTELLIGENT DESIGN PROCESS:
-    # 1. READ THE ENVIRONMENT ANALYSIS FIRST - What specific challenges exist?
-    # 2. DESIGN REWARDS FOR ACTUAL CONDITIONS - Don't copy generic examples!
-    # 3. CHOOSE APPROPRIATE STRATEGIES - Match rewards to detected environmental features
-    # 4. SCALE BASED ON COMPLEXITY - Simple environments vs complex terrain need different approaches
-    
-    # 🔥 SMART ENVIRONMENTAL INTEGRATION EXAMPLES (ADAPT TO YOUR ENVIRONMENT):
-    
-    # 1. TERRAIN ANALYSIS (MANDATORY):
-    terrain_roughness = torch.var(height_scan.view(env.num_envs, -1), dim=1)
-    local_terrain_level = torch.mean(height_scan.view(env.num_envs, -1), dim=1)
-    terrain_complexity = torch.std(height_scan.view(env.num_envs, -1), dim=1)
-    
-    # 2. OBSTACLE DETECTION (MANDATORY):
-    forward_rays = slice(0, lidar_range.shape[1] // 4)  # Forward-facing quarter
-    lateral_rays = slice(lidar_range.shape[1] // 4, 3 * lidar_range.shape[1] // 4)  # Side-facing
-    min_forward_distance = torch.min(lidar_range[:, forward_rays], dim=1)[0]
-    min_lateral_distance = torch.min(lidar_range[:, lateral_rays], dim=1)[0]
-    
-    # 3. ENVIRONMENTAL ADAPTATION EXAMPLES (IMPLEMENT AT LEAST ONE):
-    
-    # Example A: Terrain-Adaptive Step Height
-    base_step_height = 0.05  # 5cm base clearance
-    terrain_adaptive_height = base_step_height + terrain_roughness * 0.1  # Increase with roughness
-    actual_step_clearance = foot_clearance_calculation()  # Your foot clearance logic
-    adaptive_clearance_reward = torch.exp(-torch.abs(actual_step_clearance - terrain_adaptive_height) / 0.02)
-    
-    # Example B: Obstacle-Aware Speed Adaptation  
-    safe_distance = 1.0  # 1m safety margin
-    distance_factor = torch.clamp(min_forward_distance / safe_distance, 0.0, 1.0)
-    target_speed = commands[:, 0] * distance_factor  # Reduce speed near obstacles
-    speed_adaptation_reward = torch.exp(-torch.abs(robot.data.root_lin_vel_b[:, 0] - target_speed) / 0.5)
-    
-    # Example C: Gap Navigation Strategy
-    # Detect gaps by analyzing height scan for significant drops
-    scan_size = int(torch.sqrt(torch.tensor(height_scan.shape[1])))  # Grid size (e.g., 462x462)
-    height_grid = height_scan.view(env.num_envs, scan_size, scan_size)
-    forward_terrain = height_grid[:, :scan_size//4, scan_size//4:3*scan_size//4]  # Forward section
-    gap_indicators = torch.any(forward_terrain < -0.3, dim=[1, 2])  # Gaps >30cm deep
-    gap_avoidance_reward = torch.where(gap_indicators, 
-                                     torch.zeros_like(commands[:, 0]),  # No forward progress over gaps
-                                     torch.ones_like(commands[:, 0]))   # Normal progress elsewhere
-    
-    # Example D: Terrain Complexity-Based Stability
-    stability_requirement = 1.0 + terrain_complexity * 0.5  # Higher stability in rough terrain
-    angular_stability = torch.norm(robot.data.root_ang_vel_b[:, :2], dim=1)  # Roll/pitch rates
-    terrain_stability_reward = torch.exp(-angular_stability * stability_requirement)
-    
-    # 4. ENVIRONMENTAL SAFETY ENFORCEMENT (WHEN USING ENVIRONMENTAL SENSORS):
-    # Penalize dangerous proximity to obstacles or terrain hazards
-    danger_threshold = 0.5  # 50cm danger zone
-    immediate_danger = min_forward_distance < danger_threshold
-    safety_penalty = immediate_danger.float() * 2.0  # Strong penalty for danger
-    
-    # ====================================================================
-    # 🧠 INTELLIGENT GAP-AWARE REWARD DESIGN STRATEGIES
-    # ====================================================================
-    
-    # **CRITICAL: Design rewards based on ACTUAL gap analysis from environment data**
-    
-    # 🚶 STEPPABLE GAPS (5-15cm) - Focus on precision and step adjustment:
-    # - Reward precise foot placement near gap edges
-    # - Adjust step length to match gap width
-    # - Maintain normal walking speed with controlled clearance
-    # - Penalize unnecessary jumping or excessive caution
-    
-    # 🦘 JUMPABLE GAPS (15-50cm) - Design jumping mechanics:
-    # - Reward pre-jump crouch preparation
-    # - Time takeoff with gap approach
-    # - Reward forward momentum during flight
-    # - Ensure stable landing and recovery
-    # - Balance jump power with gap requirements
-    
-    # 🚫 IMPOSSIBLE GAPS (>50cm) - Path planning and avoidance:
-    # - Reward stopping before impossible gaps
-    # - Encourage lateral movement to find alternatives
-    # - Reward turning around when no path exists
-    # - Penalize futile jumping attempts
-    # - Reward conservative, safe navigation choices
-    
-    # 🌍 TERRAIN COMPLEXITY ADAPTIVE STRATEGIES:
-    
-    # **HIGH COMPLEXITY** (many gaps/obstacles):
-    # - Prioritize safety over speed
-    # - Increase stability requirements
-    # - Reward careful, deliberate movement
-    # - Emphasize sensor usage and awareness
-    
-    # **LOW COMPLEXITY** (few/no obstacles):
-    # - Focus on efficiency and smoothness
-    # - Allow higher speeds
-    # - Emphasize task completion
-    # - Reward natural, flowing movement
-    
-    # **MIXED COMPLEXITY** (varied terrain):
-    # - Dynamic reward scaling based on local conditions
-    # - Reward gait adaptation to changing terrain
-    # - Balance exploration with safety
-    # - Encourage environment recognition
-    
-    # ====================================================================
-    # CONTEXTUAL REWARD REQUIREMENTS CHECKLIST:
-    # ====================================================================
-    # Your final reward MUST be INTELLIGENTLY DESIGNED for the actual environment:
-    # ✅ Based on actual environment analysis data
-    # ✅ Uses appropriate strategies for detected gap types
-    # ✅ Scales difficulty based on terrain complexity
-    # ✅ Balances multiple locomotion skills appropriately
-    # ✅ Demonstrates environment-specific intelligence
-    # ✅ Avoids unnecessary components for simple environments
-    # ====================================================================
-    # - Obstacle proximity zones: (lidar_range < proximity_threshold).float()
-    # - Safe navigation paths: torch.max(lidar_range[:, safe_ray_indices], dim=1)[0]
-    # - Angular obstacle distribution: lidar_range.view(num_envs, elevation_angles, azimuth_angles)
-    
-    # Environmental Adaptation Processing Patterns:
-    # - Terrain difficulty scaling: torch.clamp(terrain_variance / variance_threshold, 0.0, 1.0)
-    # - Adaptive target adjustment: base_target + terrain_offset_function(local_terrain_level)
-    # - Risk-based behavior modification: behavior_intensity * (1.0 - normalized_risk_level)
-    # - Forward-looking adaptation: upcoming_terrain_features = extract_forward_features(height_grid)
-    
-    # Multi-Scale Environmental Analysis Patterns:
-    # - Local (immediate): height_scan[:, center_indices]  # Around robot position
-    # - Regional (nearby): height_scan[:, regional_indices]  # Next few steps
-    # - Global (full scan): height_scan  # Complete environmental view
-    # - Temporal (predictive): combine current + forward terrain for trajectory planning
-    
-    # TERRAIN-AWARE DESIGN CONCEPTS:
-    # Use the processed environmental data above to inform reward design decisions:
-    # - Adapt target values based on local terrain characteristics
-    # - Modify behavior expectations based on terrain difficulty
-    # - Scale reward components based on environmental risk assessment
-    # - Consider forward-looking adaptations for predictive behavior
+**CORRECT PATTERN - ALWAYS CONVERT TO TENSOR:**
+```python
+# RIGHT - Convert list to tensor for proper indexing
+joint_indices, _ = robot.find_joints(["joint_name"])
+joint_indices = torch.tensor(joint_indices, dtype=torch.long, device=env.device)
+joint_data = robot.data.joint_pos[:, joint_indices]  # Works!
+```
+
+**MANDATORY: Every time you use robot.find_joints(), immediately convert the result to a tensor!**
+
+Isaac Lab SDS Environment - G1 Humanoid Locomotion
+
+## Robot Configuration (VERIFIED & UPDATED FOR FULL BODY CONTROL)
+- **Robot**: Unitree G1 EDU U4 Humanoid (37 DOF total)
+- **Action Space**: 23 DOF controlled for complete humanoid locomotion (all joints except hand fingers)
+- **Height**: 0.74m (Isaac Lab verified)
+- **Mass**: ~35kg humanoid
+
+## Action Configuration (FULL BODY HUMANOID CONTROL)
+**Controlled Joints (23 DOF for complete humanoid locomotion):**
+- Legs: 12 DOF (6 per leg: hip_yaw, hip_roll, hip_pitch, knee, ankle_pitch, ankle_roll)
+- Arms: 10 DOF (5 per arm: shoulder_pitch, shoulder_roll, shoulder_yaw, elbow_pitch, elbow_roll)
+- Torso: 1 DOF (torso_joint)
+
+**Fixed Joints (14 DOF):**
+- Hand Fingers: 14 DOF maintain default poses (zero, one, two, three, four, five, six_joint per hand)
+
+## Contact Detection (VERIFIED WORKING)
+**Foot Bodies**: `left_ankle_roll_link`, `right_ankle_roll_link`
+**Detection Pattern**: `contact_sensor.find_bodies(".*_ankle_roll_link")`
+**Contact Threshold**: 50.0N (corrected for humanoid mass)
+
+## Key Functions Examples for Reward Generation. Don't Copy Paste Directly!
+```python
+# Foot contact detection (VERIFIED WORKING)
+contact_forces = env.scene.sensors["contact_forces"].data.net_forces_w
+foot_ids, _ = env.scene.sensors["contact_forces"].find_bodies(".*_ankle_roll_link")
+foot_forces = contact_forces[:, foot_ids, :]
+foot_contacts = (foot_forces.norm(dim=-1) > 50.0).float()
+
+# Velocity tracking
+robot = env.scene["robot"]
+commands = env.command_manager.get_command("base_velocity")
+vel_error = robot.data.root_lin_vel_b[:, :2] - commands[:, :2]
+ang_error = robot.data.root_ang_vel_b[:, 2] - commands[:, 2]
+
+# Height maintenance  
+height = robot.data.root_pos_w[:, 2]
+height_error = (height - 0.74).abs()
+
+# Bipedal gait patterns
+left_contact = foot_contacts[:, 0]
+right_contact = foot_contacts[:, 1] 
+single_support = ((left_contact > 0.5) & (right_contact < 0.5)) | ((left_contact < 0.5) & (right_contact > 0.5))
+double_support = (left_contact > 0.5) & (right_contact > 0.5)
+```
+
+## Successful Training Metrics
+- **Episode Rewards**: 0.01-0.02 range (working)
+- **Action Scale**: 1.0 (allows proper joint movement)
+- **Training Progress**: Mean rewards ~0.2-0.23, episode length 28-32 steps
+
+# TECHNICAL REFERENCE - ISAAC LAB API DOCUMENTATION
+
+## Robot Data Access Patterns
     
     # ROBOT DATA FIRST APPROACH:
     # Available robot data:
@@ -502,221 +437,68 @@ def sds_custom_reward(env) -> torch.Tensor:
     # - Dynamic balance required (not static stability like quadrupeds)
     # - Dexterous hands: 37 total DOF with advanced manipulation capabilities
     
-    # DESIGN YOUR REWARD COMPONENTS HERE
-    
-    # COMMON REWARD BIASES TO AVOID:
-    # 1. Equal Directional Treatment: Human locomotion is forward-biased, not omnidirectional
-    #    Consider: command-dependent weighting (higher weight for forward vs lateral movement)
-    # 2. Inappropriate Gait Metrics: Air time consistency is for Jump/Sprint, not Walk/March/Pace
-    #    Consider: Contact alternation patterns, step timing, ground contact duration for Walk/March
-    # 3. Missing Upper Body: Humanoids require torso stability for natural locomotion
-    #    Consider: Roll/pitch angular velocity, upper body orientation stability
-    # 4. Rigid Height Control: Overly aggressive height penalties create stiff, unnatural movement
-    #    Consider: Moderate height maintenance that allows natural locomotion dynamics
-    # 5. Contact Pattern Oversimplification: "1 or 2 contacts" doesn't ensure proper alternation
-    #    Consider: Left-right alternation rewards, contact transition patterns
-    # 6. Energy Neglect: No consideration of movement efficiency or smoothness
-    #    Consider: Joint velocity magnitudes, movement smoothness metrics
-    # 7. Static Thresholds: Fixed contact forces may not adapt to different movement intensities
-    #    Consider: Adaptive thresholds based on movement commands or robot state
-    
-    # CRITICAL: LOCAL MINIMA TRAPS THAT BLOCK SKILL LEARNING
+## Sensor Access Patterns
 
-    # JOINT LIMITS AND SMOOTH MOVEMENT GUIDELINES
+# OPTIONAL: HEIGHT SCANNER ("height_scanner") INTEGRATION:
+# Provides detailed terrain elevation mapping around the robot (140 measurements per robot)
+# Use only if terrain shows significant variation - usage patterns:
+height_sensor = env.scene.sensors["height_scanner"]
+height_scan = height_sensor.data.ray_hits_w[..., 2].view(env.num_envs, -1)  # [num_envs, 140] - height data
+# Raw sensor access for advanced processing (already available as height_sensor above):
+terrain_heights = height_sensor.data.ray_hits_w[..., 2]  # [num_envs, scan_points] World Z coordinates
+robot_height = height_sensor.data.pos_w[:, 2]  # [num_envs] Scanner position height
 
-    ## JOINT LIMIT SAFETY AND SMOOTH MOTION PRINCIPLES
+# HEIGHT SCAN INTERPRETATION:
+# - Shape: [num_envs, 140] (14 x 10 grid pattern at 0.15m resolution, 2m x 1.5m coverage)
+# - Values: Height differences relative to robot (offset subtracted)
+# - Range: Typically -2.0m to +10.0m for practical terrain mapping
+# - Usage: local_terrain = torch.mean(height_scan.view(num_envs, -1), dim=1)
 
-    Isaac Lab provides comprehensive joint limit management for safe and smooth robot movement:
+# LIDAR SCANNER ("lidar") - REQUIRED:
+# Provides 360-degree obstacle detection and distance measurements
+lidar_sensor = env.scene.sensors["lidar"]
+lidar_range = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1).view(env.num_envs, -1)  # [num_envs, 144] - distances
+# Raw sensor access (already available as lidar_sensor above):
+hit_points = lidar_sensor.data.ray_hits_w  # [num_envs, rays, 3] - 3D hit coordinates
+hit_distances = lidar_sensor.data.ray_distances  # [num_envs, rays] - distance measurements
 
-    ### **Available Joint Limit Data:**
-    ```python
-    # Access joint limits in reward functions:
-    robot = env.scene["robot"]
+# LIDAR INTERPRETATION:
+# - Shape: [num_envs, 144] (8 channels x 18 horizontal rays at 10° resolution)
+# - Values: Distance to nearest obstacle along each ray
+# - Range: 0.0m (immediate contact) to 5.0m max_range (no obstacle detected)
+# - Usage: forward_obstacles = torch.min(lidar_range[:, forward_indices], dim=1)[0]
 
-    # Hard limits (physics enforcement)
-    joint_pos_limits = robot.data.joint_pos_limits  # [num_envs, num_joints, 2] [lower, upper]
+## Enhanced Environment Sensor Integration for Rewards (FLAT-WITH-BOX CONFIG)
 
-    # Soft limits (learning guidance) - RECOMMENDED for rewards
-    soft_joint_pos_limits = robot.data.soft_joint_pos_limits  # [num_envs, num_joints, 2]
+# ENHANCED SENSOR DATA PROCESSING FOR REWARD COMPUTATION:
+# Current environment: Isaac-SDS-Velocity-Flat-G1-Enhanced-v0
+# Sensors: height_scanner (GridPatternCfg: 12x12, range 5.0m), lidar (360 rays, range 5.0m)
 
-    # Current joint states
-    joint_positions = robot.data.joint_pos  # [num_envs, num_joints]
-    joint_velocities = robot.data.joint_vel  # [num_envs, num_joints]
+# 1. Height Scanner Processing (12x12 grid, 140 effective points):
+height_scan = env.scene.sensors["height_scanner"].data.ray_hits_w[..., 2]
+scan_size = 12  # GridPatternCfg configuration
+height_grid = height_scan.view(env.num_envs, scan_size, scan_size)
 
-    # Velocity limits
-    joint_vel_limits = robot.data.joint_vel_limits  # [num_envs, num_joints]
-    soft_joint_vel_limits = robot.data.soft_joint_vel_limits  # [num_envs, num_joints]
-    ```
+# Forward terrain analysis (covers backward movement with negative velocity ranges)
+forward_terrain = height_grid[:, :scan_size//3, scan_size//3:2*scan_size//3]
+backward_terrain = height_grid[:, 2*scan_size//3:, scan_size//3:2*scan_size//3]
+lateral_terrain = height_grid[:, scan_size//3:2*scan_size//3, :]
 
-    ### **SOFT JOINT LIMITS - CRITICAL FOR SMOOTH MOVEMENT:**
-    Soft limits are computed as a safety region within hard limits using `soft_joint_pos_limit_factor`:
-    - **G1 Default**: 0.9 (90% of full joint range)
-    - **Calculation**: `soft_range = hard_range * 0.9`
-    - **Purpose**: Prevent joints from reaching physical limits, ensuring smooth operation
+# 2. LiDAR Processing (360 rays, 5.0m range):
+lidar_range = env.scene.sensors["lidar"].data.ray_hits_w[..., 2]
+forward_rays = lidar_range[:, :90]    # 0-90 degrees (forward)
+lateral_rays = lidar_range[:, 90:270] # 90-270 degrees (sides)
+backward_rays = lidar_range[:, 270:]  # 270-360 degrees (backward)
 
-    ### **RECOMMENDED JOINT LIMIT REWARD PATTERNS:**
+# 3. Adaptive Terrain Classification for Reward Scaling:
+terrain_variance = torch.var(height_scan.view(env.num_envs, -1), dim=1)
+obstacle_density = (lidar_range < 2.0).float().mean(dim=1)
+terrain_complexity = torch.clamp(terrain_variance + obstacle_density, min=0.0, max=2.0)
 
-    **Pattern 1 - Exponential Limit Penalty (Preferred):**
-    ```python
-    # Normalize joint positions to soft limit range [-1, 1]
-    joint_pos_normalized = (robot.data.joint_pos - 
-        (robot.data.soft_joint_pos_limits[..., 0] + robot.data.soft_joint_pos_limits[..., 1]) / 2) / \
-        (robot.data.soft_joint_pos_limits[..., 1] - robot.data.soft_joint_pos_limits[..., 0]) * 2
-
-    # Exponential penalty as joints approach soft limits
-    limit_threshold = 0.8  # Start penalty at 80% of soft range
-    over_threshold = torch.abs(joint_pos_normalized) > limit_threshold
-    limit_penalty = torch.sum(
-        over_threshold.float() * torch.exp(3.0 * (torch.abs(joint_pos_normalized) - limit_threshold)), 
-        dim=1
-    )
-    ```
-
-    **Pattern 2 - Built-in Isaac Lab Functions:**
-    ```python
-    # Use pre-implemented joint limit penalties
-    from isaaclab.envs.mdp import rewards as mdp_rewards
-
-    # Position limit penalty
-    pos_limit_penalty = mdp_rewards.joint_pos_limits(env)
-
-    # Velocity limit penalty  
-    vel_limit_penalty = mdp_rewards.joint_vel_limits(env, soft_ratio=0.9)
-    ```
-
-    **Pattern 3 - Smooth Motion Rewards:**
-    ```python
-    # Reward smooth joint motion (low velocities and accelerations)
-    joint_vel_magnitude = torch.sum(robot.data.joint_vel**2, dim=1)
-    smooth_motion_reward = torch.exp(-0.1 * joint_vel_magnitude)
-
-    # Joint position stability (stay near comfortable positions)
-    comfortable_positions = robot.data.default_joint_pos  # or custom comfortable poses
-    position_stability = torch.exp(-torch.sum((robot.data.joint_pos - comfortable_positions)**2, dim=1))
-    ```
-
-    ### **JOINT-SPECIFIC CONSIDERATIONS FOR G1 HUMANOID:**
-
-    **Hip Joints (Higher Stiffness - 150-200):**
-    - Critical for balance and weight bearing
-    - More restrictive limits recommended
-    - Penalty threshold: 0.7 (70% of soft range)
-
-    **Knee Joints (Maximum Stiffness - 200):**
-    - Essential for stability and locomotion
-    - Strict limit enforcement
-    - Penalty threshold: 0.8 (80% of soft range)
-
-    **Ankle Joints (Lower Stiffness - 20):**
-    - Allow compliance for ground contact
-    - More permissive limits
-    - Penalty threshold: 0.9 (90% of soft range)
-
-    **Arm Joints (Moderate Stiffness - 40):**
-    - Balance freedom and control
-    - Natural motion priority
-    - Penalty threshold: 0.85 (85% of soft range)
-
-    ### **MOVEMENT SMOOTHNESS ENFORCEMENT:**
-
-    **Velocity Smoothness:**
-    ```python
-    # Penalize high joint velocities
-    max_reasonable_vel = 10.0  # rad/s, adjust per joint type
-    vel_penalty = torch.sum(torch.clamp(torch.abs(robot.data.joint_vel) - max_reasonable_vel, min=0.0), dim=1)
-    ```
-
-    **Joint Coordination:**
-    ```python
-    # Reward synchronized bilateral movement (left-right symmetry)
-    left_joints_idx, _ = robot.find_joints(["left_.*_joint"])
-    right_joints_idx, _ = robot.find_joints(["right_.*_joint"])
-    
-    # CRITICAL: Convert lists to tensors for proper indexing
-    left_joints_idx = torch.tensor(left_joints_idx, dtype=torch.long, device=env.device)
-    right_joints_idx = torch.tensor(right_joints_idx, dtype=torch.long, device=env.device)
-
-    if len(left_joints_idx) == len(right_joints_idx):
-        bilateral_symmetry = torch.exp(-torch.sum(
-            (robot.data.joint_pos[:, left_joints_idx] - robot.data.joint_pos[:, right_joints_idx])**2, dim=1
-        ))
-    ```
-
-    ### **CRITICAL DESIGN PRINCIPLES:**
-
-    1. **Always use `soft_joint_pos_limits` for reward computation, NOT `joint_pos_limits`**
-    2. **Start penalties at 70-80% of soft limit range, not at the limits themselves**
-    3. **Use exponential penalties for smooth transitions, not binary penalties**
-    4. **Combine position AND velocity limit considerations**
-    5. **Weight limit penalties appropriately (typically 0.1-0.5 of main task reward)**
-    6. **Consider joint-specific thresholds based on stiffness and importance**
-
-    ### **DEBUGGING JOINT LIMIT ISSUES:**
-    ```python
-    # Debug joint limit violations in reward function
-    if env.num_envs <= 8:  # Only for small debugging runs
-        # Check for limit violations
-        pos_violations = torch.any(
-            (robot.data.joint_pos < robot.data.soft_joint_pos_limits[..., 0]) |
-            (robot.data.joint_pos > robot.data.soft_joint_pos_limits[..., 1]), dim=1
-        )
-        if torch.any(pos_violations):
-            print(f"WARNING: Joint position limit violations in envs: {torch.where(pos_violations)[0].tolist()}")
-    ```
-
-    ## ARMATURE AND DAMPING TUNING FOR STABILITY
-
-    **Armature Parameter** (for numerical stability):
-    - Recommended range: 0.01 - 0.1
-    - Higher values improve stability but reduce responsiveness
-    - Critical for explicit actuator models
-
-    **Damping Parameter** (for smooth motion):
-    - Leg joints: 5.0 (moderate damping)  
-    - Arm joints: 10.0 (higher for smoothness)
-    - Torso: 5.0 (moderate for posture control)
-
-    **Stiffness Parameter** (for responsiveness):
-    - Load-bearing joints (hips, knees): 150-200
-    - Compliance joints (ankles): 20
-    - Manipulation joints (arms): 40
-
-    These parameters directly affect how smoothly the robot moves and how well it responds to control commands while maintaining stability.
-    
-    # UNIVERSAL LOCOMOTION SCIENCE PRINCIPLES:
-    # These principles apply to all bipedal locomotion patterns - Walk, Jump, March, Sprint, Pace.
-    
-    # 1. TEMPORAL DYNAMICS (Ground Contact Timing):
-    #    Natural locomotion involves rhythmic ground interaction patterns
-    #    Consider: contact duration, lift-off timing, ground interaction phases
-    #    Contact timing creates locomotion rhythm and forward progression
-    
-    # 2. MOTION QUALITY (Smoothness and Continuity):
-    #    Biological locomotion minimizes abrupt changes and maintains flow
-    #    Consider: action continuity between timesteps, joint motion smoothness
-    #    Jerky movements waste energy and appear unnatural
-    
-    # 3. STABILITY DYNAMICS (Multi-Axis Balance):
-    #    Bipedal systems require continuous balance management across all axes
-    #    Consider: vertical motion control, rotational stability (roll/pitch/yaw separately)
-    #    Different locomotion patterns have different stability requirements
-    
-    # 4. ENERGY OPTIMIZATION (Efficiency Principles):
-    #    Natural movements minimize energy expenditure while achieving goals
-    #    Consider: force/torque efficiency, unnecessary motion reduction
-    #    Target efficiency where it matters most for the demonstrated movement
-    
-    # 5. TASK-APPROPRIATE WEIGHTING (Context-Dependent Priorities):
-    #    Different locomotion patterns prioritize different aspects
-    #    Consider: movement command intensity, directional preferences, speed adaptation
-    #    Reward structure should match the demonstrated behavior characteristics
-    
-    return reward
-
-CRITICAL: Do NOT call external functions like extract_foot_contacts() or get_foot_contact_analysis().
-Use the inline contact analysis code shown above.
-
-CRITICAL: Always specify dtype=torch.float32 and device=env.device for tensor creation!
+# 4. Direction-Aware Obstacle Processing (for backward velocity support):
+forward_obstacles = torch.min(forward_rays, dim=1)[0]
+backward_obstacles = torch.min(backward_rays, dim=1)[0]
+movement_clearance = torch.where(commands[:, 0] >= 0.0, forward_obstacles, backward_obstacles)
 
 STABLE MATHEMATICAL PATTERNS (Use these for numerical stability):
 Pattern 1 - Exponential Decay (for tracking targets):
@@ -740,155 +522,8 @@ Pattern 5 - Division Safety (CRITICAL to prevent crashes):
 TIP: Normalize reward components to similar scales (0-1 range) for balanced learning.
 TIP: Analyze video frames to understand the specific locomotion pattern before setting thresholds.
 
-FORMATTING REQUIREMENTS:
+**FORMATTING REQUIREMENTS:**
 - Use EXACTLY 4 spaces for each indentation level
 - NEVER use 8 spaces, tabs, or inconsistent spacing
 - Always add safety checks before any division operations
 - Specify dtype=torch.float32 for all tensor creations
-
-Isaac Lab SDS Environment - G1 Humanoid Locomotion
-
-## Robot Configuration (VERIFIED & UPDATED FOR FULL BODY CONTROL)
-- **Robot**: Unitree G1 EDU U4 Humanoid (37 DOF total)
-- **Action Space**: 23 DOF controlled for complete humanoid locomotion (all joints except hand fingers)
-- **Height**: 0.74m (Isaac Lab verified)
-- **Mass**: ~35kg humanoid
-
-## Action Configuration (FULL BODY HUMANOID CONTROL)
-**Controlled Joints (23 DOF for complete humanoid locomotion):**
-- Legs: 12 DOF (6 per leg: hip_yaw, hip_roll, hip_pitch, knee, ankle_pitch, ankle_roll)
-- Arms: 10 DOF (5 per arm: shoulder_pitch, shoulder_roll, shoulder_yaw, elbow_pitch, elbow_roll)
-- Torso: 1 DOF (torso_joint)
-
-**Fixed Joints (14 DOF):**
-- Hand Fingers: 14 DOF maintain default poses (zero, one, two, three, four, five, six_joint per hand)
-
-## Contact Detection (VERIFIED WORKING)
-**Foot Bodies**: `left_ankle_roll_link`, `right_ankle_roll_link`
-**Detection Pattern**: `contact_sensor.find_bodies(".*_ankle_roll_link")`
-**Contact Threshold**: 50.0N (corrected for humanoid mass)
-
-## Key Functions Examples for Reward Generation. Dony Copy Paste Directly!
-```python
-# Foot contact detection (VERIFIED WORKING)
-contact_forces = env.scene.sensors["contact_forces"].data.net_forces_w
-foot_ids, _ = env.scene.sensors["contact_forces"].find_bodies(".*_ankle_roll_link")
-foot_forces = contact_forces[:, foot_ids, :]
-foot_contacts = (foot_forces.norm(dim=-1) > 50.0).float()
-
-# Velocity tracking
-robot = env.scene["robot"]
-commands = env.command_manager.get_command("base_velocity")
-vel_error = robot.data.root_lin_vel_b[:, :2] - commands[:, :2]
-ang_error = robot.data.root_ang_vel_b[:, 2] - commands[:, 2]
-
-# Height maintenance  
-height = robot.data.root_pos_w[:, 2]
-height_error = (height - 0.74).abs()
-
-# Bipedal gait patterns
-left_contact = foot_contacts[:, 0]
-right_contact = foot_contacts[:, 1] 
-single_support = ((left_contact > 0.5) & (right_contact < 0.5)) | ((left_contact < 0.5) & (right_contact > 0.5))
-double_support = (left_contact > 0.5) & (right_contact > 0.5)
-```
-
-## Successful Training Metrics
-- **Episode Rewards**: 0.01-0.02 range (working)
-- **Action Scale**: 1.0 (allows proper joint movement)
-- **Training Progress**: Mean rewards ~0.2-0.23, episode length 28-32 steps
-
-## ADVANCED BIOMECHANICAL PRINCIPLES FOR EXCEPTIONAL WALKING QUALITY
-
-**Cross-Pattern Coordination Excellence:**
-- Reward negative correlation between same-side arm-leg velocities for natural anti-phase movement
-- Track phase-locked timing where arm swing peaks align with opposite foot stance phases
-- Penalize same-side synchronization that creates robotic walking patterns
-
-**Natural Arm Dynamics Optimization:**
-- Target shoulder pitch angles: 15-20° forward, 10-15° backward from vertical
-- Minimize jerk (third derivative) for smooth, pendulum-like arm movement
-- Reward energy efficiency through reduced mechanical work in arm joints
-- Maintain 1:1 frequency coupling between arm swing and leg stride periods
-
-**Precision Foot Clearance Control:**
-- Multi-range targeting: 10-25mm minimum clearance, 50-80mm peak clearance
-- Template matching for knee flexion profiles (bell-curve peaking at ~60°)
-- Trajectory smoothness throughout swing phase progression
-
-**Dynamic Posture and Balance:**
-- Optimal torso lean: -5° to +5° (slight forward lean preferred)
-- Center-of-mass projection control within support polygon during single support
-- Strong penalties for backward lean that disrupts walking biomechanics
-
-**Temporal Flow and Natural Cadence:**
-- Target cadence: 100-120 steps per minute for natural human walking rhythm
-- Phase duration ratios: ~60% stance, ~40% swing for natural timing
-- Consistent temporal patterns across walking cycles
-
-**Transition Smoothness and Contact Control:**
-- Minimize velocity/acceleration discontinuities at foot contact boundaries
-- Gradual contact force ramp-up (<10ms rise time) and unloading
-- Smooth joint coordination during phase transitions
-
-These advanced principles distinguish exceptional, human-like walking from basic functional locomotion.
-```
-
-**🧠 INTELLIGENT DESIGN MANDATE:**
-- **Think before coding:** What skills should the robot learn for THIS specific environment?
-- **Use environment analysis:** Design rewards based on actual terrain conditions, not hypothetical examples
-- **Foundation first:** Establish stable locomotion before environmental complexity
-
-**🏆 PROVEN ISAAC LAB LOCOMOTION PATTERNS:**
-
-These patterns are battle-tested and known to work for humanoid locomotion. Use them as a foundation:
-
-**1. YAW-ALIGNED VELOCITY TRACKING (SUPERIOR TO BODY FRAME):**
-```python
-# PROVEN: Much better than basic body frame tracking
-from isaaclab.utils.math import quat_apply_inverse, yaw_quat
-
-commands = env.command_manager.get_command("base_velocity")
-command_magnitude = torch.norm(commands[:, :2], dim=1)
-
-# Transform to yaw-aligned frame (removes pitch/roll interference)
-vel_yaw = quat_apply_inverse(yaw_quat(robot.data.root_quat_w), robot.data.root_lin_vel_w[:, :3])
-lin_vel_error = torch.sum(torch.square(commands[:, :2] - vel_yaw[:, :2]), dim=1)
-vel_reward = torch.exp(-lin_vel_error / (1.0**2))
-
-# CRITICAL: No reward for zero commands (prevents stationary exploitation)
-vel_reward *= (command_magnitude > 0.1).float()
-```
-
-**2. PROPER BIPEDAL GAIT PATTERNS:**
-```python
-# PROVEN: Rewards single stance phases (proper walking pattern)
-foot_ids, _ = contact_sensor.find_bodies(".*_ankle_roll_link")
-foot_ids = torch.tensor(foot_ids, dtype=torch.long, device=env.device)
-
-air_time = contact_sensor.data.current_air_time[:, foot_ids]
-contact_time = contact_sensor.data.current_contact_time[:, foot_ids]
-in_contact = contact_time > 0.0
-
-# Reward single stance (one foot contact at a time)
-single_stance = torch.sum(in_contact.int(), dim=1) == 1
-in_mode_time = torch.where(in_contact, contact_time, air_time)
-gait_reward = torch.min(torch.where(single_stance.unsqueeze(-1), in_mode_time, 0.0), dim=1)[0]
-gait_reward = torch.clamp(gait_reward, max=0.5) * (command_magnitude > 0.1).float()
-```
-
-**3. CONTACT-AWARE FOOT SLIDING PENALTY:**
-```python
-# PROVEN: Only penalize sliding when foot is actually in contact
-forces = contact_sensor.data.net_forces_w_history[:, :, foot_ids, :]
-contacts = forces.norm(dim=-1).max(dim=1)[0] > 1.0
-body_vel = robot.data.body_lin_vel_w[:, foot_ids, :2]
-slide_penalty = torch.sum(body_vel.norm(dim=-1) * contacts, dim=1)
-```
-
-**CRITICAL ISAAC LAB INSIGHTS:**
-- **Command scaling**: Never reward when commands are near zero
-- **Yaw alignment**: Removes pitch/roll interference from velocity tracking  
-- **Single stance**: Encourages proper alternating foot pattern
-- **Contact awareness**: Only apply penalties when actually relevant (foot in contact)
-- **Capped rewards**: Air time and other metrics should have reasonable upper bounds

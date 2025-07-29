@@ -28,25 +28,99 @@ from isaaclab_tasks.manager_based.sds.velocity import mdp
 
 from .rough_env_cfg import SDSG1RoughEnvCfg, SIMPLE_LEARNING_TERRAIN_CFG  # Import the same terrain!
 
+# 🎯 TERRAIN COMPLEXITY TOGGLE: Change this ONE line to switch terrain types
+USE_COMPLEX_TERRAIN = True  # Set to False for simple terrain, True for complex height variations
+
+# 🏔️ COMPLEX TERRAIN: Box-shaped height variations for environmental sensing testing
+COMPLEX_BOX_TERRAIN_CFG = TerrainGeneratorCfg(
+    size=(8.0, 8.0),
+    border_width=20.0,
+    num_rows=5,     
+    num_cols=8,     
+    horizontal_scale=0.1,
+    vertical_scale=0.005,
+    slope_threshold=0.75,
+    use_cache=False,
+    curriculum=True,  # Enable curriculum for progressive difficulty
+    sub_terrains={
+        # 20% FLAT for baseline locomotion
+        "flat": terrain_gen.MeshPlaneTerrainCfg(
+            proportion=0.2,  # 20% flat terrain for basic walking
+        ),
+        
+        # 25% STEP TERRAIN: Box-like stepping stones (up to 15cm heights)
+        "box_steps": terrain_gen.HfSteppingStonesTerrainCfg(
+            proportion=0.25,
+            stone_height_max=0.15,           # 15cm max step height
+            stone_width_range=(0.4, 0.8),   # 40-80cm wide stones (box-like)
+            stone_distance_range=(0.3, 0.6), # 30-60cm between stones
+            platform_width=1.0,             # 1m platform size
+        ),
+        
+        # 25% PLATFORM TERRAIN: Elevated box platforms (10-20cm)
+        "box_platforms": terrain_gen.HfPyramidStairsTerrainCfg(
+            proportion=0.25,
+            step_height_range=(0.10, 0.20),  # 10-20cm platform heights
+            step_width=0.8,                  # 80cm wide platforms (box-shaped)
+            platform_width=1.2,             # 1.2m platform size
+        ),
+        
+        # 15% DISCRETE OBSTACLES: Box-shaped height bumps (5-12cm)
+        "box_obstacles": terrain_gen.HfDiscreteObstaclesTerrainCfg(
+            proportion=0.15,
+            obstacle_height_range=(0.05, 0.12),  # 5-12cm obstacles
+            obstacle_width_range=(0.3, 0.6),     # 30-60cm wide (box-like)
+            num_obstacles=8,                     # 8 box obstacles per terrain
+            platform_width=1.0,                 # 1m platform
+        ),
+        
+        # 15% GENTLE ROUGH: Small height variations (2-8cm) for fine adaptation
+        "fine_variations": terrain_gen.HfRandomUniformTerrainCfg(
+            proportion=0.15, 
+            noise_range=(0.02, 0.08),   # 2-8cm variations
+            noise_step=0.01, 
+            border_width=0.25
+        ),
+    },
+)
 
 @configclass
 class SDSG1FlatWithBoxEnvCfg(SDSG1RoughEnvCfg):
-    """SDS Unitree G1 environment with SAME simple terrain as rough_env_cfg + environmental sensors.
+    """SDS Unitree G1 environment with CONFIGURABLE terrain complexity + environmental sensors.
 
-    UNIFIED CONFIGURATION:
-    - Uses EXACT same terrain as rough_env_cfg (70% flat + 30% gentle bumps)
-    - Uses EXACT same command settings (0.3-0.6 m/s forward, 2% standing)
-    - Uses EXACT same physics and robot configuration
+    TERRAIN TOGGLE SYSTEM:
+    - Set USE_COMPLEX_TERRAIN = True: Box-shaped height variations (steps, platforms, obstacles)
+    - Set USE_COMPLEX_TERRAIN = False: Simple terrain (70% flat + 30% gentle bumps)
+    - Uses EXACT same physics, robot, and command settings
     - ADDS height scanner + lidar for environmental sensing capabilities
-    - Perfect for learning basic locomotion + environmental awareness
+    - Perfect for testing environmental sensing vs. basic locomotion
     """
 
     def __post_init__(self):
         # Call parent post_init to get all the same settings
         super().__post_init__()
 
-        # 🎯 CRITICAL: Use EXACT same terrain as rough_env_cfg (no changes!)
-        self.scene.terrain.terrain_generator = SIMPLE_LEARNING_TERRAIN_CFG  # Same 70% flat + 30% bumps
+        # 🎯 DYNAMIC GRAVITY CONTROL: Enable/disable based on analysis vs training mode
+        # When SDS_ANALYSIS_MODE=true (environment analysis): disable gravity to prevent robot falling
+        # When SDS_ANALYSIS_MODE not set (training): enable gravity for realistic physics
+        if os.environ.get('SDS_ANALYSIS_MODE', 'false').lower() == 'true':
+            # ANALYSIS MODE: Disable gravity so robot stays stable during environmental sensing
+            self.sim.gravity = (0.0, 0.0, 0.0)
+            print("🔧 SDS ANALYSIS MODE: Gravity DISABLED for stable environmental analysis")
+        else:
+            # TRAINING MODE: Enable gravity for realistic physics simulation
+            self.sim.gravity = (0.0, 0.0, -9.81)
+            print("🚀 SDS TRAINING MODE: Gravity ENABLED for realistic physics")
+
+        # 🎯 TERRAIN SELECTION: One-line toggle between simple and complex terrain
+        if USE_COMPLEX_TERRAIN:
+            # COMPLEX: Box-shaped height variations for environmental sensing testing
+            self.scene.terrain.terrain_generator = COMPLEX_BOX_TERRAIN_CFG
+            print("🏔️ TERRAIN MODE: COMPLEX box-shaped height variations (steps, platforms, obstacles)")
+        else:
+            # SIMPLE: Flat terrain with gentle bumps (same as rough_env_cfg)
+            self.scene.terrain.terrain_generator = SIMPLE_LEARNING_TERRAIN_CFG
+            print("🏞️ TERRAIN MODE: SIMPLE flat terrain with gentle bumps")
         
         # ✅ FIX WEIRD ARM POSITIONS: Natural walking pose for enhanced environment
         # Override the default arm positions to be more natural for walking
@@ -59,7 +133,7 @@ class SDSG1FlatWithBoxEnvCfg(SDSG1RoughEnvCfg):
             "right_shoulder_roll_joint": 0.0,    # ✅ Specific name (was -0.16 out)  
             ".*_elbow_pitch_joint": 0.2,         # ✅ Pattern (was 0.87 too bent)
         })
-        
+
         # Multiple environments for parallel training
         self.scene.num_envs = 512  # 512 robots for good parallelization
         self.scene.env_spacing = 2.5
@@ -99,7 +173,7 @@ class SDSG1FlatWithBoxEnvCfg(SDSG1RoughEnvCfg):
         )
 
         # === ENVIRONMENTAL OBSERVATIONS (PROPERLY NORMALIZED) ===
-
+        
         # Height scan observation - NORMALIZED to reasonable range
         self.observations.policy.height_scan = ObsTerm(
             func=base_mdp.height_scan,
@@ -108,7 +182,7 @@ class SDSG1FlatWithBoxEnvCfg(SDSG1RoughEnvCfg):
             clip=(-0.5, 3.0),  # Range for 3m max distance  
             scale=0.286,       # ✅ NORMALIZE: 1.0 / 3.5 = 0.286 -> maps [-0.5,3.0] to [-0.143, 0.857] ≈ [0,1] range
         )
-
+        
         # Lidar range observation - NORMALIZED to [0,1] range  
         self.observations.policy.lidar_range = ObsTerm(
             func=mdp.lidar_range,
@@ -119,7 +193,7 @@ class SDSG1FlatWithBoxEnvCfg(SDSG1RoughEnvCfg):
         )
 
         # 📝 NOTE: Everything else (commands, physics, robot, rewards) is IDENTICAL to rough_env_cfg!
-        # This config = rough_env_cfg + height_scanner + lidar + observations
+        # This config = rough_env_cfg + height_scanner + lidar + observations + terrain_toggle
 
 
 @configclass

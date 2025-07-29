@@ -35,164 +35,90 @@ Your evaluation should consider the following criteria:
 - Evaluate task completion efficiency and goal achievement
 - Compare overall movement aesthetics and naturalness to ground truth
 
-**ADVANCED BIOMECHANICAL EVALUATION CRITERIA:**
+**MOVEMENT QUALITY EVALUATION FRAMEWORK:**
 
-When evaluating humanoid locomotion, incorporate these advanced biomechanical assessment criteria that distinguish exceptional human-like movement from basic functional performance:
+When evaluating humanoid locomotion, assess these key movement characteristics that distinguish natural human-like movement from robotic performance:
 
-**Cross-Pattern Coordination Assessment:**
-- **Anti-phase verification:** Evaluate proper opposite arm-leg movement patterns (left arm forward with right leg)
-- **Phase-locked timing analysis:** Assess arm swing peak alignment with opposite foot stance phases
-- **Velocity correlation evaluation:** Measure negative correlation between same-side arm-leg velocities
-- **Synchronization detection:** Identify and penalize robotic same-side coordination patterns
-- **Temporal relationship consistency:** Evaluate cross-pattern timing stability across movement cycles
+**Coordination Assessment:**
+- **Movement pattern evaluation:** Assess proper coordination between different body segments
+- **Timing analysis:** Evaluate synchronization and phase relationships in movement execution
+- **Cross-body coordination:** Analyze coordination patterns between left and right sides
+- **Temporal consistency:** Evaluate stability of timing patterns across movement cycles
 
-**Natural Arm Dynamics Evaluation:**
-- **Amplitude range assessment:** Verify arm swing within 15-20° forward, 10-15° backward from vertical
-- **Smoothness analysis:** Evaluate jerk-free, pendulum-like arm movement characteristics
-- **Energy efficiency measurement:** Assess passive vs active arm movement patterns
-- **Speed adaptation evaluation:** Analyze arm swing amplitude matching to walking speed
-- **Pendulum quality assessment:** Evaluate natural oscillation vs mechanical control patterns
+**Natural Movement Dynamics:**
+- **Amplitude assessment:** Evaluate appropriate range of motion for different body segments
+- **Smoothness analysis:** Assess continuity and flow in movement execution
+- **Energy efficiency evaluation:** Analyze movement patterns for natural vs forced characteristics
+- **Adaptation assessment:** Evaluate how movement adjusts to different speeds and conditions
 
-**Frequency Coupling and Pendulum Dynamics Assessment:**
-- **Period ratio evaluation:** Verify 1:1 arm swing to leg stride frequency coupling
-- **Spectral coherence analysis:** Assess frequency domain relationships between arm and leg movements
-- **Passive dynamics detection:** Evaluate natural pendulum motion vs active muscular control
-- **Coupling stability assessment:** Measure frequency relationship consistency across cycles
-- **Oscillation characteristics:** Analyze natural arm movement vs mechanical patterns
+**Balance and Stability Evaluation:**
+- **Postural control assessment:** Evaluate maintenance of appropriate body alignment
+- **Dynamic balance analysis:** Assess balance control during movement execution
+- **Stability evaluation:** Analyze stability throughout different phases of movement
+- **Recovery assessment:** Evaluate ability to maintain control during challenging phases
 
-**Precision Foot Clearance Evaluation:**
-- **Multi-range clearance assessment:** Evaluate 10-25mm minimum, 50-80mm peak clearance achievement
-- **Knee flexion profiling:** Assess bell-curve knee angle patterns peaking at ~60° during swing
-- **Trajectory smoothness analysis:** Evaluate foot path continuity throughout swing phase
-- **Clearance coordination assessment:** Analyze knee flexion and foot clearance timing relationships
-- **Bilateral consistency evaluation:** Compare left-right foot clearance pattern symmetry
+**Contact and Ground Interaction:**
+- **Ground contact evaluation:** Assess timing and coordination of foot-ground interactions
+- **Force application analysis:** Evaluate gradual vs abrupt contact characteristics  
+- **Contact pattern assessment:** Analyze consistency and appropriateness of contact sequences
+- **Transition smoothness:** Evaluate continuity during contact phase changes
 
-**Dynamic Posture and Balance Assessment:**
-- **Lean angle evaluation:** Assess torso pitch within -5° to +5° range with forward lean preference
-- **Center-of-mass analysis:** Evaluate CoM projection within support polygon during single support
-- **Backward lean detection:** Identify problematic backward lean patterns beyond 0°
-- **Dynamic balance assessment:** Evaluate balance control throughout walking cycle phases
-- **Support polygon optimization:** Assess stability during challenging single-support phases
-
-**Temporal Flow and Cadence Evaluation:**
-- **Natural cadence assessment:** Evaluate 100-120 steps per minute rhythm achievement
-- **Phase duration analysis:** Assess ~60% stance, ~40% swing timing for natural flow
-- **Timing consistency evaluation:** Measure temporal regularity across walking cycles
-- **Rhythm quality assessment:** Evaluate natural flow vs mechanical timing characteristics
-- **Temporal integration analysis:** Assess coordinated timing across movement components
-
-**Transition Smoothness and Contact Force Assessment:**
-- **Phase-boundary continuity:** Evaluate velocity/acceleration smoothness at foot contact events
-- **Contact force gradation:** Assess gradual force ramp-up (<10ms) and controlled unloading
-- **Joint coordination evaluation:** Analyze multi-joint movement continuity during transitions
-- **Impact control assessment:** Evaluate gradual vs abrupt contact force characteristics
-- **Transition integration analysis:** Assess overall phase change smoothness across components
-
-**Integrated Movement Excellence Evaluation:**
-
-For comprehensive assessment of exceptional walking quality, evaluate:
-
-**Biomechanical Integration Assessment:**
-- **Multi-principle harmony:** Evaluate all 7 advanced principles working together seamlessly
-- **Quality prioritization:** Assess movement excellence over pure task completion speed
-- **Natural appearance:** Evaluate human-like characteristics throughout movement execution
-- **Energy optimization:** Assess efficiency through natural movement pattern utilization
-- **Coordination mastery:** Evaluate sophisticated multi-joint and multi-limb integration
-
-**Movement Excellence Standards Evaluation:**
-- **Precision execution:** Assess accurate implementation of natural biomechanical patterns
-- **Temporal mastery:** Evaluate rhythm, timing, and phase relationship excellence
-- **Dynamic control:** Assess exceptional balance and stability throughout movement
-- **Efficiency optimization:** Evaluate energy expenditure minimization through natural patterns
-- **Aesthetic quality:** Assess movement that appears effortlessly natural and confident
-
-**Exceptional vs Basic Performance Distinction:**
-- **Basic functionality:** Task completion with adequate contact patterns and forward progression
-- **Exceptional quality:** Sophisticated biomechanical integration demonstrating all advanced principles
-- **Excellence indicators:** Cross-pattern precision, natural arm dynamics, optimal clearance, perfect posture, ideal cadence, seamless transitions
-- **Mastery demonstration:** Effortless integration of all biomechanical factors creating truly human-like movement
+**Overall Performance Integration:**
+- **Comprehensive coordination:** Evaluate how individual components work together
+- **Task completion assessment:** Analyze efficiency and effectiveness in goal achievement
+- **Natural appearance evaluation:** Assess human-like characteristics in movement execution
+- **Quality vs speed balance:** Evaluate movement excellence relative to task completion
 
 **Evaluation Scoring Framework:**
-- **Functional Achievement (30%):** Basic task completion and goal attainment
-- **Biomechanical Quality (40%):** Advanced principle implementation and natural movement characteristics
-- **Integration Excellence (30%):** Seamless coordination and human-like movement mastery
+- **Functional Achievement:** Basic task completion and goal attainment
+- **Movement Quality:** Natural movement characteristics and coordination excellence  
+- **Integration Excellence:** Seamless coordination and human-like movement mastery
 
-This comprehensive evaluation approach ensures assessment captures both functional performance and the sophisticated biomechanical qualities that distinguish exceptional human-like movement from basic robotic locomotion.
+This evaluation approach assesses both functional performance and the natural movement qualities that distinguish exceptional human-like locomotion from basic robotic execution.
 
-**ADVANCED BIOMECHANICAL EVALUATION CRITERIA FOR BACKFLIP:**
+**ROTATIONAL MOVEMENT EVALUATION CRITERIA:**
 
-When evaluating backflip locomotion, incorporate these advanced biomechanical assessment criteria that distinguish exceptional human-like acrobatic movement from basic functional rotation:
+When evaluating rotational movements like backflips, assess these key characteristics that distinguish controlled acrobatic movement from basic rotational attempts:
 
 **Preparation Phase Assessment:**
-- **Deep squat evaluation:** Assess controlled knee flexion with smooth muscle loading and stability
-- **Backward lean analysis:** Evaluate slight torso pitch backward to generate initial rotational momentum
-- **Arm loading coordination:** Assess coordinated arm positioning for maximum rotational contribution
-- **Stable base assessment:** Evaluate maintained balance and control during preparation phase
+- **Controlled preparation:** Assess stability and control during preparation phase
+- **Momentum generation:** Evaluate appropriate preparation for rotational initiation
+- **Coordination setup:** Assess coordinated positioning for effective rotation
+- **Base stability:** Evaluate maintained balance and control before takeoff
 
-**Takeoff Phase Assessment:**
-- **Explosive coordination evaluation:** Assess simultaneous bilateral leg extension with coordinated arm drive
-- **Upward trajectory analysis:** Evaluate sufficient vertical momentum for safe rotation completion
-- **Backward momentum assessment:** Analyze controlled backward velocity for rotation initiation
-- **Synchronized timing evaluation:** Assess perfect coordination between leg extension and arm swing
+**Execution Phase Assessment:**
+- **Takeoff coordination:** Assess synchronized movement initiation
+- **Trajectory control:** Evaluate appropriate momentum generation for safe completion
+- **Rotational control:** Analyze smooth and controlled rotation execution
+- **Body positioning:** Evaluate effective positioning throughout rotation
 
-**Rotation Phase Assessment:**
-- **Angular velocity evaluation:** Assess smooth rotation speed appropriate for safe completion
-- **Body positioning analysis:** Evaluate tight tuck position maximizing rotational efficiency
-- **Spatial awareness assessment:** Analyze maintained orientation control during rotation
-- **Consistent axis evaluation:** Assess stable rotation around primary axis without wobbling
+**Completion Phase Assessment:**
+- **Landing preparation:** Assess appropriate preparation for touchdown
+- **Impact control:** Evaluate controlled landing with stability
+- **Recovery assessment:** Analyze post-landing balance and control
+- **Completion evaluation:** Assess successful task completion with safety
 
-**Landing Preparation Assessment:**
-- **Body extension evaluation:** Assess gradual opening from tuck position for landing alignment
-- **Vertical alignment analysis:** Evaluate proper body positioning for safe touchdown
-- **Velocity control assessment:** Analyze appropriate rotational deceleration for controlled landing
-- **Postural preparation evaluation:** Assess body alignment anticipating ground contact
+**Integrated Rotational Assessment:**
+- **Phase coordination:** Evaluate smooth transitions between rotation phases
+- **Safety execution:** Assess controlled movement throughout the sequence
+- **Movement flow:** Evaluate natural progression through complete rotation
+- **Overall quality:** Assess movement characteristics and execution excellence
 
-**Landing Phase Assessment:**
-- **Bilateral coordination evaluation:** Assess simultaneous contact with both feet
-- **Shock absorption analysis:** Evaluate controlled knee flexion for impact absorption
-- **Balance recovery assessment:** Analyze stable post-landing posture with controlled momentum
-- **Smooth deceleration evaluation:** Assess gradual transition from aerial to grounded state
+**Technical Assessment Considerations:**
+- **Trajectory evaluation:** Assess smooth movement paths and timing
+- **Force application analysis:** Evaluate controlled force profiles during movement phases
+- **Coordination assessment:** Analyze multi-joint coordination effectiveness
+- **Positioning evaluation:** Assess body positioning efficiency throughout movement
+- **Temporal precision:** Analyze phase timing accuracy and transition quality
+- **Stability assessment:** Evaluate stability maintenance during dynamic movement
+- **Energy efficiency:** Assess movement efficiency and control
+- **Safety evaluation:** Identify potential safety issues and control problems
 
-**Integrated Rotational Excellence Evaluation:**
-
-For comprehensive assessment of exceptional backflip quality, evaluate:
-
-**Rotational Mastery Assessment:**
-- **Multi-phase integration:** Evaluate all rotation phases working together seamlessly
-- **Safety execution:** Assess controlled movement preventing dangerous outcomes
-- **Acrobatic flow:** Evaluate natural progression through complete backflip cycle
-- **Human-like quality:** Assess movement characteristics resembling skilled human acrobatics
-
-**Movement Excellence Standards Evaluation:**
-- **Precision execution:** Assess accurate implementation of natural acrobatic patterns
-- **Temporal mastery:** Evaluate perfect phase timing and transition relationships
-- **Dynamic control:** Assess exceptional balance and control throughout rotation
-- **Safety optimization:** Evaluate maximum safety through controlled movement patterns
-- **Aesthetic quality:** Assess movement that appears skillfully executed and confident
-
-**Precision Biomechanical Assessment:**
-- **Center-of-Mass Trajectory Evaluation:** Assess smooth parabolic arc shape with optimal apex timing at mid-rotation
-- **Angular Acceleration Profile Analysis:** Evaluate gradual torque ramp-up and controlled deceleration patterns
-- **Ground Reaction Force Assessment:** Analyze take-off force rise profiles and landing impact characteristics
-- **Joint-Specific Coordination Evaluation:** Assess hip extension angles, ankle plantarflexion contribution, spine control
-- **Tuck Aperture Efficiency Analysis:** Evaluate compact positioning with knee-to-chest distance and elbow angles
-- **Temporal Phase Precision Assessment:** Analyze phase duration accuracy and transition smoothness
-- **Coronal-Plane Stability Evaluation:** Assess roll angle maintenance and off-axis rotation prevention
-- **Energy Efficiency Analysis:** Evaluate joint torque expenditure relative to rotation achievement
-- **Failure Mode Detection Assessment:** Identify critical failure patterns and safety violations
-- **Support Polygon / CoM Projection Evaluation:** Assess CoM maintenance within the convex hull of the feet during prep and landing prep phases
-- **Contact Ratio Balance Assessment:** Evaluate both feet sharing ≥45% of vertical force during takeoff prep, and each foot contact impulse within ±10% of the other during landing
-- **Yaw & Pitch Coupling Analysis:** Assess yaw angular velocity limitation to <30°/s during rotation while maintaining pitch-only spin
-- **Phase-Gated Smoothness Assessment:** Evaluate maximum joint-torque jerk computation in each phase with enforcement of <Tₘₐₓ per 10ms
-- **Visual / Sensor Cue Integration Analysis:** Assess IMU orientation utilization for spotting cues with head-pitch >+10° in early rotation and <-10° before landing
-  - **IMU Access:** Use `env.scene.sensors["imu"].data.quat_w` for orientation data
-  - **Pitch Calculation:** Convert quaternion to euler angles to extract pitch component
-
-**Exceptional vs Basic Backflip Performance Distinction:**
-- **Basic functionality:** Rotation completion with adequate takeoff and landing
-- **Exceptional quality:** Sophisticated acrobatic integration demonstrating all advanced principles plus precision biomechanical control
-- **Excellence indicators:** Preparation control, takeoff coordination, rotation mastery, landing precision, safety execution, biomechanical precision
-- **Mastery demonstration:** Effortless integration of all rotational factors plus advanced biomechanical specifications creating truly human-like acrobatic movement
+**Performance Quality Distinction:**
+- **Basic performance:** Task completion with adequate control and safety
+- **Exceptional performance:** Superior integration of all movement components with excellent control
+- **Quality indicators:** Preparation effectiveness, execution control, completion precision, safety maintenance
+- **Excellence demonstration:** Seamless integration of movement components creating controlled, safe, and effective acrobatic execution
 
 For each criteria, first describe your observation, then assign a numerical rating between 0 and 100 for each of the evaluation metrics, where 0 represents complete failure (e.g., the robot loses balance, indicated by a completely black frame) and 100 represents perfect alignment with the ground truth. You should assign suitable weights to each of the scores and you must prioritise similarity in gait pattern and overall similarity with ground truth while not dominating over all other scores too much. 
 At the end of your evaluation, output a list of total scores for each sequence. Ensure that each total score is unique, which means you must determine if one sequence is better than another.

@@ -235,9 +235,10 @@ class EnvironmentAwareTaskDescriptor(Agent):
             analysis_script = f"{isaac_lab_path}/analyze_environment.py"
             
             # Run the analysis script with SDS_ANALYSIS_MODE=true
+            # Use direct Python call instead of isaaclab.sh wrapper to avoid subprocess issues
             cmd = [
                 "bash", "-c", 
-                f"source /home/enis/miniconda3/etc/profile.d/conda.sh && conda activate sam2 && cd {isaac_lab_path} && SDS_ANALYSIS_MODE=true ./isaaclab.sh -p analyze_environment.py --headless --num_envs {num_envs}"
+                f"source /home/enis/miniconda3/etc/profile.d/conda.sh && conda activate sam2 && cd {isaac_lab_path} && SDS_ANALYSIS_MODE=true python -u analyze_environment.py --task=Isaac-SDS-Velocity-Flat-G1-Enhanced-v0 --headless --num_envs {num_envs}"
             ]
             
             self.logger.info(f"Running environment analysis with {num_envs} robots...")

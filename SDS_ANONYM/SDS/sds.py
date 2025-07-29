@@ -31,6 +31,85 @@ def find_isaac_lab_root():
             return str(parent)
     raise FileNotFoundError("Could not find Isaac Lab root directory (isaaclab.sh not found)")
 
+def create_readable_json_version(json_file_path):
+    """
+    Create a readable version of GPT query JSON files by removing base64 images
+    but keeping all text content intact for full analysis.
+    
+    Args:
+        json_file_path (str): Path to the original JSON file
+    """
+    try:
+        # Load the original JSON file
+        with open(json_file_path, 'r') as f:
+            data = json.load(f)
+        
+        # Create readable version
+        readable_data = []
+        for i, msg in enumerate(data):
+            clean_msg = {'role': msg.get('role', 'unknown')}
+            content = msg.get('content', '')
+            
+            if isinstance(content, list):
+                # Handle list content (usually contains text + images)
+                clean_content = []
+                for item in content:
+                    if item.get('type') == 'text':
+                        # Keep FULL text content (no truncation)
+                        clean_content.append({
+                            'type': 'text',
+                            'text': item.get('text', '')
+                        })
+                    elif item.get('type') == 'image_url':
+                        # Replace base64 image with placeholder
+                        image_url = item.get('image_url', {})
+                        if isinstance(image_url, dict) and 'url' in image_url:
+                            # Check if it's base64 data
+                            if image_url['url'].startswith('data:image'):
+                                clean_content.append({
+                                    'type': 'image_url',
+                                    'image_url': {
+                                        'url': '[BASE64_IMAGE_DATA_REMOVED_FOR_READABILITY]',
+                                        'detail': image_url.get('detail', 'high'),
+                                        'original_size_note': f'Original base64 data was {len(image_url["url"])} characters'
+                                    }
+                                })
+                            else:
+                                # Keep non-base64 URLs as is
+                                clean_content.append(item)
+                        else:
+                            clean_content.append({
+                                'type': 'image_url',
+                                'note': '[IMAGE_DATA_REMOVED_FOR_READABILITY]'
+                            })
+                    else:
+                        # Keep other content types as is
+                        clean_content.append(item)
+                clean_msg['content'] = clean_content
+            else:
+                # Handle string content - keep full content
+                clean_msg['content'] = content
+            
+            readable_data.append(clean_msg)
+        
+        # Save readable version with _READABLE suffix
+        readable_path = json_file_path.replace('.json', '_READABLE.json')
+        with open(readable_path, 'w', encoding='utf-8') as f:
+            json.dump(readable_data, f, indent=2, ensure_ascii=False)
+        
+        # Calculate size savings
+        original_size = os.path.getsize(json_file_path)
+        readable_size = os.path.getsize(readable_path)
+        
+        logging.info(f"✅ Created readable JSON: {readable_path}")
+        logging.info(f"📊 Size reduction: {original_size/1024/1024:.1f}MB → {readable_size/1024:.1f}KB ({(1-readable_size/original_size)*100:.1f}% smaller)")
+        
+        return readable_path
+        
+    except Exception as e:
+        logging.error(f"❌ Failed to create readable JSON version for {json_file_path}: {e}")
+        return None
+
 # Get SDS root directory from script location, not working directory
 # This is important because Hydra changes the working directory
 SDS_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -868,8 +947,12 @@ def main(cfg):
             scores = [float(x) for x in scores_re.split(",")]
             
             # Save evaluator messages regardless of number of samples
-            with open(f'evaluator_query_messages_{iter}.json', 'w') as file:
+            evaluator_json_path = f'evaluator_query_messages_{iter}.json'
+            with open(evaluator_json_path, 'w') as file:
                 json.dump(evaluator_query_messages + [{"role": "assistant", "content": eval_responses}], file, indent=4)
+            
+            # 🔧 AUTO-GENERATE READABLE VERSION
+            create_readable_json_version(evaluator_json_path)
             
             if len(scores) == 1:
                 logging.info(f"Best Sample Index: {0}")
@@ -940,8 +1023,12 @@ def main(cfg):
             reward_query_messages[-1] = {"role": "user", "content": best_content}
 
         # Save dictionary as JSON file
-        with open('reward_query_messages.json', 'w') as file:
+        reward_json_path = 'reward_query_messages.json'
+        with open(reward_json_path, 'w') as file:
             json.dump(reward_query_messages, file, indent=4)
+        
+        # 🔧 AUTO-GENERATE READABLE VERSION
+        create_readable_json_version(reward_json_path)
     
     if max_reward_code_path is None: 
         logging.info("All iterations of code generation failed, aborting...")

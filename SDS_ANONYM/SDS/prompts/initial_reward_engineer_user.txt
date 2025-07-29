@@ -64,10 +64,10 @@ return torch.clamp(reward, min=0.0, max=10.0)
 
 **The environment sensors are already configured - just ACCESS them in your reward!**
 
-⚠️ **ALL NUMERICAL EXAMPLES, CODE SNIPPETS, AND REWARD PATTERNS ARE FOR TECHNICAL DEMONSTRATION ONLY.**
-⚠️ **DO NOT COPY EXAMPLES DIRECTLY! ANALYZE THE ENVIRONMENT AND CREATE INTELLIGENT, CONTEXTUAL REWARDS.**
+**ALL NUMERICAL EXAMPLES, CODE SNIPPETS, AND REWARD PATTERNS ARE FOR TECHNICAL DEMONSTRATION ONLY.**
+**DO NOT COPY EXAMPLES DIRECTLY! ANALYZE THE ENVIRONMENT AND CREATE INTELLIGENT, CONTEXTUAL REWARDS.**
 
-**🧠 INTELLIGENT ENVIRONMENT-AWARE REWARD DESIGN:**
+**INTELLIGENT ENVIRONMENT-AWARE REWARD DESIGN:**
 
 **THINK BEFORE CODING:** Read the environment analysis carefully and design rewards that make sense for the actual conditions:
 - **No obstacles detected?** Don't include obstacle avoidance terms
@@ -75,37 +75,176 @@ return torch.clamp(reward, min=0.0, max=10.0)
 - **Complex mixed terrain?** Design progressive difficulty rewards
 - **Flat terrain?** Emphasize efficiency and smoothness, not gap navigation
 
-**⚠️  ENVIRONMENTAL SENSOR INTEGRATION (ANALYSIS-DRIVEN APPROACH)**
+**ENVIRONMENTAL SENSOR INTEGRATION (MANDATORY WHEN DATA PROVIDED)**
 
-**IMPORTANT: Environmental integration should be based on environment analysis, not forced requirements!**
+**STEP 1: MANDATORY ENVIRONMENTAL ANALYSIS ACKNOWLEDGMENT**
 
-**ENVIRONMENTAL INTEGRATION DECISION PROCESS:**
-1. **Check environment analysis first**: What environmental features are actually present?
-2. **Simple/flat environments**: Focus on natural locomotion foundation - environmental sensing is optional
-3. **Complex environments**: Add environmental components gradually, only for detected features
-4. **Mixed environments**: Use environment analysis to determine which components are relevant
+**CRITICAL: ALWAYS START YOUR REWARD FUNCTION WITH THIS COMMENT BLOCK:**
+```python
+"""
+ENVIRONMENTAL ANALYSIS DECISION:
+Based on environment analysis: [Summarize key findings from environmental data]
+- Gaps detected: [exact number from analysis]
+- Obstacles detected: [exact number from analysis]
+- Terrain roughness: [value from analysis]
+- Safety assessment: [verdict from analysis]
 
-**📋 CLARIFICATION: Environmental integration means USING existing sensor data WITHIN your reward function ONLY when relevant - NOT generating new observation functions or sensor configurations!**
+ENVIRONMENTAL SENSING DECISION: [NEEDED/NOT_NEEDED]
+JUSTIFICATION: [Specific reason based on analysis data]
 
-**ENVIRONMENTAL COMPONENTS (INCLUDE ONLY IF ENVIRONMENT ANALYSIS SHOWS RELEVANCE):**
-- **height_scan data**: Only if terrain shows significant variation or elevation changes
-- **lidar_range data**: Only if obstacles or barriers are detected in environment analysis  
-- **Terrain-adaptive behavior**: Only if terrain complexity requires adaptive locomotion
-- **Environmental safety**: Focus on locomotion safety first, environmental hazards second
+[If NOT_NEEDED: Explain why foundation locomotion is sufficient]
+[If NEEDED: List specific environmental components to include]
+"""
+```
 
-**🚨 CRITICAL: WHEN ENVIRONMENT ANALYSIS SHOWS SIGNIFICANT FEATURES, INCLUDE ENVIRONMENTAL COMPONENTS! 🚨**
+**STEP 2: INTELLIGENT ENVIRONMENTAL DATA EXTRACTION**
 
-**CLEAR DECISION RULES:**
-- **IF environment analysis shows gaps detected (>0)**: INCLUDE gap navigation components
-- **IF environment analysis shows obstacles detected (>0)**: INCLUDE obstacle avoidance components  
-- **IF terrain roughness > 20cm**: INCLUDE terrain adaptation components
-- **IF environment is truly flat with no features**: Focus foundation-only
+**MANDATORY: THINK LIKE A ROBOTICS EXPERT, NOT A CODE COPIER!**
+
+**🔍 HOW TO INTELLIGENTLY ANALYZE ENVIRONMENTAL DATA:**
+
+1. **EXTRACT SPECIFIC NUMBERS** from "TASK ANALYSIS AND ENVIRONMENT INSIGHTS" section:
+   - **Find exact counts**: "13 gaps detected", "52 obstacles detected"
+   - **Find distributions**: "4 steppable, 7 jumpable, 2 impassable"
+   - **Find measurements**: "3.6cm terrain roughness", "77.7% safe terrain"
+   - **Find assessments**: "MODERATE RISK", "Environmental sensing NEEDED"
+
+2. **IDENTIFY DOMINANT CHALLENGES**:
+   - **Gap environments**: What type dominates? Steppable vs jumpable vs impossible?
+   - **Obstacle environments**: How dense? What sizes? What distribution?
+   - **Terrain environments**: How rough? What kind of variation?
+
+3. **DETERMINE OPTIMAL STRATEGIES**:
+   - **Don't think generically**: "I need gap navigation"
+   - **Think specifically**: "I have 7/13 gaps that are jumpable - design for jumping priority"
+   - **Don't think generically**: "I need obstacle avoidance"  
+   - **Think specifically**: "I have 52 large obstacles densely packed - design for careful navigation"
+
+**🔥 INTELLIGENT DATA-TO-STRATEGY MAPPING EXAMPLES:**
+
+**SCENARIO A: "13 gaps detected (4 steppable ≤0.30m, 7 jumpable 0.30-0.60m, 2 impassable >0.60m)"**
+
+**INTELLIGENT ANALYSIS:**
+- **Dominant challenge**: 7/13 (54%) are jumpable gaps
+- **Secondary capability**: 4/13 (31%) are steppable  
+- **Safety concern**: 2/13 (15%) are impassable
+- **Optimal strategy**: Prioritize jumping mechanics with stepping fallback and avoidance safety
+
+**💻 INTELLIGENT IMPLEMENTATION:**
+```python
+# ANALYSIS-DRIVEN DESIGN: Prioritize jumping (dominant) with stepping backup
+gap_depth = robot_height.unsqueeze(1) - forward_terrain
+steppable_gaps = (gap_depth >= 0.15) & (gap_depth <= 0.30)  # 4 gaps - secondary
+jumpable_gaps = (gap_depth > 0.30) & (gap_depth <= 0.60)   # 7 gaps - PRIMARY
+impossible_gaps = gap_depth > 0.60                          # 2 gaps - safety
+
+# WEIGHT BASED ON ANALYSIS: High weight for jumping (dominant type)
+jumping_bonus = torch.any(jumpable_gaps, dim=1).float() * 0.4  # HIGH: dominant challenge
+stepping_bonus = torch.any(steppable_gaps, dim=1).float() * 0.2  # LOW: secondary capability
+safety_penalty = torch.any(impossible_gaps, dim=1).float() * -0.3  # NEGATIVE: safety
+```
+
+**ADVANCED GAP BEHAVIOR NOTE:**
+For comprehensive gap behavior implementation (stepping vs jumping vs avoidance), refer to the detailed behavioral strategies in the system prompt. Each gap size requires fundamentally different locomotion mechanics:
+
+**ADAPTIVE GAP BEHAVIOR STRATEGIES:**
+- **Small gaps**: Extended stride + precise placement + controlled speed
+- **Medium gaps**: Bilateral coordination + vertical motion + aerial phase
+- **Large gaps**: Turning + lateral movement + conservative approach
+
+**KEY IMPLEMENTATION PRINCIPLES:**
+- **Real-time gap classification**: Use height sensor data to categorize gaps by size
+- **Behavior switching**: Activate appropriate locomotion strategy based on detected gap type
+- **Safety prioritization**: Conservative approach for uncertain or dangerous gaps
+- **Progressive learning**: Design rewards that encourage stepping mastery before jumping complexity
+- **Foundation integration**: Gap behaviors should enhance, not replace, basic locomotion stability
+
+**CRITICAL: STAIR NAVIGATION AWARENESS:**
+When implementing gap detection, ensure proper distinction between stairs and gaps:
+- **Stairs**: Gradual height reduction patterns (multiple consecutive steps)
+- **Gaps**: Sudden height drops requiring different navigation strategies
+- **Adaptive behavior**: Modify height constraints and encourage controlled descent for stairs while maintaining gap navigation for true gaps
+
+**SCENARIO B: "52 obstacles detected (predominantly large, 0.136-1.227m width)"**
+
+**INTELLIGENT ANALYSIS:**
+- **Challenge type**: Dense obstacle field (52 obstacles = high density)
+- **Obstacle size**: Large obstacles (0.136-1.227m) = difficult to navigate around
+- **Optimal strategy**: Conservative navigation with wide safety margins and careful path planning
+
+**💻 INTELLIGENT IMPLEMENTATION:**
+```python
+# ANALYSIS-DRIVEN DESIGN: Large safety margins for dense, large obstacles
+forward_lidar = lidar_range[:, :lidar_range.shape[1]//4]  
+lateral_lidar = lidar_range[:, lidar_range.shape[1]//4:3*lidar_range.shape[1]//4]
+
+# CONSERVATIVE DISTANCES: Adapted for large obstacles in dense field
+safe_forward_dist = torch.min(forward_lidar, dim=1)[0]
+safe_lateral_dist = torch.min(lateral_lidar, dim=1)[0]
+
+# INTELLIGENT MARGINS: Larger thresholds for large obstacles
+forward_safety = torch.clamp((safe_forward_dist - forward_clearance) / clearance_range, 0.0, 1.0)  # Forward clearance
+lateral_safety = torch.clamp((safe_lateral_dist - lateral_clearance) / lateral_range, 0.0, 1.0)   # Lateral clearance
+navigation_bonus = forward_safety * lateral_safety * dense_weight  # Appropriate weight for dense environment
+```
+
+**SCENARIO C: "terrain roughness 3.6cm" + "77.7% safe traversable terrain"**
+
+**INTELLIGENT ANALYSIS:**
+- **Terrain challenge**: 3.6cm = LOW roughness (below 20cm threshold)
+- **Safety level**: 77.7% safe = HIGH safety (minimal terrain hazards)
+- **Optimal strategy**: Focus on efficiency and smooth locomotion, minimal terrain adaptation
+
+**💻 INTELLIGENT IMPLEMENTATION:**
+```python
+# ANALYSIS-DRIVEN DESIGN: Minimal terrain processing for low-challenge environment
+terrain_variance = torch.var(height_scan, dim=1)
+
+# INTELLIGENT WEIGHTING: Low weight since terrain is not challenging (3.6cm roughness)
+smooth_locomotion = torch.exp(-terrain_variance * variance_scale) * terrain_weight  # Appropriate weight for terrain difficulty
+# Focus more on foundation locomotion efficiency rather than terrain adaptation
+```
+
+**MANDATORY: WHEN ENVIRONMENT ANALYSIS DATA IS PROVIDED, YOU MUST USE IT!**
+
+**🔍 HOW TO FIND ENVIRONMENTAL DATA:**
+1. **Look in "TASK ANALYSIS AND ENVIRONMENT INSIGHTS" section above** for environmental context
+2. **Search for "ENVIRONMENTAL CONTEXT:"** in the task description
+3. **Extract specific numerical values**: gap counts, obstacle counts, terrain measurements
+4. **Use these exact numbers** to make environmental sensing decisions
+
+**ABSOLUTE REQUIREMENTS:**
+- **ALWAYS**: Start reward function with environmental analysis acknowledgment comment
+- **IF environment analysis shows gaps detected (>0)**: MUST INCLUDE gap navigation components
+- **IF environment analysis shows obstacles detected (>0)**: MUST INCLUDE obstacle avoidance components  
+- **IF terrain roughness exceeds threshold**: MUST INCLUDE terrain adaptation components
+- **IF environment analysis data contains specific numbers**: USE those exact numbers in your decisions
+- **IF environment is truly flat with no features**: Focus foundation-only BUT DOCUMENT THIS DECISION
+
+**INTELLIGENT VS GENERIC DECISION EXAMPLES:**
+
+**❌ GENERIC DECISIONS (FORBIDDEN):**
+- "Environment has gaps → include gap navigation code"
+- "Environment has obstacles → include obstacle avoidance code"
+- "Copy template patterns without thinking about the specific challenge"
+
+**INTELLIGENT DECISIONS (REQUIRED):**
+- "Environment has 13 gaps with 54% jumpable → design jumping-focused strategy with stepping backup"
+- "Environment has 52 large obstacles in dense field → design conservative navigation with 1.2m safety margins"
+- "Environment has 3.6cm roughness (low challenge) → minimal terrain adaptation, focus on efficiency"
+
+**ENVIRONMENTAL DATA EXTRACTION EXAMPLES:**
+- Find: "13 gaps detected (4 steppable, 7 jumpable, 2 impassable)" → Use: gaps_detected = 13, prioritize_jumping = True
+- Find: "52 obstacles detected" → Use: obstacles_detected = 52, dense_field = True  
+- Find: "terrain roughness X.Xcm" → Use: terrain_roughness = X.Xcm, challenge_level = appropriate
+- Find: "Environmental sensing NEEDED" → Decision: NEEDED
+- Find: "X.X% safe traversable terrain" → Safety_level = appropriate
 
 **EXAMPLE DECISION LOGIC:**
-- Environment shows "Total Gaps Detected: 457" → INCLUDE gap navigation
-- Environment shows "Total Obstacles Detected: 393" → INCLUDE obstacle avoidance  
-- Environment shows "Average Terrain Roughness: 65.5cm" → INCLUDE terrain adaptation
-- Environment shows "Flat terrain, no features" → Foundation locomotion only
+- Environment shows "13 gaps detected" → INCLUDE gap navigation
+- Environment shows "52 obstacles detected" → INCLUDE obstacle avoidance  
+- Environment shows low terrain roughness → Foundation locomotion (below threshold)
+- Environment shows "Total Gaps: 0, Obstacles: 0, Flat terrain" → Foundation locomotion only (DOCUMENT WHY)
 
 **FOUNDATION-FIRST VALIDATION:** Your reward function should prioritize stable basic locomotion (height, velocity, orientation) before adding environmental complexity. Simple environments should focus on natural walking patterns rather than forced environmental integration.
 
@@ -116,62 +255,62 @@ ALL reward functions MUST prioritize GENTLE, CONTROLLED, SUSTAINABLE movements:
 **TASK-SPECIFIC GENTLENESS TARGETS:**
 
 **VERTICAL JUMP TASK REQUIREMENTS:**
-- **Height:** 5-25cm clearance (NEVER >30cm for basic vertical jumps)
-- **Velocity:** 0.5-1.5 m/s vertical (NEVER >2m/s for basic jumps)
+- **Height:** Moderate clearance appropriate for basic vertical jumps
+- **Velocity:** Controlled vertical velocity suitable for gentle movements
 - **Coordination:** Bilateral synchronization with gentle loading/release
 - **Landing:** Controlled impact absorption with bilateral symmetry
 
 **WALKING TASK REQUIREMENTS:**
-- **Height:** 0.74m maintained (body height consistency during locomotion)
-- **Velocity:** Natural walking speeds 0.5-2.0 m/s forward
+- **Height:** Standard body height maintained consistently during locomotion
+- **Velocity:** Natural walking speeds appropriate for forward movement
 - **Coordination:** Cross-pattern arm-leg coordination (opposite timing)
 - **Landing:** Controlled heel-to-toe contact progression
 
 **BACKFLIP TASK REQUIREMENTS:**
-- **Height:** 0.8-1.2m minimum (sufficient for complete 360° rotation)
-- **Flight time:** 0.8-1.2 seconds (complete rotation duration)
-- **Rotation:** 300-450°/second controlled (FULL 360° rotation - robot must complete entire backflip and land upright)
+- **Height:** Sufficient altitude for complete rotation
+- **Flight time:** Adequate duration for complete rotation
+- **Rotation:** Controlled rotational velocity for full rotation (robot must complete entire backflip and land upright)
 - **Coordination:** Phase-specific arm patterns (backward swing → tuck → extend)
 - **Landing:** Controlled bilateral impact with upright orientation (robot lands on feet, not on back)
 
 **MARCH TASK REQUIREMENTS:**
-- **Height:** 0.74m maintained with controlled knee lift 60-90°
-- **Velocity:** Deliberate cadence 60-90 steps/minute
+- **Height:** Standard height maintained with controlled knee lift
+- **Velocity:** Deliberate cadence appropriate for ceremonial movement
 - **Coordination:** Opposite arm-leg ceremonial patterns
 - **Landing:** Precise foot placement with controlled impact
 
 **SPRINT TASK REQUIREMENTS:**
-- **Height:** 0.74m maintained during high-speed movement
-- **Velocity:** 3.0-6.0 m/s forward (higher than walking)
+- **Height:** Standard height maintained during high-speed movement
+- **Velocity:** High forward velocity exceeding normal walking speeds
 - **Coordination:** Reciprocal arm drive for forward propulsion
 - **Landing:** Controlled high-speed ground contact
 
 **PACE TASK REQUIREMENTS:**
-- **Height:** 0.74m maintained during lateral movement
-- **Velocity:** 0.5-1.5 m/s lateral (controlled sideways movement)
+- **Height:** Standard height maintained during lateral movement
+- **Velocity:** Controlled lateral velocity for sideways movement
 - **Coordination:** Compensatory arms for lateral stability
 - **Landing:** Controlled lateral foot placement
 
 **TASK-SPECIFIC FORBIDDEN BEHAVIORS:**
 
 **For VERTICAL JUMP Tasks:**
-- Excessive jumping heights (>30cm for basic jumps)
-- Excessive velocities (>2.0 m/s for basic jumps)
+- Excessive jumping heights beyond task requirements
+- Excessive velocities inappropriate for gentle movements
 - Single-leg jumping instead of bilateral coordination
 - Harsh landing impacts
 
 **For WALKING Tasks:**
 - Same-side arm-leg coordination (robotic pattern)
-- Excessive height variation from 0.74m baseline
+- Excessive height variation from standard baseline
 - Harsh foot impacts or jarring steps
 - Missing heel-to-toe contact progression
 
 **For BACKFLIP Tasks:**
-- Insufficient height for rotation completion (<0.8m)
-- Excessive rotation speed (>500°/second unsafe)
+- Insufficient height for rotation completion
+- Excessive rotation speed that compromises safety
 - Missing arm coordination phases
 - Landing without upright orientation (robot lands on back/side instead of feet)
-- Incomplete 360° rotation (partial backflips that don't result in upright landing)
+- Incomplete rotation (partial backflips that don't result in upright landing)
 
 **For MARCH Tasks:**
 - Military-sharp movements (too rigid)
@@ -567,6 +706,9 @@ You are tasked with creating the **MOST EFFECTIVE** reward function possible for
 - **Efficiency:** Achievement of locomotion goals with minimal energy expenditure
 - **Stability:** Maintained balance and controlled center of mass throughout gait cycle
 - **Naturalness:** Movement patterns that match human biomechanical principles
+
+**TASK ANALYSIS AND ENVIRONMENT INSIGHTS:**
+{sus_string}
 
 The Isaac Lab environment structure is:
 

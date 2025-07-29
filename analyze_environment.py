@@ -530,12 +530,12 @@ def main():
     else:
         print(f"\n⚠️ WARNING: Could not access robot positioning data")
     
-    # Calculate expected dimensions (based on our optimized config)
+    # Calculate expected dimensions (based on actual sensor config in flat_with_box_env_cfg.py)
     robot_state_dims = 110
-    # Height scanner: 4m × 3m at 10cm resolution = 1,200 points
-    height_scan_points = int((4.0 / 0.1) * (3.0 / 0.1))  # 40 × 30 = 1,200
-    # LiDAR: 16 channels × 72 horizontal = 1,152 points  
-    lidar_points = 16 * 72
+    # Height scanner: 2m × 1.5m at 15cm resolution = 140 points
+    height_scan_points = int((2.0 / 0.15) * (1.5 / 0.15))  # 14 × 10 = 140
+    # LiDAR: 8 channels × 18 horizontal (180°/10°) = 144 points  
+    lidar_points = 8 * 18
     
     print(f"\n📊 SENSOR DATA EXTRACTION:")
     print(f"   Expected height scanner points: {height_scan_points:,}")
@@ -583,8 +583,17 @@ def main():
         lidar_range = robot_data[lidar_start:lidar_end]
         
         # Perform detailed analysis for this robot (always analyze, but only print details for first few)
-        gap_analysis, obstacle_analysis, terrain_stats = analyze_height_data(height_scan, robot_id=(robot_id if robot_id < robots_for_detailed_print else None))
-        lidar_stats = analyze_lidar_data(lidar_range, robot_id=(robot_id if robot_id < robots_for_detailed_print else None))
+        gap_analysis, obstacle_analysis, terrain_stats = analyze_height_data(
+            height_scan, 
+            resolution=0.15,  # Match actual config: 15cm resolution
+            area_size=(2.0, 1.5),  # Match actual config: 2m × 1.5m area
+            robot_id=(robot_id if robot_id < robots_for_detailed_print else None)
+        )
+        lidar_stats = analyze_lidar_data(
+            lidar_range, 
+            max_range=5.0,  # Match actual config: 5m max distance
+            robot_id=(robot_id if robot_id < robots_for_detailed_print else None)
+        )
         
         # Accumulate results
         all_gaps.extend(gap_analysis if gap_analysis else [])

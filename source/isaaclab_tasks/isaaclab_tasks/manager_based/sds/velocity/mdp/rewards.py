@@ -107,148 +107,86 @@ def track_ang_vel_z_world_exp(
 
 
 def sds_custom_reward(env) -> torch.Tensor:
-    """SDS Custom Reward: SIMPLIFIED using ONLY proven Isaac Lab functions.
-    
-    Uses the exact same functions that work in other Isaac Lab locomotion tasks.
-    No custom logic - just proven patterns with appropriate weights.
-    """
-    
-    # Get basic data
-    asset = env.scene["robot"]
-    commands = env.command_manager.get_command("base_velocity")
-    num_envs = asset.data.root_pos_w.shape[0]
-    
-    # Find foot contact sensor configuration
-    contact_sensor_cfg = SceneEntityCfg("contact_forces")
-    try:
-        contact_sensor = env.scene.sensors["contact_forces"]
-        foot_ids, _ = contact_sensor.find_bodies(".*_ankle_roll_link")
-        if len(foot_ids) >= 2:
-            contact_sensor_cfg.body_ids = foot_ids[:2]  # Use first 2 feet
-        else:
-            # Fallback - no gait reward if feet not found
-            contact_sensor_cfg.body_ids = []
-    except:
-        contact_sensor_cfg.body_ids = []
-    
-    # === 1. LINEAR VELOCITY TRACKING (Primary - highest weight) ===
-    lin_vel_reward = track_lin_vel_xy_yaw_frame_exp(
-        env, 
-        std=1.0, 
-        command_name="base_velocity"
-    ) * 6.0  # High weight for primary objective
-    
-    # === 2. ANGULAR VELOCITY TRACKING (Secondary) ===
-    ang_vel_reward = track_ang_vel_z_world_exp(
-        env, 
-        command_name="base_velocity", 
-        std=1.0
-    ) * 2.0  # Medium weight for turning
-    
-    # === 3. BIPEDAL GAIT PATTERN (Important for locomotion) ===
-    if len(contact_sensor_cfg.body_ids) >= 2:
-        gait_reward = feet_air_time_positive_biped(
-            env, 
-            command_name="base_velocity", 
-            threshold=0.5, 
-            sensor_cfg=contact_sensor_cfg
-        ) * 4.0  # High weight for proper gait
-    else:
-        gait_reward = torch.zeros(num_envs, device=env.device)
-    
-    # === 4. FEET SLIDING PENALTY (Converted to positive reward) ===
-    if len(contact_sensor_cfg.body_ids) >= 2:
-        # Create asset config that matches the contact sensor foot IDs
-        asset_cfg = SceneEntityCfg("robot")
-        asset_cfg.body_ids = contact_sensor_cfg.body_ids  # Use same foot IDs for consistency
-        
-        slide_penalty = feet_slide(
-            env, 
-            sensor_cfg=contact_sensor_cfg,
-            asset_cfg=asset_cfg  # Pass matching asset config
-        )
-        # Convert penalty to reward: less sliding = higher reward
-        slide_reward = torch.exp(-slide_penalty * 0.5) * 1.0  # Moderate weight
-    else:
-        slide_reward = torch.zeros(num_envs, device=env.device)
-    
-    # === 5. ARM SWING REWARD (NEW - Natural walking arm swing) ===
-    # Encourage natural counter-balance arm swing during walking (like humans)
-    joint_pos = asset.data.joint_pos
-    joint_vel = asset.data.joint_vel
-    try:
-        # Find arm joint indices
-        joint_names = list(asset.joint_names)
-        left_shoulder_pitch_idx = None
-        right_shoulder_pitch_idx = None
-        
-        for i, name in enumerate(joint_names):
-            if "left_shoulder_pitch_joint" in name:
-                left_shoulder_pitch_idx = i
-            elif "right_shoulder_pitch_joint" in name:
-                right_shoulder_pitch_idx = i
-        
-        if left_shoulder_pitch_idx is not None and right_shoulder_pitch_idx is not None:
-            # Get arm positions and base velocity
-            left_arm_pos = joint_pos[:, left_shoulder_pitch_idx]
-            right_arm_pos = joint_pos[:, right_shoulder_pitch_idx]
-            
-            # Get forward velocity for scaling arm swing
-            vel_yaw = quat_apply_inverse(yaw_quat(asset.data.root_quat_w), asset.data.root_lin_vel_w[:, :3])
-            forward_vel = torch.abs(vel_yaw[:, 0])  # Forward speed magnitude
-            
-            # Natural arm swing: opposite arms should move counter to each other
-            # When walking fast, arms should swing more
-            # Ideal: left arm forward when right leg forward (counter-balance)
-            
-            # Encourage moderate arm swing range (not too extreme)
-            arm_swing_range = torch.abs(left_arm_pos - right_arm_pos)  # Difference between arms
-            ideal_swing = torch.clamp(forward_vel * 0.5, 0.0, 0.4)  # Scale with speed (max 0.4 rad)
-            
-            # Reward natural swing range (not too little, not too much)
-            swing_error = torch.abs(arm_swing_range - ideal_swing)
-            arm_reward = torch.exp(-swing_error * 3.0) * 1.5  # Moderate weight for natural swing
-            
-            # Bonus for arm movement (discourage static arms)
-            left_arm_vel = torch.abs(joint_vel[:, left_shoulder_pitch_idx])
-            right_arm_vel = torch.abs(joint_vel[:, right_shoulder_pitch_idx])
-            movement_bonus = torch.clamp((left_arm_vel + right_arm_vel) * 0.5, 0.0, 0.3)
-            
-            arm_reward = arm_reward + movement_bonus
-        else:
-            arm_reward = torch.zeros(num_envs, device=env.device)
-            
-    except Exception:
-        # Fallback if arm joints not found
-        arm_reward = torch.zeros(num_envs, device=env.device)
-    
-    # === 6. FORWARD PROGRESS BONUS (Simple additive) ===
-    # Encourage forward movement when commands are given
-    vel_yaw = quat_apply_inverse(yaw_quat(asset.data.root_quat_w), asset.data.root_lin_vel_w[:, :3])
-    forward_vel = torch.clamp(vel_yaw[:, 0], min=0.0)  # Only positive forward velocity
-    command_mag = torch.norm(commands[:, :2], dim=1)  # Command magnitude
-    command_scale = (command_mag > 0.1).float()  # Only when commanded to move
-    progress_bonus = forward_vel * command_scale * 1.0  # Moderate weight
-    
-    # === 7. BASELINE BONUS (Always positive) ===
-    baseline_bonus = 1.0  # Ensures reward is never zero
-    
-    # === COMBINE: Simple additive (all components are positive!) ===
-    total_reward = (
-        lin_vel_reward +     # 6.0x weight - PRIMARY objective
-        ang_vel_reward +     # 2.0x weight - turning
-        gait_reward +        # 4.0x weight - proper walking
-        slide_reward +       # 1.0x weight - good foot contact
-        arm_reward +         # 1.5x weight - natural arm swing (NEW!)
-        progress_bonus +     # 1.0x weight - forward progress
-        baseline_bonus       # 1.0 constant - always positive
+    """Improved reward for stable, human-like walking."""
+    robot = env.scene["robot"]
+    contact_sensor = env.scene.sensors["contact_forces"]
+    commands = env.command_manager.get_command("base_velocity")  # [vx, vy, wz]
+
+    # === 1. Velocity tracking (body frame) ===
+    vx = robot.data.root_lin_vel_b[:, 0]
+    vx_cmd = commands[:, 0]
+    err_v = (vx - vx_cmd).abs()
+    tol_v = torch.clamp(vx_cmd.abs() * 0.3 + 0.3, min=0.3)
+    r_vel = torch.exp(-err_v / tol_v)  # in [0,1]
+
+    # === 2. Height maintenance ===
+    z = robot.data.root_pos_w[:, 2]
+    err_z = (z - 0.90).abs()
+    r_height = torch.exp(-err_z / 0.03)  # ±3cm tolerance
+
+    # === 3. Torso lean penalty (continuous) ===
+    up_vec = torch.tensor([0.0, 0.0, 1.0], dtype=torch.float32, device=env.device)
+    up_vec = up_vec.unsqueeze(0).expand(env.num_envs, 3)
+    body_up = quat_apply_inverse(robot.data.root_quat_w, up_vec)
+    lean = torch.atan2(body_up[:, 0].abs(), torch.clamp(body_up[:, 2], min=1e-6))
+    r_lean = torch.exp(-lean / 0.1)  # moderate decay
+
+    # === 4. Foot clearance (Gaussian around 2.5cm) ===
+    foot_ids, _ = contact_sensor.find_bodies(".*_ankle_roll_link")
+    foot_ids = torch.tensor(foot_ids, dtype=torch.long, device=env.device)
+    foot_pos = robot.data.body_pos_w[:, foot_ids, 2]  # [num_envs,2]
+    forces = contact_sensor.data.net_forces_w[:, foot_ids, :]
+    in_contact = (forces.norm(dim=-1) > 50.0).float()
+    swing_h = (foot_pos * (1.0 - in_contact)).sum(dim=1) / torch.clamp((1.0 - in_contact).sum(dim=1), min=1e-6)
+    err_clr = swing_h - 0.025
+    r_clr = torch.exp(- (err_clr ** 2) / (2 * (0.01 ** 2)))  # σ=1cm
+
+    # === 5. Foot-sliding penalty ===
+    vel_b = robot.data.body_lin_vel_w[:, foot_ids, :2]
+    slide = (vel_b.norm(dim=-1) * in_contact).mean(dim=1)
+    r_slide = torch.exp(-slide / 0.05)  # penalize sliding >5cm/s
+
+    # === 6. Continuous arm-leg anti-phase coordination ===
+    # get shoulder & hip pitch velocities
+    ls_idx, _ = robot.find_joints(["left_shoulder_pitch_joint"])
+    rs_idx, _ = robot.find_joints(["right_shoulder_pitch_joint"])
+    lh_idx, _ = robot.find_joints(["left_hip_pitch_joint"])
+    rh_idx, _ = robot.find_joints(["right_hip_pitch_joint"])
+    ls = torch.tensor(ls_idx, dtype=torch.long, device=env.device)
+    rs = torch.tensor(rs_idx, dtype=torch.long, device=env.device)
+    lh = torch.tensor(lh_idx, dtype=torch.long, device=env.device)
+    rh = torch.tensor(rh_idx, dtype=torch.long, device=env.device)
+    vel_j = robot.data.joint_vel
+    sv_l = vel_j[:, ls].squeeze()
+    sv_r = vel_j[:, rs].squeeze()
+    hv_l = vel_j[:, lh].squeeze()
+    hv_r = vel_j[:, rh].squeeze()
+    corr_l = 1.0 - torch.abs(torch.cos(sv_l.sign() * hv_l.sign() * 1.0))
+    corr_r = 1.0 - torch.abs(torch.cos(sv_r.sign() * hv_r.sign() * 1.0))
+    r_coord = (corr_l + corr_r) * 0.5  # in [0,1]
+
+    # === 7. Joint-limit safety penalty ===
+    limits = robot.data.soft_joint_pos_limits  # [env,j,2]
+    center = (limits[..., 0] + limits[..., 1]) * 0.5
+    half_range = (limits[..., 1] - limits[..., 0]) * 0.5
+    norm = (robot.data.joint_pos - center) / torch.clamp(half_range, min=1e-6)
+    over = norm.abs() - 0.8
+    pen = torch.where(over > 0.0, torch.exp(over * 3.0) - 1.0, torch.zeros_like(over))
+    r_jlim = 1.0 / (1.0 + pen.sum(dim=1))  # in (0,1]
+
+    # === Combine additively with weights and baseline ===
+    reward = (
+        r_vel * 1.5 +
+        r_height * 1.0 +
+        r_lean * 0.5 +
+        r_clr * 0.5 +
+        r_slide * 0.3 +
+        r_coord * 0.3 +
+        r_jlim * 1.0 +
+        0.2
     )
-    
-    # Clamp to reasonable range for PPO stability
-    result = torch.clamp(total_reward, min=0.1, max=20.0)  # Increased max for arm reward
-    
-    # Ensure correct output shape
-    assert result.shape == (num_envs,), f"Expected shape ({num_envs},), got {result.shape}"
-    return result
+
+    return reward.clamp(min=0.1, max=10.0)
+
 
 

@@ -1,0 +1,63 @@
+[3gH    H    H    H    H    H    H    H    H    H    H    H    H    H    H    H    H    H    H    H    H    H    H    H  [INFO] Using python from: /home/enis/miniconda3/envs/sam2/bin/python
+[Warning] [simulation_app.simulation_app] Modules: ['omni.kit_app'] were loaded before SimulationApp was started and might not be loaded correctly.
+[Warning] [simulation_app.simulation_app] Please check to make sure no extra omniverse or pxr modules are imported before the call to SimulationApp(...)
+Loading user config located at: '/home/enis/miniconda3/envs/sam2/lib/python3.10/site-packages/omni/data/Kit/Isaac-Sim/4.5/user.config.json'
+[Info] [carb] Logging to file: /home/enis/miniconda3/envs/sam2/lib/python3.10/site-packages/omni/logs/Kit/Isaac-Sim/4.5/kit_20250729_125300.log
+2025-07-29 11:53:00 [0ms] [Warning] [omni.kit.app.plugin] No crash reporter present, dumps uploading isn't available.
+2025-07-29 11:53:00 [3ms] [Warning] [omni.ext.plugin] [ext: rendering_modes] Extensions config 'extension.toml' doesn't exist '/home/enis/IsaacLab/apps/rendering_modes' or '/home/enis/IsaacLab/apps/rendering_modes/config'
+2025-07-29 11:53:00 [163ms] [Warning] [omni.usd_config.extension] Enable omni.materialx.libs extension to use MaterialX
+2025-07-29 11:53:00 [460ms] [Warning] [omni.isaac.dynamic_control] omni.isaac.dynamic_control is deprecated as of Isaac Sim 4.5. No action is needed from end-users.
+2025-07-29 11:53:01 [1,066ms] [Warning] [pxr.Semantics] pxr.Semantics is deprecated - please use Semantics instead
+
+|---------------------------------------------------------------------------------------------|
+| Driver Version: 570.153.02    | Graphics API: Vulkan
+|=============================================================================================|
+| GPU | Name                             | Active | LDA | GPU Memory | Vendor-ID | LUID       |
+|     |                                  |        |     |            | Device-ID | UUID       |
+|     |                                  |        |     |            | Bus-ID    |            |
+|---------------------------------------------------------------------------------------------|
+| 0   | NVIDIA GeForce RTX 5080 Laptop.. | Yes: 0 |     | 16303   MB | 10de      | 0          |
+|     |                                  |        |     |            | 2c59      | 1ad35b58.. |
+|     |                                  |        |     |            | 64        |            |
+|=============================================================================================|
+| OS: 22.04.5 LTS (Jammy Jellyfish) ubuntu, Version: 22.04.5, Kernel: 6.8.0-64-generic
+| XServer Vendor: The X.Org Foundation, XServer Version: 12101004 (1.21.1.4)
+| Processor: AMD Ryzen AI 9 HX 370 w/ Radeon 890M
+| Cores: 12 | Logical Cores: 24
+|---------------------------------------------------------------------------------------------|
+| Total Memory (MB): 31197 | Free Memory: 26442
+| Total Page/Swap (MB): 2047 | Free Page/Swap: 2047
+|---------------------------------------------------------------------------------------------|
+2025-07-29 11:53:03 [3,455ms] [Warning] [gpu.foundation.plugin] IOMMU is enabled.
+2025-07-29 11:53:04 [3,737ms] [Warning] [isaaclab.envs.manager_based_env] Seed not set for the environment. The environment creation may not be deterministic.
+2025-07-29 11:53:05 [5,224ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdPreviewSurface.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-07-29 11:53:05 [5,224ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdUVTexture.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-07-29 11:53:05 [5,224ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdPrimvarReader_float.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-07-29 11:53:05 [5,224ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdPrimvarReader_float2.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-07-29 11:53:05 [5,224ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdPrimvarReader_float3.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-07-29 11:53:05 [5,224ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdPrimvarReader_float4.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-07-29 11:53:05 [5,224ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdPrimvarReader_int.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-07-29 11:53:05 [5,225ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdPrimvarReader_string.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-07-29 11:53:05 [5,225ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdPrimvarReader_normal.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-07-29 11:53:05 [5,225ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdPrimvarReader_point.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-07-29 11:53:05 [5,225ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdPrimvarReader_vector.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-07-29 11:53:05 [5,225ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdPrimvarReader_matrix.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-07-29 11:53:05 [5,225ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdTransform2d.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-07-29 11:53:06 [5,951ms] [Warning] [isaaclab.actuators.actuator_pd] The <ImplicitActuatorCfg> object has a value for 'effort_limit'. This parameter will be removed in the future. To set the effort limit, please use 'effort_limit_sim' instead.
+2025-07-29 11:53:06 [5,951ms] [Warning] [isaaclab.actuators.actuator_pd] The <ImplicitActuatorCfg> object has a value for 'velocity_limit'. Previously, although this value was specified, it was not getting used by implicit actuators. Since this parameter affects the simulation behavior, we continue to not use it. This parameter will be removed in the future. To set the velocity limit, please use 'velocity_limit_sim' instead.
+2025-07-29 11:53:06 [5,953ms] [Warning] [isaaclab.actuators.actuator_pd] The <ImplicitActuatorCfg> object has a value for 'effort_limit'. This parameter will be removed in the future. To set the effort limit, please use 'effort_limit_sim' instead.
+2025-07-29 11:53:06 [5,955ms] [Warning] [isaaclab.actuators.actuator_pd] The <ImplicitActuatorCfg> object has a value for 'effort_limit'. This parameter will be removed in the future. To set the effort limit, please use 'effort_limit_sim' instead.
+2025-07-29 11:53:06 [5,955ms] [Warning] [isaaclab.actuators.actuator_pd] The <ImplicitActuatorCfg> object has a value for 'velocity_limit'. Previously, although this value was specified, it was not getting used by implicit actuators. Since this parameter affects the simulation behavior, we continue to not use it. This parameter will be removed in the future. To set the velocity limit, please use 'velocity_limit_sim' instead.

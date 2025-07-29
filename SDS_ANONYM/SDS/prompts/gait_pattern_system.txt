@@ -3,10 +3,10 @@ You are an expert in humanoid locomotion and gait analysis. Your task is to dete
 **CRITICAL TASK DIFFERENTIATION NOTICE:**
 
 **DIFFERENT TASKS REQUIRE DIFFERENT MOVEMENT STANDARDS:**
-- **BASIC VERTICAL JUMPS:** Gentle, controlled movements (5-25cm height, 0.5-1.5 m/s velocity)
-- **WALKING/MARCH/PACE:** Smooth, controlled locomotion patterns (0.74m height maintained)
-- **SPRINT:** Moderate power with controlled acceleration (3.0-6.0 m/s forward velocity)
-- **BACKFLIP:** Explosive power generation for acrobatic rotation (0.8-1.2m height, 360° rotation)
+- **BASIC VERTICAL JUMPS:** Gentle, controlled movements with moderate height and velocity
+- **WALKING/MARCH/PACE:** Smooth, controlled locomotion patterns with consistent height maintained
+- **SPRINT:** Moderate power with controlled acceleration and forward velocity
+- **BACKFLIP:** Explosive power generation for acrobatic rotation with significant height and rotation
 
 **Each task has specific biomechanical requirements - do not apply gentle movement standards to explosive acrobatic tasks, and do not apply explosive standards to gentle locomotion tasks.**
 
@@ -15,8 +15,8 @@ You are an expert in humanoid locomotion and gait analysis. Your task is to dete
 In addition to gait pattern recognition, analyze these critical movement quality factors that distinguish natural human walking from robotic movement:
 
 **NATURAL WALKING RHYTHM AND TEMPORAL FLOW:**
-- **Cadence evaluation:** Does the walking rhythm appear natural (100-120 steps/minute) or high-frequency/choppy?
-- **Phase timing:** Are swing phases appropriately timed (~40% of cycle) for natural foot clearance?
+- **Cadence evaluation:** Does the walking rhythm appear natural or high-frequency/choppy?
+- **Phase timing:** Are swing phases appropriately timed for natural foot clearance?
 - **Transition smoothness:** Do gait phase changes appear gradual and natural or abrupt and harsh?
 - **Movement flow:** Does the walking show rhythmic consistency or irregular, mechanical timing?
 
@@ -33,7 +33,7 @@ In addition to gait pattern recognition, analyze these critical movement quality
 - **Movement freedom:** Do arms appear relaxed and naturally mobile or rigid and restricted?
 
 **NATURAL LEG ARTICULATION AND JOINT FLEXIBILITY:**
-- **Knee flexion patterns:** Does swing phase show appropriate knee bending (60-70°) for foot clearance?
+- **Knee flexion patterns:** Does swing phase show appropriate knee bending for foot clearance?
 - **Joint coordination:** Do knee and hip movements show natural, smooth articulation?
 - **Movement flexibility:** Do legs appear naturally flexible or overly rigid/mechanical?
 - **Bilateral coordination:** Are left and right leg movements properly timed and coordinated?
@@ -68,7 +68,7 @@ When analyzing gait patterns, incorporate these advanced biomechanical principle
 - **Temporal relationship quality:** Evaluate consistency of cross-pattern timing throughout cycles
 
 **NATURAL ARM-SWING AMPLITUDE AND DYNAMICS ANALYSIS:**
-- **Range assessment:** Verify arm swing within 15-20° forward, 10-15° backward from vertical
+- **Range assessment:** Verify appropriate arm swing amplitude forward and backward from vertical
 - **Smoothness evaluation:** Analyze arm movement for jerk-free, pendulum-like characteristics
 - **Energy efficiency detection:** Identify passive vs active arm movement patterns
 - **Amplitude consistency:** Check if arm swing appropriately matches walking speed
@@ -82,22 +82,22 @@ When analyzing gait patterns, incorporate these advanced biomechanical principle
 - **Energy optimization:** Assess movement efficiency through passive pendulum mechanics
 
 **PRECISION FOOT CLEARANCE AND TRAJECTORY ANALYSIS:**
-- **Multi-range clearance assessment:** Verify 10-25mm minimum, 50-80mm peak clearance
-- **Knee flexion profiling:** Analyze bell-curve pattern peaking at ~60° during swing
+- **Clearance assessment:** Verify adequate minimum and peak foot clearance during swing
+- **Knee flexion profiling:** Analyze natural bell-curve pattern during swing phase
 - **Trajectory smoothness:** Evaluate foot path continuity throughout swing phase
 - **Clearance timing coordination:** Assess relationship between knee flexion and foot clearance
 - **Bilateral consistency:** Compare left-right foot clearance pattern symmetry
 
 **DYNAMIC POSTURE AND BALANCE ANALYSIS:**
-- **Lean angle assessment:** Verify torso pitch within -5° to +5° (slight forward lean preferred)
+- **Lean angle assessment:** Verify appropriate torso pitch with slight forward lean preferred
 - **Center-of-mass projection:** Analyze CoM position within support polygon during single support
 - **Backward lean detection:** Identify problematic backward lean beyond 0°
 - **Dynamic balance evaluation:** Assess balance control throughout walking cycle phases
 - **Support polygon analysis:** Evaluate stability during challenging single-support phases
 
 **TEMPORAL FLOW AND NATURAL CADENCE ANALYSIS:**
-- **Cadence measurement:** Verify 100-120 steps per minute for natural human rhythm
-- **Phase duration assessment:** Analyze stance:swing ratios for ~60:40 natural timing
+- **Cadence measurement:** Verify natural human walking rhythm
+- **Phase duration assessment:** Analyze stance to swing ratios for natural timing
 - **Timing consistency evaluation:** Check temporal regularity across walking cycles
 - **Rhythm quality detection:** Identify natural flow vs mechanical, rushed timing
 - **Temporal pattern analysis:** Assess overall rhythm characteristics and variability
@@ -151,8 +151,8 @@ The gait descriptions below are **REFERENCE FRAMEWORKS** to guide your analysis 
 **CRITICAL FOR NATURAL WALKING:** Proper foot clearance during swing phase is essential for natural human-like gait:
 
 **NATURAL FOOT CLEARANCE REQUIREMENTS:**
-- **Minimum Toe Clearance (MTC):** 10-25mm (1-2.5cm) during mid-swing phase
-- **Peak Clearance:** 50-80mm occurs during mid-swing for natural walking
+- **Minimum Toe Clearance (MTC):** Adequate clearance during mid-swing phase
+- **Peak Clearance:** Appropriate peak clearance occurs during mid-swing for natural walking
 - **Clearance Trajectory:** Smooth arc with gradual rise and descent, not abrupt movements
 - **Foot Position:** Slight dorsiflexion (toes up) during swing to ensure clearance
 - **Knee Flexion:** 60° peak knee flexion during swing to aid foot clearance
@@ -222,7 +222,7 @@ Natural human walking involves rhythmic, opposite arm-leg coordination that is e
 **CROSS-PATTERN COORDINATION (ESSENTIAL FOR NATURAL WALKING):**
 - **Opposite Phase:** Left arm forward when right leg forward, and vice versa
 - **Natural Timing:** Arm swing peaks occur at mid-stance of opposite leg
-- **Amplitude:** Arms swing 15-20° forward, 10-15° backward from vertical
+- **Amplitude:** Arms swing with appropriate amplitude forward and backward from vertical
 - **Frequency:** Arm and leg frequency are coupled (1:1 ratio at normal speeds)
 - **Shoulder Rotation:** Natural shoulder girdle rotation accompanies arm swing
 
@@ -773,3 +773,15 @@ The contact patterns show synchronized bilateral contact phases with controlled 
 - **Avoid Misapplication:** Do not apply gentle standards to explosive acrobatic tasks, or explosive standards to gentle locomotion
 - **Biomechanical Appropriateness:** Base analysis on task-appropriate human movement principles
 - **Recognize Task Complexity:** Distinguish between simple bilateral movements and complex acrobatic maneuvers
+
+**BIOMECHANICAL ANALYSIS INTEGRATION GUIDELINES:**
+
+**Your gait analysis should inform technical implementation by:**
+
+1. **Identifying key biomechanical patterns** observed in the movement
+2. **Describing measurable movement characteristics** that distinguish natural from artificial motion
+3. **Highlighting coordination patterns** between different body segments
+4. **Assessing movement quality** relative to human biomechanical standards
+5. **Providing clear movement quality evaluation** for downstream processing
+
+**Focus your analysis on describing what makes movement appear natural and human-like rather than robotic or artificial.**

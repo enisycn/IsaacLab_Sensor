@@ -11,21 +11,46 @@ Please carefully analyze the policy feedback and provide a new, improved reward 
         (b) **SECOND**: Verify mathematical stability (no aggressive exponentials, tight tolerances, or multiplicative chains)
         (c) **THIRD**: Check if environmental components are conflicting with basic locomotion
         (d) **SOLUTION**: Start with foundation-only reward, then add complexity incrementally
-    (5) **Environmental Integration Issues:** If mean reward is consistently zero despite environmental data being available:
-        (a) **Check environmental analysis first** - only include components for detected features (gaps, obstacles, terrain roughness)
-        (b) **Reference actual environmental data** from environment_aware_task_descriptor_system.txt to determine relevant components
-        (c) **For simple environments**: Skip environmental sensing entirely and focus on natural locomotion
-        (d) **For mixed gap environments**: If both steppable and jumpable gaps are present, implement adaptive gap navigation using real-time sensor data to classify gap sizes and activate appropriate behaviors (step for small gaps ≤30cm, jump for medium gaps 30-60cm, avoid for large gaps >60cm)
-        (e) Check if complex mathematical operations in environmental components are causing numerical instability
-        (f) Simplify environmental sensing components and test incrementally
-        (g) Start with basic locomotion foundation before adding environmental sensing
-        (h) Add environmental components one at a time: contacts → terrain → obstacles
-        (i) Verify sensor access is working correctly (test without error handling if needed)
-        (j) Ensure environmental weights don't overwhelm basic locomotion components
+    (5) **Enhanced Environment Reward Issues (Flat-with-Box Config):** If mean reward is consistently zero with sensors available:
+        (a) **Sensor Access Verification**: Test height_scanner and lidar data access separately
+        (b) **Backward Movement Integration**: Check if negative velocity commands (-0.1 to 0.4 range) work with terrain analysis
+        (c) **Velocity-Obstacle Conflict Debugging**: If robot stops near obstacles, check adaptive velocity scaling math
+        (d) **Stair vs Gap Classification Issues**: If robot freezes at terrain changes, verify height gradient detection
+        (e) **Gap Behavior Switching Problems**: If inconsistent behaviors, check gap size classification thresholds
+        (f) **Sensor Mathematical Stability**: Replace complex terrain processing with simple forward/backward clearance checks
+        (g) **Foundation First**: Always test basic locomotion (velocity, height, orientation) before adding sensor components
+        (h) **Progressive Integration**: Add sensor components incrementally: velocity tracking → basic contact → terrain adaptation
+        (i) **Reward Balance Check**: Ensure sensor-based rewards don't overwhelm core locomotion components (max 30% weight)
+        (j) **Flat-with-Box Specifics**: Use 12x12 height scanner and 360-ray lidar patterns, not generic sensor assumptions
     (6) **Mathematical Stability Check:** If rewards are consistently zero or training crashes:
         (a) Replace aggressive exponentials (factors >3.0) with moderate ones (0.5-2.0)
         (b) Use relaxed tolerances (0.3-1.0) instead of tight ones (0.1 or smaller)
         (c) Switch from multiplicative to additive reward combinations
         (d) Add baseline bonus (+0.2 to +0.5) to ensure non-zero minimum
         (e) Use safe division patterns and clamp final rewards to min=0.1
+    (7) **Advanced Locomotion Pattern Debugging (NEW):** For enhanced environment failures:
+        (a) **Velocity-Obstacle Conflicts**: If robot stops at obstacles but velocity commands are non-zero:
+            - Check adaptive velocity scaling: `obstacle_factor = torch.clamp((terrain_clearance + 0.2) / 0.4, min=0.1, max=1.0)`
+            - Verify terrain clearance calculation from height scanner forward strips
+            - Ensure velocity rewards use adapted commands, not original commands
+        (b) **Stair Freezing Issues**: If robot stops at top of stairs instead of descending:
+            - Check height gradient analysis: `height_gradient = torch.diff(forward_strip.mean(dim=2), dim=1)`
+            - Verify stair detection: `is_stair_pattern = (torch.abs(height_gradient) < 0.15).all(dim=1)`
+            - Ensure adaptive height targets: `target_height = torch.where(is_stair_pattern, current_height - 0.05, 0.74)`
+        (c) **Gap Behavior Inconsistencies**: If stepping/jumping behaviors are random:
+            - Check LiDAR-based gap classification: `min_forward_distance = torch.min(forward_rays, dim=1)[0]`
+            - Verify thresholds: small_gap (0.3-0.8m), medium_gap (0.8-1.5m), large_gap (>1.5m)
+            - Ensure conditional rewards use proper masking: `torch.where(gap_condition.unsqueeze(-1), reward_value, zeros)`
+        (d) **Backward Movement Problems**: If negative velocity commands cause issues:
+            - Check bidirectional velocity tracking: separate forward/backward error calculation
+            - Verify sensor coverage: height scanner and lidar cover backward movement areas
+            - Ensure yaw-aligned velocity transformation works with negative commands
+        (e) **Sensor Integration Crashes**: If adding height_scanner or lidar causes failures:
+            - Test sensor data shapes: height_scan should be [num_envs, 140], lidar should be [num_envs, 360]
+            - Check grid reshaping: `height_grid = height_scan.view(env.num_envs, 12, 12)`
+            - Verify ray indexing: forward_rays = lidar_range[:, :90], backward_rays = lidar_range[:, 270:]
+        (f) **Enhanced Environment Specific**: For Isaac-SDS-Velocity-Flat-G1-Enhanced-v0:
+            - Use exact sensor configurations: GridPatternCfg (12x12, 5.0m range), LidarCfg (360 rays, 5.0m range)
+            - Account for velocity ranges: x: (-0.1, 0.4), y: (-0.15, 0.15), z: (-0.3, 0.3)
+            - Include full-body coordination: 23 DOF control (legs, arms, torso) not just legs
 Please analyze each existing reward component in the suggested manner above first, and then write the reward function code. 

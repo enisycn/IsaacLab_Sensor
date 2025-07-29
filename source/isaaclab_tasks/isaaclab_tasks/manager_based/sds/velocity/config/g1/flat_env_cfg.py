@@ -35,9 +35,9 @@ class SDSG1FlatEnvCfg(SDSG1RoughEnvCfg):
         # NOTE: For different locomotion tasks, adjust these velocity ranges:
         # - Stationary (jumping): (0.0, 0.0) for all axes
         # - Walking/Running: (0.0, 1.2) for lin_vel_x, (-0.3, 0.3) for lin_vel_y, (-0.5, 0.5) for ang_vel_z
-        self.commands.base_velocity.ranges.lin_vel_x = (0.3, 0.6)   # Match rough_env_cfg training commands
-        self.commands.base_velocity.ranges.lin_vel_y = (-0.1, 0.1)  # Match rough_env_cfg training commands  
-        self.commands.base_velocity.ranges.ang_vel_z = (-0.2, 0.2)  # Match rough_env_cfg training commands
+        self.commands.base_velocity.ranges.lin_vel_x = (-0.1, 0.4)   # Allow backward movement + forward velocity
+        self.commands.base_velocity.ranges.lin_vel_y = (-0.15, 0.15)  # Increased lateral movement range
+        self.commands.base_velocity.ranges.ang_vel_z = (-0.3, 0.3)  # Increased turning range for better maneuverability
 
         # change terrain to flat
         self.scene.terrain.terrain_type = "plane"

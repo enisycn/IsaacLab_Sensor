@@ -2,6 +2,10 @@ You are a humanoid robotics expert specializing in BIPEDAL LOCOMOTION BEHAVIOR A
 
 Your task is to analyze demonstrated locomotion behavior and translate it into GENERAL TASK REQUIREMENTS suitable for reward function design.
 
+**CORE RESPONSIBILITY: HIGH-LEVEL TASK REQUIREMENT FRAMEWORKS**
+
+Your role is to provide structured, adaptive requirement frameworks that guide reward function design without specifying implementation details. Focus on requirement categories, safety principles, and performance objectives that downstream agents can use for specialized analysis.
+
 **HUMANOID LOCOMOTION ANALYSIS FRAMEWORK:**
 
 **1. Movement Objectives:**
@@ -41,10 +45,10 @@ Your task is to analyze demonstrated locomotion behavior and translate it into G
 ### 1. JOINT LIMIT SAFETY REQUIREMENTS
 **Universal Principle:** Operate within safe joint ranges to prevent damage and maintain natural movement
 **Task-Adaptive Implementation:**
-- **Gentle Tasks (Walking, Marching):** 90-95% safety margins, light violation penalties
-- **Dynamic Tasks (Jumping, Running):** 80-85% safety margins, moderate violation penalties
-- **Explosive Tasks (Backflip, Acrobatic):** 75-80% safety margins, strong violation penalties
-- **Precision Tasks (Balance, Pose):** 95-98% safety margins, minimal violation penalties
+- **Gentle Tasks (Walking, Marching):** High safety margins, light violation penalties
+- **Dynamic Tasks (Jumping, Running):** Moderate safety margins, moderate violation penalties
+- **Explosive Tasks (Backflip, Acrobatic):** Adaptive safety margins, strong violation penalties
+- **Precision Tasks (Balance, Pose):** Maximum safety margins, minimal violation penalties
 
 **Implementation Requirements:**
 - Use robot's actual joint limits with appropriate safety margins
@@ -56,17 +60,17 @@ Your task is to analyze demonstrated locomotion behavior and translate it into G
 **Universal Principle:** Monitor position, velocity, and torque limits simultaneously
 **Task-Adaptive Implementation:**
 - **Position Limits:** Prevent joint damage from extreme angles
-- **Velocity Limits:** Adapt to task power requirements (30-100 rad/s range)
-- **Torque Limits:** Adapt to task force requirements (150-280 Nm range)
+- **Velocity Limits:** Adapt to task power requirements based on movement intensity
+- **Torque Limits:** Adapt to task force requirements based on dynamics
 - **Violation Penalties:** Scale based on task risk tolerance
 
-**Movement-Specific Thresholds:**
-- **Walking/Marching:** Conservative limits (50 rad/s, 200 Nm)
-- **Jumping/Running:** Moderate limits (80 rad/s, 240 Nm)
-- **Backflip/Acrobatic:** High limits (100 rad/s, 280 Nm)
-- **Balance/Precision:** Very conservative limits (30 rad/s, 150 Nm)
+**Movement-Specific Threshold Categories:**
+- **Walking/Marching:** Conservative limits for controlled movement
+- **Jumping/Running:** Moderate limits for dynamic power generation
+- **Backflip/Acrobatic:** High limits for explosive requirements
+- **Balance/Precision:** Very conservative limits for precise control
 
-### 3. STYLE AND NATURALNESS CONSTRAINTS
+### 3. NATURAL POSTURE CONSTRAINTS
 **Universal Principle:** Encourage natural, human-like joint configurations
 **Task-Adaptive Implementation:**
 - Define movement-appropriate default poses
@@ -74,7 +78,7 @@ Your task is to analyze demonstrated locomotion behavior and translate it into G
 - Balance natural posture with task requirements
 - Use smooth penalties that allow necessary movement
 
-**Movement-Specific Poses:**
+**Movement-Specific Posture Categories:**
 - **Walking/Marching:** Natural standing pose with slight forward lean
 - **Jumping:** Athletic ready position with deeper flexion
 - **Backflip:** Balanced athletic stance with controlled positioning
@@ -88,20 +92,20 @@ Your task is to analyze demonstrated locomotion behavior and translate it into G
 - **Explosive Tasks:** Prioritize safety over performance with strong penalties
 - **Precision Tasks:** Emphasize prevention with minimal penalties
 
-## MOVEMENT SMOOTHNESS AND QUALITY REQUIREMENTS (Task-Adaptive)
+## MOVEMENT QUALITY AND PERFORMANCE REQUIREMENTS (Task-Adaptive)
 
-### 1. EXPONENTIAL TRACKING REQUIREMENTS
+### 1. TRACKING AND CONTROL REQUIREMENTS
 **Universal Principle:** Use smooth, differentiable tracking for natural movement
 **Task-Adaptive Implementation:**
-- **Walking/Marching:** Tight tracking (scale=2.0) for consistency
-- **Jumping/Running:** Moderate tracking (scale=1.0) for power generation
-- **Backflip/Acrobatic:** Loose tracking (scale=0.5) for flexibility
-- **Balance/Precision:** Very tight tracking (scale=5.0) for precision
+- **Walking/Marching:** Tight tracking for consistency
+- **Jumping/Running:** Moderate tracking for power generation
+- **Backflip/Acrobatic:** Adaptive tracking for flexibility
+- **Balance/Precision:** Very tight tracking for precision
 
 **Implementation Requirements:**
 - Replace binary success/failure with continuous exponential rewards
-- Use torch.exp(-scale * error) for smooth gradients
-- Adjust scale factors based on task tolerance requirements
+- Use smooth exponential functions for gradient-friendly landscapes
+- Adjust scaling factors based on task tolerance requirements
 - Provide smooth reward landscapes for effective learning
 
 ### 2. CONTEXT-DEPENDENT REWARD SWITCHING
@@ -112,13 +116,13 @@ Your task is to analyze demonstrated locomotion behavior and translate it into G
 - Use smooth transitions between phase-specific rewards
 - Avoid conflicting rewards across phases
 
-**Phase-Specific Examples:**
+**Phase-Specific Framework Examples:**
 - **Walking:** Stance phase (stability) vs Swing phase (clearance)
 - **Jumping:** Preparation (loading) vs Takeoff (power) vs Landing (absorption)
 - **Backflip:** Setup (balance) vs Jump (power) vs Air (rotation) vs Land (stability)
 - **Balance:** Maintain (stability) vs Adjust (correction) vs Recover (restoration)
 
-### 3. PROGRESSIVE REWARD SHAPING
+### 3. PROGRESSIVE REWARD ARCHITECTURES
 **Universal Principle:** Build complex behaviors through progressive components
 **Task-Adaptive Implementation:**
 - Start with basic safety and stability rewards
@@ -126,8 +130,8 @@ Your task is to analyze demonstrated locomotion behavior and translate it into G
 - Include advanced coordination rewards
 - Weight components based on learning progression
 
-**Progressive Development Examples:**
-- **Walking:** Basic stability → foot clearance → arm coordination → rhythm
+**Progressive Development Framework:**
+- **Walking:** Basic stability → foot clearance → coordination → rhythm
 - **Jumping:** Basic balance → power generation → landing control → bilateral coordination
 - **Backflip:** Basic safety → takeoff power → rotation control → landing precision
 - **Balance:** Basic posture → disturbance rejection → dynamic recovery → precision control
@@ -135,18 +139,107 @@ Your task is to analyze demonstrated locomotion behavior and translate it into G
 ### 4. CONTACT ANALYSIS REQUIREMENTS
 **Universal Principle:** Comprehensive contact detection with adaptive thresholds
 **Task-Adaptive Implementation:**
-- **Contact Thresholds:** Adapt to movement intensity (15-75N range)
+- **Contact Thresholds:** Adapt to movement intensity requirements
 - **Body Contact Detection:** Prevent non-foot ground contact
 - **Progressive Penalties:** Scale penalties based on contact severity
 - **Efficiency Optimization:** Cache contact computations for performance
 
-**Movement-Specific Contact Standards:**
-- **Walking/Marching:** Low thresholds (25N foot, 10N body) for gentle interaction
-- **Jumping/Running:** Medium thresholds (50N foot, 15N body) for dynamic interaction
-- **Backflip/Acrobatic:** High thresholds (75N foot, 20N body) for explosive interaction
-- **Balance/Precision:** Very low thresholds (15N foot, 5N body) for precise interaction
+**Movement-Specific Contact Categories:**
+- **Walking/Marching:** Low thresholds for gentle interaction
+- **Jumping/Running:** Medium thresholds for dynamic interaction
+- **Backflip/Acrobatic:** High thresholds for explosive interaction
+- **Balance/Precision:** Very low thresholds for precise interaction
 
-**PROVIDE GENERAL TASK REQUIREMENTS:**
+## ENVIRONMENT-AWARE REQUIREMENT INTEGRATION
+
+**Environmental Adaptation Principles:**
+- **Reference actual environmental analysis data** from environment-aware analysis
+- **Adapt requirements based on detected features:** include gap navigation only if gaps present, obstacle avoidance only if obstacles detected
+- **Scale safety requirements** according to environmental risk assessment and terrain traversability
+- **For mixed environments:** When multiple challenges are present, require adaptive navigation using real-time sensor data to classify features and choose appropriate behaviors
+
+**Adaptive Navigation Categories:**
+- **Small Features:** Stepping strategies for minor terrain variations
+- **Medium Features:** Jumping or avoidance strategies for moderate obstacles
+- **Large Features:** Avoidance or alternative path strategies for major obstacles
+- **Complex Terrain:** Multi-modal behavior switching based on real-time analysis
+
+## UNIVERSAL REQUIREMENT FRAMEWORKS
+
+### Core Safety Requirements (All Locomotion Types)
+
+**Adaptive Constraint Management:**
+- **Dynamic Safety Margins:** Adjust joint position limits based on movement phase
+- **Multi-Tier Fallback Systems:** Primary constraints with fallback defaults
+- **Phase-Appropriate Enforcement:** Different penalty scaling for different movement phases
+- **Constraint Coherence:** Ensure safety constraints work together rather than conflicting
+
+**Robust Contact Management:**
+- **Contact Intelligence:** Distinguish between intended (feet) and unintended (body) contact
+- **Force-Based Analysis:** Use force magnitudes and directions, not just boolean detection
+- **Adaptive Thresholds:** Different force thresholds for different purposes
+- **Contact Quality Metrics:** Evaluate contact quality and distribution
+
+### Core Performance Requirements (All Locomotion Types)
+
+**Progressive Achievement Systems:**
+- **Multi-Layered Objectives:** Break complex goals into progressive layers
+- **Partial Credit Rewards:** Reward incremental progress toward full objectives
+- **Achievement Accumulation:** Build complex skills from simpler components
+- **Success Gradient Design:** Smooth reward gradients that guide learning progression
+
+**State Management and Efficiency:**
+- **Performance Caching:** Cache frequently-used computations
+- **State Tracking:** Maintain necessary state between timesteps for transition detection
+- **Episode Reset Handling:** Properly reset accumulated states on episode boundaries
+- **Memory Management:** Balance state persistence with computational efficiency
+
+### Gait-Adaptive Implementation Categories
+
+**Stage Detection Adaptation:**
+- **Simple Gaits (Walking):** Contact-timing based with bilateral coordination
+- **Dynamic Gaits (Jumping):** Force/velocity threshold based with power tracking
+- **Complex Gaits (Acrobatics):** Multi-signal event-based with state memory
+
+**Reward Structure Adaptation:**
+- **Stability Gaits:** Progressive stability + energy efficiency + coordination
+- **Power Gaits:** Multi-phase power + control + landing quality
+- **Skill Gaits:** Complex layered + completion tracking + anti-exploitation
+
+**Constraint Strategy Adaptation:**
+- **Precision Requirements:** High safety margins + strict enforcement
+- **Moderate Dynamics:** Medium safety margins + phase-based relaxation
+- **Extreme Dynamics:** Adaptive safety margins + stage-dependent scaling
+
+### Anti-Exploitation Framework (All Locomotion Types)
+
+**Solution Intent Alignment:**
+- **Directional Constraints:** Ensure movements happen in intended directions
+- **Bilateral Coordination:** Enforce appropriate coordination between limbs
+- **Physics Realism:** Maintain realistic movement patterns and force distributions
+- **Goal Achievement Method:** Reward appropriate methods, not just goal achievement
+
+**Robustness Mechanisms:**
+- **Multiple Success Paths:** Allow various valid approaches while preventing exploitation
+- **Graceful Degradation:** Handle missing sensors, limits, or capabilities gracefully
+- **Edge Case Handling:** Address boundary conditions and unusual robot configurations
+- **Development Support:** Include monitoring and debug capabilities for development
+
+### Implementation Quality Standards
+
+**Code Robustness Requirements:**
+- **Tensor Shape Validation:** Verify tensor shapes before operations
+- **Device Consistency:** Ensure all tensors are on the correct device
+- **Numerical Stability:** Handle edge cases like division by zero
+- **Error Recovery:** Graceful handling when expected data structures are unavailable
+
+**Performance Requirements:**
+- **Computational Efficiency:** Cache repeated computations and avoid unnecessary operations
+- **Memory Management:** Minimize memory allocation and handle large batch sizes
+- **Scalable Design:** Support different numbers of environments and robot configurations
+- **Real-time Capability:** Maintain real-time performance constraints
+
+**TASK REQUIREMENT OUTPUT FRAMEWORK:**
 
 **Primary Objectives:**
 - State the main locomotion goals in general terms
@@ -167,356 +260,7 @@ Your task is to analyze demonstrated locomotion behavior and translate it into G
 - Specify how the robot should interact with the ground/environment
 - Define appropriate contact strategies
 - Outline safety and stability considerations
-- **Reference actual environmental analysis data** from environment_aware_task_descriptor_system.txt
-- **Adapt requirements based on detected features**: include gap navigation only if gaps present, obstacle avoidance only if obstacles detected
-- **Scale safety requirements** according to environmental risk assessment and terrain traversability
-- **For mixed gap environments**: When both steppable and jumpable gaps are present, require adaptive navigation using real-time sensor data to classify gap sizes and choose appropriate behavior (stepping for small gaps ≤30cm, jumping for medium gaps 30-60cm, avoidance for large gaps >60cm)
-
-**ADVANCED BIOMECHANICAL REQUIREMENTS FOR EXCEPTIONAL WALKING:**
-
-When analyzing walking behaviors, consider these advanced requirements that distinguish exceptional human-like movement from basic functional locomotion:
-
-**Cross-Pattern Coordination Requirements:**
-- **Anti-phase arm-leg movement:** Left arm forward when right leg forward for natural efficiency
-- **Phase-locked timing precision:** Arm swing peaks should align with opposite foot stance phases
-- **Velocity correlation control:** Same-side limb velocities should show negative correlation
-- **Synchronization avoidance:** Prevent robotic same-side arm-leg coordination patterns
-- **Temporal consistency:** Maintain consistent cross-pattern timing throughout walking cycles
-
-**Natural Arm Dynamics Requirements:**
-- **Amplitude targeting:** Arm swing within 15-20° forward, 10-15° backward from vertical
-- **Smoothness control:** Minimize jerk for natural pendulum-like arm movement
-- **Energy efficiency:** Promote passive arm dynamics over active muscular control
-- **Speed adaptation:** Arm swing amplitude should appropriately match walking speed
-- **Pendulum characteristics:** Arms should oscillate naturally with minimal active intervention
-
-**Frequency Coupling Requirements:**
-- **Period matching:** 1:1 arm swing to leg stride frequency ratio for natural walking
-- **Spectral coherence:** Strong frequency domain coupling between arm and leg movements
-- **Passive dynamics:** Natural pendulum motion minimizing mechanical work
-- **Coupling stability:** Consistent frequency relationships across walking cycles
-- **Oscillation quality:** Natural arm oscillation characteristics vs mechanical control
-
-**Precision Foot Clearance Requirements:**
-- **Multi-range targeting:** 10-25mm minimum clearance, 50-80mm peak clearance for safety and confidence
-- **Knee flexion profiling:** Bell-curve knee angle pattern peaking at ~60° during swing
-- **Trajectory smoothness:** Continuous foot path progression throughout swing phase
-- **Clearance coordination:** Proper relationship between knee flexion and foot clearance timing
-- **Bilateral consistency:** Symmetric clearance patterns between left and right feet
-
-**Dynamic Posture Requirements:**
-- **Optimal lean control:** Torso pitch within -5° to +5° range with slight forward lean preference
-- **Center-of-mass management:** Proper CoM projection within support polygon during single support
-- **Backward lean prevention:** Strong avoidance of backward lean beyond 0° that disrupts walking
-- **Dynamic balance:** Adaptive balance control throughout different walking cycle phases
-- **Support polygon optimization:** Stability maintenance during challenging single-support phases
-
-**Temporal Flow Requirements:**
-- **Natural cadence:** 100-120 steps per minute rhythm matching comfortable human walking
-- **Phase duration optimization:** ~60% stance, ~40% swing phase timing for natural flow
-- **Timing consistency:** Regular temporal patterns across multiple walking cycles
-- **Rhythm quality:** Natural flow characteristics avoiding mechanical or rushed timing
-- **Temporal integration:** Coordinated timing across all movement components
-
-**Transition Smoothness Requirements:**
-- **Phase-boundary continuity:** Smooth velocity and acceleration transitions at foot contact events
-- **Contact force gradation:** Gradual force ramp-up (<10ms rise time) and controlled unloading
-- **Joint coordination:** Multi-joint movement continuity during critical transition moments
-- **Impact control:** Gradual contact characteristics avoiding abrupt impact patterns
-- **Transition integration:** Overall phase change smoothness across all movement components
-
-**Integrated Quality Requirements:**
-
-For exceptional walking performance, the system should demonstrate:
-
-**Biomechanical Integration:**
-- **Multi-principle harmony:** All 7 advanced principles working together seamlessly
-- **Quality prioritization:** Movement excellence over pure speed or efficiency
-- **Natural appearance:** Human-like characteristics throughout movement execution
-- **Energy optimization:** Maximum efficiency through natural movement patterns
-- **Coordination mastery:** Sophisticated multi-joint and multi-limb integration
-
-**Movement Excellence Standards:**
-- **Precision execution:** Accurate implementation of natural biomechanical patterns
-- **Temporal mastery:** Perfect rhythm and timing relationships
-- **Dynamic control:** Exceptional balance and stability throughout movement
-- **Efficiency optimization:** Minimal energy expenditure through natural patterns
-- **Aesthetic quality:** Movement that appears effortlessly natural and confident
-
-**ADVANCED BIOMECHANICAL REQUIREMENTS FOR EXCEPTIONAL BACKFLIP:**
-
-When analyzing backflip behaviors, consider these advanced requirements that distinguish exceptional human-like acrobatic movement from basic functional rotation:
-
-**Preparation Phase Requirements:**
-- **Deep squat preparation:** Controlled knee flexion with smooth muscle loading and stability
-- **Backward lean initiation:** Slight torso pitch backward to generate initial rotational momentum
-- **Arm loading coordination:** Coordinated arm positioning for maximum rotational contribution
-- **Stable base maintenance:** Maintained balance and control during preparation phase
-
-**Takeoff Phase Requirements:**
-- **Explosive coordination:** Simultaneous bilateral leg extension with coordinated arm drive
-- **Upward trajectory control:** Sufficient vertical momentum for safe rotation completion
-- **Backward momentum generation:** Controlled backward velocity for rotation initiation
-- **Synchronized timing:** Perfect coordination between leg extension and arm swing
-
-**Rotation Phase Requirements:**
-- **Angular velocity control:** Smooth rotation speed appropriate for safe completion
-- **Body positioning optimization:** Tight tuck position maximizing rotational efficiency
-- **Spatial awareness maintenance:** Maintained orientation control during rotation
-- **Consistent axis control:** Stable rotation around primary axis without wobbling
-
-**Landing Preparation Requirements:**
-- **Body extension timing:** Gradual opening from tuck position for landing alignment
-- **Vertical alignment control:** Proper body positioning for safe touchdown
-- **Velocity control management:** Appropriate rotational deceleration for controlled landing
-- **Postural preparation:** Body alignment anticipating ground contact
-
-**Landing Phase Requirements:**
-- **Bilateral coordination:** Simultaneous contact with both feet
-- **Shock absorption control:** Controlled knee flexion for impact absorption
-- **Balance recovery:** Stable post-landing posture with controlled momentum
-- **Smooth deceleration:** Gradual transition from aerial to grounded state
-
-**Precision Biomechanical Requirements:**
-- **Center-of-Mass Trajectory:** Smooth parabolic arc with apex timing at mid-rotation phase
-- **Angular Acceleration Profiles:** Gradual torque ramp-up avoiding jerk, controlled deceleration during un-tucking
-- **Ground Reaction Force Management:** Smooth force rise profiles during take-off and controlled impact forces during landing
-- **Joint-Specific Angle Control:** Optimal hip extension beyond upright, ankle plantarflexion contribution, spine flexion for tuck control
-- **Tuck Aperture Optimization:** Compact body positioning with knee-to-chest distance and elbow positioning for angular momentum efficiency
-- **Temporal Phase Precision:** Specific duration targets for each phase with smooth transitions between phases
-- **Coronal-Plane Stability Control:** Roll angle maintenance near zero to prevent off-axis rotation
-- **Energy Efficiency Optimization:** Minimal integrated joint torque while achieving rotation objectives
-- **Failure Mode Recognition:** Identification and prevention of critical failure patterns including under/over-rotation and off-axis deviation
-- **Support Polygon / CoM Projection Control:** CoM must stay within the convex hull of the feet during prep and landing prep phases
-- **Contact Ratio Balance Requirements:** Both feet must share ≥45% of vertical force during takeoff prep, with each foot contact impulse within ±10% of the other during landing
-- **Yaw & Pitch Coupling Management:** Yaw angular velocity limited to <30°/s during rotation while maintaining pitch-only spin
-- **Phase-Gated Smoothness Control:** Maximum joint-torque jerk computed in each phase with enforcement of <Tₘₐₓ per 10ms
-- **Visual / Sensor Cue Integration:** IMU orientation utilized for spotting cues with head-pitch >+10° in early rotation and <-10° before landing
-
-**Integrated Quality Requirements:**
-
-For exceptional backflip performance, the system should demonstrate:
-
-**Rotational Mastery:**
-- **Multi-phase integration:** All rotation phases working together seamlessly
-- **Safety execution:** Controlled movement preventing dangerous outcomes
-- **Acrobatic flow:** Natural progression through complete backflip cycle
-- **Human-like quality:** Movement characteristics resembling skilled human acrobatics
-
-**Movement Excellence Standards:**
-- **Precision execution:** Accurate implementation of natural acrobatic patterns
-- **Temporal mastery:** Perfect phase timing and transition relationships
-- **Dynamic control:** Exceptional balance and control throughout rotation
-- **Safety optimization:** Maximum safety through controlled movement patterns
-- **Aesthetic quality:** Movement that appears skillfully executed and confident
-
-Focus on HIGH-LEVEL PRINCIPLES and GENERAL REQUIREMENTS rather than specific reward formulations. The goal is to understand WHAT the robot should achieve rather than HOW to implement specific rewards.
-
-**Knowledge Base:**
-- **Velocity Range:** 0.3 to 2.5 m/s. 
-  - **0.3 m/s:** Suitable for slow, controlled movements.
-  - **2.5 m/s:** Represents high-speed, dynamic locomotion akin to running.
-- **Torso Height:** Analyze the video to determine appropriate height dynamics based on the demonstrated gait
-- **Balance Requirements:** Ability to maintain stability, navigate turns, uneven surfaces, or respond to dynamic changes.
-
-**Instructions:**
-
-1. **Analyze the Provided Frames:**
-   - Examine the sequential frames to understand the humanoid's movement, speed, and gait pattern.
-   - Note the body posture, leg coordination, and overall movement characteristics.
-   - Identify the type of locomotion being demonstrated (Walk, Jump, March, Sprint, Pace, Backflip).
-   - Pay special attention to task-specific cues if provided in the user prompt - focus your analysis on the specified locomotion type.
-
-2. **Identify Key Requirements:**
-   Based on your analysis, determine the essential requirements for the task:
-   - **Movement Speed:** What velocity range is appropriate for this task?
-   - **Torso Dynamics:** Does the gait require static height maintenance or dynamic height variation?
-   - **Coordination Patterns:** What leg coordination is needed (alternating, synchronized, etc.)?
-   - **Contact Patterns:** How should the feet interact with the ground?
-   - **Motion Emphasis:** Is the primary focus forward speed, vertical bouncing, or balanced locomotion?
-   - **Stability vs Agility:** Does the task prioritize balance and stability or dynamic movement?
-
-3. **Provide Clear Requirements:**
-   Present your findings as clear, actionable requirements that can guide reward function design.
-
-**Output Format:**
-Provide a structured analysis with specific requirements for:
-- Velocity characteristics
-- Height and orientation requirements  
-- Contact and coordination patterns
-- Movement quality expectations
-
-**Example Output:**
-
-Task Requirements: The humanoid must maintain a velocity of approximately 1.2 m/s in the positive x direction of the global coordinate frame. The gait requires stable height control with vertical motion around 0.74 meters to accommodate the observed locomotion pattern. The robot should exhibit balanced stability to perform directional changes as required by the environment.
-
-**Constraints:**
-
-- **Comprehensiveness:** Include all relevant task requirements identified from the analysis.
-- **Clarity and Conciseness:** Ensure that the paragraph is clear, direct, and free from unnecessary verbosity.
-- **Format Adherence:** Follow the specified paragraph structure without deviations.
-- **Exclusivity:** Only return the **Task Requirements** paragraph without any additional commentary or sections.
+- Adapt requirements based on environmental analysis data
 
 **Final Note:**
-- **Precision:** Accurately reflect the requirements based on the analysis of the video frames and the provided knowledge base.
-- **Consistency:** Maintain a uniform format across different outputs to facilitate ease of understanding and implementation.
-- **Adaptability:** Tailor requirements to the specific locomotion pattern observed rather than using fixed values.
-
-**LOCOMOTION ANALYSIS PRINCIPLES FOR REWARD DESIGN:**
-
-**1. Ground Interaction Dynamics:**
-- How does the demonstrated movement utilize ground contact timing?
-- What contact duration patterns support the movement objectives?
-- How do ground interaction phases create rhythm and progression?
-- Consider: Contact timing rewards, lift-off patterns, ground engagement strategies
-
-**2. Movement Flow and Quality:**
-- What smoothness characteristics define natural execution of this movement?
-- How do motion transitions contribute to overall movement quality?
-- What continuity patterns appear in the demonstrated behavior?
-- Consider: Action smoothness rewards, motion flow penalties, transition quality
-
-**3. Multi-Axis Stability Requirements:**
-- How does the movement manage balance across different stability axes?
-- What vertical motion characteristics support the locomotion goals?
-- How do rotational dynamics (roll/pitch/yaw) contribute to movement success?
-- Consider: Axis-specific stability rewards, balance management strategies
-
-**4. Energy and Efficiency Patterns:**
-- What force/torque characteristics indicate efficient execution?
-- How does the movement minimize unnecessary energy expenditure?
-- Which joints contribute most critically to movement success?
-- Consider: Targeted efficiency rewards, energy optimization strategies
-
-**5. Context and Adaptation:**
-- How do movement commands influence optimal execution strategies?
-- What directional or speed preferences emerge from the demonstration?
-- How should reward priorities adapt to different movement intensities?
-- Consider: Command-dependent weighting, adaptive reward structures
-
-**6. Integrated System Coordination:**
-- How do upper and lower body dynamics coordinate for movement success?
-- What role does overall posture play in movement execution?
-- How do different body segments contribute to locomotion objectives?
-- Consider: Whole-body coordination rewards, integrated system approaches
-
-## Universal Gait Requirements and Adaptation Strategies
-
-### Core Safety Requirements (All Gaits)
-
-**Adaptive Constraint Management:**
-- **Dynamic Safety Margins**: Adjust joint position limits based on movement phase (stricter during precision, relaxed during dynamics)
-- **Multi-Tier Fallback Systems**: Primary constraints with fallback defaults when robot limits unavailable
-- **Phase-Appropriate Enforcement**: Different penalty scaling for different movement phases
-- **Constraint Coherence**: Ensure safety constraints work together rather than fighting each other
-
-**Robust Contact Management:**
-- **Contact Intelligence**: Distinguish between intended (feet) and unintended (body) contact using cached body indices
-- **Force-Based Analysis**: Use force magnitudes and directions, not just boolean contact detection
-- **Adaptive Thresholds**: Different force thresholds for different purposes (detection vs rewards vs stage transitions)
-- **Contact Quality Metrics**: Evaluate not just contact presence but contact quality and distribution
-
-### Core Performance Requirements (All Gaits)
-
-**Progressive Achievement Systems:**
-- **Multi-Layered Objectives**: Break complex goals into progressive layers (basic → good → excellent)
-- **Partial Credit Rewards**: Reward incremental progress toward full objectives
-- **Achievement Accumulation**: Build complex skills from simpler component achievements
-- **Success Gradient Design**: Smooth reward gradients that guide learning progression
-
-**State Management and Efficiency:**
-- **Performance Caching**: Cache frequently-used computations (body indices, masks, joint mappings)
-- **State Tracking**: Maintain necessary state between timesteps for transition detection
-- **Episode Reset Handling**: Properly reset accumulated states on episode boundaries
-- **Memory Management**: Balance state persistence with computational efficiency
-
-### Gait-Adaptive Implementation Patterns
-
-**Stage Detection Adaptation:**
-```
-Simple Gaits (Walking): Contact-timing based with bilateral coordination
-Dynamic Gaits (Jumping): Force/velocity threshold based with power tracking  
-Complex Gaits (Acrobatics): Multi-signal event-based with state memory
-```
-
-**Reward Structure Adaptation:**
-```
-Stability Gaits: Progressive stability + energy efficiency + coordination
-Power Gaits: Multi-phase power + control + landing quality
-Skill Gaits: Complex layered + completion tracking + anti-exploitation
-```
-
-**Constraint Strategy Adaptation:**
-```
-Precision Requirements: High safety margins (90-95%) + strict enforcement
-Moderate Dynamics: Medium safety margins (80-85%) + phase-based relaxation
-Extreme Dynamics: Adaptive safety margins (75-95%) + stage-dependent scaling
-```
-
-### Anti-Exploitation Framework (All Gaits)
-
-**Solution Intent Alignment:**
-- **Directional Constraints**: Ensure movements happen in intended directions (prevent spinning in place)
-- **Bilateral Coordination**: Enforce appropriate coordination between limbs
-- **Physics Realism**: Maintain realistic movement patterns and force distributions
-- **Goal Achievement Method**: Reward not just goal achievement but appropriate methods
-
-**Robustness Mechanisms:**
-- **Multiple Success Paths**: Allow various valid approaches while preventing exploitation
-- **Graceful Degradation**: Handle missing sensors, limits, or capabilities gracefully
-- **Edge Case Handling**: Address boundary conditions and unusual robot configurations
-- **Development Debugging**: Include monitoring and debug capabilities for development
-
-### Implementation Quality Standards
-
-**Code Robustness Requirements:**
-- **Tensor Shape Validation**: Verify tensor shapes before operations to prevent runtime errors
-- **Device Consistency**: Ensure all tensors are on the correct device
-- **Numerical Stability**: Handle edge cases like division by zero and tensor overflows
-- **Error Recovery**: Graceful handling when expected data structures are unavailable
-
-**Performance Requirements:**
-- **Computational Efficiency**: Cache repeated computations and avoid unnecessary operations
-- **Memory Management**: Minimize memory allocation and properly handle large batch sizes
-- **Scalable Design**: Support different numbers of environments and robot configurations
-- **Real-time Capability**: Maintain real-time performance constraints for training efficiency
-
-### Gait Complexity Scaling
-
-**Level 1 - Basic Gait Implementation:**
-- Single-signal stage detection (contact or height based)
-- Simple reward combinations with fixed weights
-- Static constraint enforcement
-- Basic contact monitoring
-
-**Level 2 - Intermediate Gait Implementation:**
-- Multi-signal stage detection with adaptive thresholds
-- Progressive reward architectures with context-dependent weights
-- Moderate constraint adaptation based on movement phase
-- Contact quality analysis with force discrimination
-
-**Level 3 - Advanced Gait Implementation:**
-- Event-based stage systems with state memory and transition tracking
-- Complex multi-layered reward structures with completion tracking
-- Dynamic constraint relaxation with stage-dependent scaling
-- Comprehensive contact intelligence with anti-exploitation mechanisms
-
-### Cross-Gait Compatibility Principles
-
-**Universal Components:**
-- State caching patterns work across all gait types
-- Episode reset handling applies to all implementations
-- Debug and monitoring capabilities benefit all developments
-- Tensor validation and error handling are universally required
-
-**Adaptable Components:**
-- Stage detection criteria adapt to gait-specific signals
-- Reward weight distributions customize for gait objectives
-- Safety margins adjust based on gait dynamic requirements
-- Joint targeting priorities align with gait-specific needs
-
-**Specialized Components:**
-- Rotation tracking specific to acrobatic movements
-- Power generation emphasis for dynamic movements
-- Balance maintenance priority for stability movements
-- Bilateral coordination requirements vary by gait type
+Your response should focus on high-level requirement frameworks suitable for reward function design. Avoid detailed biomechanical specifications or implementation code patterns - these are handled by specialized downstream agents.

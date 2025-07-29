@@ -2,21 +2,34 @@
 Isaac Lab Environment Reference for SDS Reward Function Generation
 
 This file describes the Isaac Lab environment structure for GPT to generate compatible reward functions.
-The environment uses Isaac Lab's ManagerBasedRLEnv with Unitree G1 humanoid robot.
+The environment uses Isaac Lab's ManagerBasedRLEnv with Unitree G1 humanoid robot and enhanced
+environmental sensing capabilities for adaptive locomotion.
+
+ENHANCED ENVIRONMENTAL SENSING:
+- Height Scanner: 2m x 1.5m grid-based terrain height detection (15cm resolution, 130 points)
+- LiDAR Sensor: 180° obstacle detection (8 channels, 144 rays, 5m range)  
+- Environmental Observations: Normalized sensor data for gap/obstacle detection
+- Adaptive Locomotion: Real-time sensor integration for terrain-aware reward functions
 """
 
 import torch
 
 class SDSIsaacLabEnvironment:
     """
-    Isaac Lab Manager-Based RL Environment for SDS Humanoid Locomotion
+    Isaac Lab Manager-Based RL Environment for SDS Humanoid Locomotion with Environmental Sensing
     
     Environment Details:
     - Robot: Unitree G1 humanoid (37 DOF total, 23 DOF controlled for complete humanoid control)
     - Action Space: 23 DOF full body joints for comprehensive humanoid locomotion
-    - Task: Velocity tracking locomotion with full body coordination
+    - Task: Velocity tracking locomotion with environmental sensing and adaptive behavior
     - Framework: Isaac Lab ManagerBasedRLEnv
     - Control: 50Hz (20ms timestep, 4x decimation from 200Hz physics)
+    
+    Enhanced Environmental Sensing:
+    - Height Scanner: Grid-based terrain analysis (gaps, stairs, height variations)
+    - LiDAR Sensor: 360° obstacle detection and avoidance
+    - Environmental Observations: Processed sensor data for adaptive reward functions
+    - Real-time Integration: Sensor data available for terrain-aware locomotion rewards
     
     Controlled Joints for Full Body Locomotion (23 DOF):
     - Legs: 12 DOF (hip yaw/roll/pitch, knee, ankle pitch/roll per leg)
@@ -25,6 +38,12 @@ class SDSIsaacLabEnvironment:
     
     Fixed Joints (14 DOF):
     - Hand Fingers: 14 DOF maintained at default poses (zero/one/two/three/four/five/six_joint per hand)
+    
+    Sensor Integration:
+    - Contact Forces: Body contact detection for gait analysis
+    - Height Scanner: 130-point grid for gap/stair detection (normalized [0,1])
+    - LiDAR Range: 144-ray array for obstacle detection (normalized [0,1])
+    - Environmental Analysis: Real-time terrain feature classification
     """
     
     def __init__(self):
@@ -70,10 +89,12 @@ class SDSIsaacLabEnvironment:
         return Robot()
     
     def _sensor_interface(self):
-        """Isaac Lab sensor interface."""
+        """Isaac Lab sensor interface with enhanced environmental sensing."""
         class Sensors:
             def __init__(self):
                 self.contact_forces = self._contact_sensor()
+                self.height_scanner = self._height_scanner()
+                self.lidar = self._lidar_sensor()
                 
             def _contact_sensor(self):
                 """Contact force sensor for all robot bodies."""
@@ -95,6 +116,48 @@ class SDSIsaacLabEnvironment:
                         return ContactData()
                 
                 return ContactSensor()
+            
+            def _height_scanner(self):
+                """Height scanner for terrain analysis - Grid-based height detection."""
+                class HeightScanner:
+                    def __init__(self):
+                        self.data = self._height_scanner_data()
+                    
+                    def _height_scanner_data(self):
+                        """Height scanner data for gap and terrain detection."""
+                        class HeightScannerData:
+                            # Grid-based height measurements around robot
+                            # Configuration: 2m x 1.5m area, 15cm resolution = ~13x10 grid = 130 points
+                            ray_hits_w = None             # [num_envs, 130, 3] Hit points in world frame
+                            distances = None              # [num_envs, 130] Distances to ground
+                            
+                            # Processed height data (normalized to [0,1] range)
+                            height_measurements = None    # [num_envs, 130] Height relative to robot
+                        
+                        return HeightScannerData()
+                
+                return HeightScanner()
+            
+            def _lidar_sensor(self):
+                """LiDAR sensor for 360° environmental awareness."""
+                class LiDARSensor:
+                    def __init__(self):
+                        self.data = self._lidar_data()
+                    
+                    def _lidar_data(self):
+                        """LiDAR data for obstacle detection and navigation."""
+                        class LiDARData:
+                            # 180° front coverage: 8 channels x 18 horizontal rays = 144 points  
+                            # Configuration: 8 vertical channels, 10° horizontal resolution, 5m range
+                            ray_hits_w = None             # [num_envs, 144, 3] Hit points in world frame
+                            distances = None              # [num_envs, 144] Range measurements
+                            
+                            # Processed range data (normalized to [0,1] range) 
+                            range_measurements = None     # [num_envs, 144] Obstacle distances
+                        
+                        return LiDARData()
+                
+                return LiDARSensor()
         
         return Sensors()
     
@@ -269,4 +332,159 @@ def extract_foot_contacts(env, contact_threshold=50.0):
     Returns:
         dict: Contact analysis data including binary contacts, forces, and gait metrics
     """
-    return get_foot_contact_analysis(env.scene.sensors["contact_forces"], contact_threshold) 
+    return get_foot_contact_analysis(env.scene.sensors["contact_forces"], contact_threshold)
+
+# ========== ENVIRONMENTAL SENSOR INTEGRATION ==========
+
+def get_height_scan_data(env):
+    """
+    Extract height scanner data for terrain analysis and gap detection.
+    
+    The height scanner provides a 2m x 1.5m grid of height measurements around the robot
+    with 15cm resolution, enabling detection of gaps, stairs, and terrain variations.
+    
+    Args:
+        env: Isaac Lab environment instance
+        
+    Returns:
+        torch.Tensor: Height scan data [num_envs, 130] - normalized to [0,1] range
+    """
+    # Access height scan observation (properly normalized by environment)
+    height_scan = env.observation_manager.get_term("height_scan")  # [num_envs, 130]
+    return height_scan
+
+def get_lidar_data(env):
+    """
+    Extract LiDAR range data for obstacle detection and navigation.
+    
+    The LiDAR provides 180° front coverage with 8 vertical channels and 10° horizontal 
+    resolution (144 total rays), enabling detection of obstacles up to 5m range.
+    
+    Args:
+        env: Isaac Lab environment instance
+        
+    Returns:
+        torch.Tensor: LiDAR range data [num_envs, 144] - normalized to [0,1] range
+    """
+    # Access LiDAR range observation (properly normalized by environment)
+    lidar_range = env.observation_manager.get_term("lidar_range")  # [num_envs, 144]
+    return lidar_range
+
+def analyze_terrain_features(env, gap_threshold=0.1, obstacle_threshold=0.8):
+    """
+    Analyze terrain features for adaptive locomotion using height scanner and LiDAR.
+    
+    This function demonstrates how to process sensor data to detect environmental
+    features that require adaptive locomotion behaviors.
+    
+    Args:
+        env: Isaac Lab environment instance
+        gap_threshold: Height scan value indicating gaps (normalized, 0.1 = deep gap)
+        obstacle_threshold: LiDAR value indicating close obstacles (normalized, 0.8 = close)
+        
+    Returns:
+        dict: Terrain analysis with gap detection, obstacle detection, and safety assessment
+    """
+    # Get sensor data
+    height_scan = get_height_scan_data(env)  # [num_envs, 130]
+    lidar_range = get_lidar_data(env)        # [num_envs, 144]
+    
+    # Gap detection using height scanner (low values = gaps)
+    gap_mask = height_scan < gap_threshold   # [num_envs, 130]
+    gap_count = gap_mask.sum(dim=-1)         # [num_envs] - number of gap points
+    gap_density = gap_count / height_scan.shape[-1]  # [num_envs] - fraction of area with gaps
+    
+    # Obstacle detection using LiDAR (high values = far, low values = close obstacles)
+    obstacle_mask = lidar_range < obstacle_threshold  # [num_envs, 144]  
+    obstacle_count = obstacle_mask.sum(dim=-1)        # [num_envs] - number of obstacle rays
+    obstacle_density = obstacle_count / lidar_range.shape[-1]  # [num_envs] - fraction with obstacles
+    
+    # Forward path analysis (front-facing sensors)
+    # Height scanner: center portion for forward path
+    forward_height_indices = slice(45, 85)  # Center 40 points of 130-point grid
+    forward_gaps = gap_mask[:, forward_height_indices].any(dim=-1)  # [num_envs] - gaps ahead
+    
+    # LiDAR: front-facing rays for obstacle avoidance
+    forward_lidar_indices = slice(60, 84)   # Center 24 rays of 144-ray array  
+    forward_obstacles = obstacle_mask[:, forward_lidar_indices].any(dim=-1)  # [num_envs] - obstacles ahead
+    
+    # Safety assessment for navigation
+    safe_forward_path = ~forward_gaps & ~forward_obstacles  # [num_envs] - clear forward path
+    
+    return {
+        "height_scan": height_scan,
+        "lidar_range": lidar_range,
+        "gap_detection": {
+            "gap_mask": gap_mask,
+            "gap_count": gap_count, 
+            "gap_density": gap_density,
+            "forward_gaps": forward_gaps
+        },
+        "obstacle_detection": {
+            "obstacle_mask": obstacle_mask,
+            "obstacle_count": obstacle_count,
+            "obstacle_density": obstacle_density, 
+            "forward_obstacles": forward_obstacles
+        },
+        "navigation_safety": {
+            "safe_forward_path": safe_forward_path,
+            "terrain_complexity": gap_density + obstacle_density  # Combined challenge metric
+        }
+    }
+
+def get_environmental_reward_components(env):
+    """
+    Generate environmental reward components based on sensor analysis.
+    
+    This function shows how to create reward signals that adapt to environmental
+    conditions detected by height scanner and LiDAR sensors.
+    
+    Args:
+        env: Isaac Lab environment instance
+        
+    Returns:
+        dict: Environmental reward components for adaptive locomotion
+    """
+    terrain_analysis = analyze_terrain_features(env)
+    
+    # Adaptive gap navigation rewards
+    gap_density = terrain_analysis["gap_detection"]["gap_density"]
+    forward_gaps = terrain_analysis["gap_detection"]["forward_gaps"]
+    
+    # Encourage appropriate gap behavior based on detection
+    gap_avoidance_reward = torch.where(
+        forward_gaps,
+        -torch.ones_like(gap_density),  # Penalty for stepping into gaps
+        torch.zeros_like(gap_density)   # No penalty when no gaps ahead
+    )
+    
+    # Adaptive obstacle avoidance rewards
+    obstacle_density = terrain_analysis["obstacle_detection"]["obstacle_density"]
+    forward_obstacles = terrain_analysis["obstacle_detection"]["forward_obstacles"]
+    
+    # Encourage obstacle avoidance based on detection
+    obstacle_avoidance_reward = torch.where(
+        forward_obstacles,
+        -torch.ones_like(obstacle_density),  # Penalty for colliding with obstacles
+        torch.zeros_like(obstacle_density)   # No penalty when clear path
+    )
+    
+    # Safe navigation bonus
+    safe_path = terrain_analysis["navigation_safety"]["safe_forward_path"]
+    navigation_bonus = torch.where(
+        safe_path,
+        torch.ones_like(gap_density),     # Bonus for maintaining safe navigation
+        torch.zeros_like(gap_density)    # No bonus when path is unsafe
+    )
+    
+    # Terrain complexity adaptation
+    terrain_complexity = terrain_analysis["navigation_safety"]["terrain_complexity"]
+    complexity_factor = torch.clamp(1.0 - terrain_complexity, 0.1, 1.0)  # Scale other rewards
+    
+    return {
+        "gap_avoidance": gap_avoidance_reward,
+        "obstacle_avoidance": obstacle_avoidance_reward, 
+        "navigation_bonus": navigation_bonus,
+        "complexity_factor": complexity_factor,
+        "raw_terrain_analysis": terrain_analysis
+    } 

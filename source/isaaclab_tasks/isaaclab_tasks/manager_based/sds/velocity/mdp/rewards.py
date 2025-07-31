@@ -107,86 +107,103 @@ def track_ang_vel_z_world_exp(
 
 
 def sds_custom_reward(env) -> torch.Tensor:
-    """Improved reward for stable, human-like walking."""
+    """
+    ENVIRONMENTAL ANALYSIS DECISION:
+    Based on environment analysis: Total Gaps Detected: 0, Total Obstacles Detected: 0, Average Terrain Roughness: 0.2cm (height variation 0.068m–0.074m)
+    - Gaps detected: 0
+    - Obstacles detected: 0
+    - Terrain roughness: 0.2cm average
+    - Safety assessment: LOW RISK - Suitable for basic navigation
+
+    ENVIRONMENTAL SENSING DECISION: NOT_NEEDED
+    JUSTIFICATION: No gaps or obstacles and minimal terrain roughness → foundation locomotion + movement‐quality terms only
+    """
+    import torch
+    from isaaclab.utils.math import quat_apply_inverse, yaw_quat
+
+    # aliases
+    device = env.device
     robot = env.scene["robot"]
-    contact_sensor = env.scene.sensors["contact_forces"]
-    commands = env.command_manager.get_command("base_velocity")  # [vx, vy, wz]
+    contact = env.scene.sensors["contact_forces"]
+    commands = env.command_manager.get_command("base_velocity")           # [N,3]
+    cmd_xy = commands[:, :2]
+    cmd_mag = torch.norm(cmd_xy, dim=1)
 
-    # === 1. Velocity tracking (body frame) ===
-    vx = robot.data.root_lin_vel_b[:, 0]
-    vx_cmd = commands[:, 0]
-    err_v = (vx - vx_cmd).abs()
-    tol_v = torch.clamp(vx_cmd.abs() * 0.3 + 0.3, min=0.3)
-    r_vel = torch.exp(-err_v / tol_v)  # in [0,1]
+    # 1) VELOCITY TRACKING (yaw‐aligned frame)
+    vel_body = robot.data.root_lin_vel_w[:, :3]
+    vel_yaw = quat_apply_inverse(yaw_quat(robot.data.root_quat_w), vel_body)
+    lin_err = torch.sum((cmd_xy - vel_yaw[:, :2])**2, dim=1)
+    temp_v = 0.8
+    vel_reward = torch.exp(-torch.clamp(lin_err, max=4.0) / (temp_v**2))
+    vel_reward *= (cmd_mag > 0.1).float()
+    vel_reward = torch.clamp(vel_reward, min=0.0, max=2.5)
 
-    # === 2. Height maintenance ===
-    z = robot.data.root_pos_w[:, 2]
-    err_z = (z - 0.90).abs()
-    r_height = torch.exp(-err_z / 0.03)  # ±3cm tolerance
+    # 2) BIPEDAL GAIT (single‐stance air‐time)
+    foot_ids, _ = contact.find_bodies(".*_ankle_roll_link")
+    foot_ids = torch.tensor(foot_ids, dtype=torch.long, device=device)
+    air = torch.clamp(contact.data.current_air_time[:, foot_ids], min=0.0)
+    touch = torch.clamp(contact.data.current_contact_time[:, foot_ids], min=0.0)
+    in_contact = touch > 0.0
+    single = (in_contact.int().sum(dim=1) == 1)
+    phase_time = torch.where(in_contact, touch, air)
+    gait_raw = torch.min(torch.where(single.unsqueeze(1), phase_time, torch.zeros_like(phase_time)), dim=1)[0]
+    gait_reward = torch.clamp(gait_raw, max=0.5) * (cmd_mag > 0.1).float()
+    gait_reward = torch.clamp(gait_reward, min=0.0, max=3.0)
 
-    # === 3. Torso lean penalty (continuous) ===
-    up_vec = torch.tensor([0.0, 0.0, 1.0], dtype=torch.float32, device=env.device)
-    up_vec = up_vec.unsqueeze(0).expand(env.num_envs, 3)
-    body_up = quat_apply_inverse(robot.data.root_quat_w, up_vec)
-    lean = torch.atan2(body_up[:, 0].abs(), torch.clamp(body_up[:, 2], min=1e-6))
-    r_lean = torch.exp(-lean / 0.1)  # moderate decay
+    # 3) HEIGHT MAINTENANCE (terrain‐relative)
+    hs = env.scene.sensors["height_scanner"]
+    terrain_z = hs.data.ray_hits_w[..., 2].mean(dim=1)
+    rel_h = robot.data.root_pos_w[:, 2] - terrain_z
+    err_h = torch.abs(rel_h - 0.74)
+    temp_h = 0.3
+    height_reward = torch.exp(-torch.clamp(err_h, max=1.0) / temp_h)
+    height_reward = torch.clamp(height_reward, min=0.0, max=1.5)
 
-    # === 4. Foot clearance (Gaussian around 2.5cm) ===
-    foot_ids, _ = contact_sensor.find_bodies(".*_ankle_roll_link")
-    foot_ids = torch.tensor(foot_ids, dtype=torch.long, device=env.device)
-    foot_pos = robot.data.body_pos_w[:, foot_ids, 2]  # [num_envs,2]
-    forces = contact_sensor.data.net_forces_w[:, foot_ids, :]
-    in_contact = (forces.norm(dim=-1) > 50.0).float()
-    swing_h = (foot_pos * (1.0 - in_contact)).sum(dim=1) / torch.clamp((1.0 - in_contact).sum(dim=1), min=1e-6)
-    err_clr = swing_h - 0.025
-    r_clr = torch.exp(- (err_clr ** 2) / (2 * (0.01 ** 2)))  # σ=1cm
+    # 4) ORIENTATION STABILITY (lean control)
+    # project gravity into body frame
+    N = commands.shape[0]
+    grav_w = torch.tensor([0.0, 0.0, -1.0], device=device).unsqueeze(0).expand(N, -1)
+    grav_b = quat_apply_inverse(robot.data.root_quat_w, grav_w)
+    lean = torch.norm(grav_b[:, :2], dim=1)
+    lean_reward = torch.exp(-2.0 * torch.clamp(lean, max=10.0))
+    lean_reward = torch.clamp(lean_reward, min=0.0, max=1.0)
 
-    # === 5. Foot-sliding penalty ===
-    vel_b = robot.data.body_lin_vel_w[:, foot_ids, :2]
-    slide = (vel_b.norm(dim=-1) * in_contact).mean(dim=1)
-    r_slide = torch.exp(-slide / 0.05)  # penalize sliding >5cm/s
+    # 5) ARM SWING COORDINATION (reciprocal)
+    # shoulder pitch joints indices
+    sh_ids, _ = robot.find_joints(["left_shoulder_pitch_joint", "right_shoulder_pitch_joint"])
+    sh_ids = torch.tensor(sh_ids, dtype=torch.long, device=device)
+    sh_angles = robot.data.joint_pos[:, sh_ids]
+    left_sh, right_sh = sh_angles[:, 0], sh_angles[:, 1]
+    arm_rec = -torch.abs(left_sh + right_sh)                       # negative when they swing together
+    arm_reward = torch.exp(torch.clamp(arm_rec, min=-1.0, max=0.0))
+    arm_reward = torch.clamp(arm_reward, min=0.0, max=0.5)
 
-    # === 6. Continuous arm-leg anti-phase coordination ===
-    # get shoulder & hip pitch velocities
-    ls_idx, _ = robot.find_joints(["left_shoulder_pitch_joint"])
-    rs_idx, _ = robot.find_joints(["right_shoulder_pitch_joint"])
-    lh_idx, _ = robot.find_joints(["left_hip_pitch_joint"])
-    rh_idx, _ = robot.find_joints(["right_hip_pitch_joint"])
-    ls = torch.tensor(ls_idx, dtype=torch.long, device=env.device)
-    rs = torch.tensor(rs_idx, dtype=torch.long, device=env.device)
-    lh = torch.tensor(lh_idx, dtype=torch.long, device=env.device)
-    rh = torch.tensor(rh_idx, dtype=torch.long, device=env.device)
-    vel_j = robot.data.joint_vel
-    sv_l = vel_j[:, ls].squeeze()
-    sv_r = vel_j[:, rs].squeeze()
-    hv_l = vel_j[:, lh].squeeze()
-    hv_r = vel_j[:, rh].squeeze()
-    corr_l = 1.0 - torch.abs(torch.cos(sv_l.sign() * hv_l.sign() * 1.0))
-    corr_r = 1.0 - torch.abs(torch.cos(sv_r.sign() * hv_r.sign() * 1.0))
-    r_coord = (corr_l + corr_r) * 0.5  # in [0,1]
+    # 6) FOOT CLEARANCE (swing‐phase toe lift)
+    body_pos = robot.data.body_pos_w[:, foot_ids, 2]               # [N,2]
+    swing = (~in_contact).float()                                  # swing mask
+    clearance = (body_pos * swing).max(dim=1)[0]                   # max foot height when swinging
+    temp_f = 0.05
+    foot_clear = torch.exp(-torch.clamp((0.02 - clearance).abs(), max=0.1) / temp_f)
+    foot_clear_reward = torch.clamp(foot_clear, min=0.0, max=1.0)
 
-    # === 7. Joint-limit safety penalty ===
-    limits = robot.data.soft_joint_pos_limits  # [env,j,2]
-    center = (limits[..., 0] + limits[..., 1]) * 0.5
-    half_range = (limits[..., 1] - limits[..., 0]) * 0.5
-    norm = (robot.data.joint_pos - center) / torch.clamp(half_range, min=1e-6)
-    over = norm.abs() - 0.8
-    pen = torch.where(over > 0.0, torch.exp(over * 3.0) - 1.0, torch.zeros_like(over))
-    r_jlim = 1.0 / (1.0 + pen.sum(dim=1))  # in (0,1]
+    # 7) FOOT SLIDING PENALTY (contact‐aware)
+    forces = contact.data.net_forces_w                               # [N,2,3]
+    contact_mag = forces.norm(dim=-1) > 1.0
+    vel_feet = robot.data.body_lin_vel_w[:, foot_ids, :2]
+    slide = (vel_feet.norm(dim=-1) * contact_mag.float()).sum(dim=1)
+    slide_penalty = -0.2 * torch.clamp(slide, max=0.5)
 
-    # === Combine additively with weights and baseline ===
-    reward = (
-        r_vel * 1.5 +
-        r_height * 1.0 +
-        r_lean * 0.5 +
-        r_clr * 0.5 +
-        r_slide * 0.3 +
-        r_coord * 0.3 +
-        r_jlim * 1.0 +
-        0.2
+    # === COMBINE ALL COMPONENTS ===
+    total = (
+        vel_reward * 2.0 +
+        gait_reward * 3.0 +
+        height_reward * 1.5 +
+        lean_reward * 1.0 +
+        arm_reward * 0.5 +
+        foot_clear_reward * 0.5 +
+        slide_penalty +
+        0.2   # baseline bonus
     )
-
-    return reward.clamp(min=0.1, max=10.0)
-
+    return torch.clamp(total, min=0.1, max=10.0)
 
 

@@ -83,14 +83,14 @@ return torch.clamp(reward, min=0.0, max=10.0)
 ```python
 """
 ENVIRONMENTAL ANALYSIS DECISION:
-Based on environment analysis: [Summarize key findings from environmental data]
-- Gaps detected: [exact number from analysis]
-- Obstacles detected: [exact number from analysis]
-- Terrain roughness: [value from analysis]
-- Safety assessment: [verdict from analysis]
+Based on environment analysis: [COPY exact summary from the provided environment analysis data]
+- Gaps detected: [COPY exact gap count - must match the analysis, do not guess or use 0 unless analysis shows 0]
+- Obstacles detected: [COPY exact obstacle count - must match the analysis, do not guess or use 0 unless analysis shows 0]  
+- Terrain roughness: [COPY exact terrain measurements and description from analysis]
+- Safety assessment: [COPY exact safety verdict and percentages from analysis]
 
 ENVIRONMENTAL SENSING DECISION: [NEEDED/NOT_NEEDED]
-JUSTIFICATION: [Specific reason based on analysis data]
+JUSTIFICATION: [COPY specific numerical measurements from analysis to support your decision]
 
 [If NOT_NEEDED: Explain why foundation locomotion is sufficient]
 [If NEEDED: List specific environmental components to include]
@@ -377,17 +377,39 @@ Robotic walking often exhibits unnatural arm patterns, including arms staying be
 **Common Robotic Arm Problems to Avoid:**
 - **"Negative side restriction":** Arms staying behind body, never swinging forward
 - **Same-side coordination:** Arms and legs on same side moving together (like robot march)
-- **Bilateral synchrony:** Both arms moving in same direction simultaneously
+- **Bilateral synchrony:** Both arms moving in same direction simultaneously ⚠️ CRITICAL: This includes forcing both arms to the same angle!
 - **Rigid positioning:** Arms held stiff without natural pendulum motion
 - **Excessive restriction:** Arms held close to body without natural swing
+- **Mean angle targeting:** Using torch.mean() to force both shoulders to same angle - causes unnatural arm crossing!
 
 **Design Considerations for Natural Arm Swing:**
-- Measure phase relationships between arm and leg movements
-- Reward reciprocal (opposite) arm-leg coordination patterns
+- **AVOID bilateral synchrony:** Never force both arms to same angle (e.g., mean_sh = torch.mean(torch.abs(sh_angles)) is WRONG!)
+- **Consider no arm rewards:** Often gravity-driven arms look more natural than constrained ones
+- **If arm control needed:** Reward reciprocal (opposite) arm-leg coordination patterns, not fixed angles
 - Consider arm swing amplitude and timing relative to walking speed
 - Account for natural frequency coupling between arms and legs (1:1 ratio)
 - Ensure arms can swing forward past neutral position
 - Balance arm movement with overall gait stability
+
+**CRITICAL ARM IMPLEMENTATION WARNING:**
+❌ **WRONG - Causes bilateral synchrony and arm crossing:**
+```python
+mean_sh = torch.mean(torch.abs(sh_angles), dim=1)  # Forces both arms same angle!
+arm_err = (mean_sh - desired_angle)**2             # Unnatural constraint!
+```
+
+✅ **BETTER - Natural gravity-driven movement:**
+```python
+# Often best: NO arm rewards - let physics handle naturally
+# Arms act as passive pendulums under gravity and body dynamics
+```
+
+✅ **ALTERNATIVE - Reciprocal coordination (if arm control needed):**
+```python
+left_arm = sh_angles[:, 0]
+right_arm = sh_angles[:, 1]
+reciprocal_reward = -torch.abs(left_arm + right_arm)  # Reward opposite directions
+```
 
 **NATURAL HUMAN WALKING RHYTHM AND TIMING:**
 

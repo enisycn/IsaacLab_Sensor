@@ -28,6 +28,7 @@ video_length: 500           # Length of video footage and contact analysis in fr
 # Environment Analysis Settings
 environment_analysis_robots: 50  # Number of robots used for real-time terrain analysis
 enable_environment_analysis: true  # Enable/disable environment-aware SUS generation
+auto_capture_environment_image: true  # Automatically capture environment image before reward generation
 
 iteration: 5
 sample: 8

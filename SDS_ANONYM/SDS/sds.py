@@ -115,6 +115,49 @@ def create_readable_json_version(json_file_path):
 SDS_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROOT_DIR = f"{SDS_ROOT_DIR}/.."
 
+def capture_environment_image_automatically(workspace_dir):
+    """Automatically capture environment image before SDS reward generation."""
+    try:
+        import subprocess
+        import os
+        
+        # Find Isaac Lab root
+        isaac_lab_root = find_isaac_lab_root()
+        
+        # Build capture command 
+        capture_script = os.path.join(isaac_lab_root, "source", "isaaclab_tasks", "isaaclab_tasks", 
+                                    "manager_based", "sds", "velocity", "capture_environment_image.py")
+        
+        if not os.path.exists(capture_script):
+            logging.warning(f"⚠️ Environment image capture script not found: {capture_script}")
+            logging.warning("📝 Continuing SDS without environment image")
+            return False
+        
+        # Run image capture
+        logging.info("📸 Automatically capturing environment image...")
+        cmd = [
+            os.path.join(isaac_lab_root, "isaaclab.sh"), 
+            "-p", capture_script,
+            "--checkpoint_dir", str(workspace_dir),
+            "--headless", 
+            "--enable_cameras"
+        ]
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, cwd=isaac_lab_root)
+        
+        if result.returncode == 0:
+            logging.info("✅ Environment image captured successfully!")
+            return True
+        else:
+            logging.warning(f"⚠️ Environment image capture failed: {result.stderr}")
+            logging.warning("📝 Continuing SDS without environment image")
+            return False
+            
+    except Exception as e:
+        logging.warning(f"⚠️ Failed to capture environment image: {e}")
+        logging.warning("📝 Continuing SDS without environment image")
+        return False
+
 @hydra.main(config_path="cfg", config_name="config", version_base="1.1")
 def main(cfg):
     workspace_dir = Path.cwd()
@@ -123,6 +166,17 @@ def main(cfg):
     logging.info(f"Running for {cfg.iteration} iterations")
     logging.info(f"Training each RF for: {cfg.train_iterations} iterations")
     logging.info(f"Generating {cfg.sample} reward function samples per iteration")
+    
+    # 🆕 AUTOMATIC ENVIRONMENT IMAGE CAPTURE
+    if getattr(cfg, 'auto_capture_environment_image', True):
+        logging.info("🎯 Starting automatic environment image capture...")
+        capture_success = capture_environment_image_automatically(workspace_dir)
+        if capture_success:
+            logging.info("✅ Environment image ready for reward generation")
+        else:
+            logging.info("📝 Proceeding with video-only analysis")
+    else:
+        logging.info("⏭️ Auto environment image capture disabled")
 
     model = cfg.model
     logging.info(f"Using LLM: {model}")
@@ -164,6 +218,16 @@ def main(cfg):
     
     encoded_gt_frame_grid = encode_image(f'{workspace_dir}/gt_demo.png')
     
+    # Check for environment image captured by the image capture script
+    environment_image_path = f'{workspace_dir}/environment_image.png'
+    has_environment_image = os.path.exists(environment_image_path)
+    if has_environment_image:
+        encoded_environment_image = encode_image(environment_image_path)
+        logging.info(f"✅ Found environment image for SUS generation: {environment_image_path}")
+    else:
+        encoded_environment_image = None
+        logging.info(f"ℹ️ No environment image found at: {environment_image_path}")
+    
     # Choose SUS generator based on configuration
     enable_env_analysis = getattr(cfg, 'enable_environment_analysis', True)
     
@@ -178,7 +242,8 @@ def main(cfg):
         SUS_prompt = sus_generator.generate_enhanced_sus_prompt(
             encoded_gt_frame_grid, 
             cfg.task.description,
-            num_envs=num_envs_for_analysis
+            num_envs=num_envs_for_analysis,
+            encoded_environment_image=encoded_environment_image if has_environment_image else None
         )
     else:
         # Use original SUS generator (video-only analysis)
@@ -187,7 +252,8 @@ def main(cfg):
         
         SUS_prompt = sus_generator.generate_sus_prompt(
             encoded_gt_frame_grid, 
-            cfg.task.description
+            cfg.task.description,
+            encoded_environment_image=encoded_environment_image if has_environment_image else None
         )
     
     initial_reward_engineer_system = initial_reward_engineer_system.format(task_reward_signature_string=reward_signature,task_obs_code_string=task_obs_code_string) + code_output_tip

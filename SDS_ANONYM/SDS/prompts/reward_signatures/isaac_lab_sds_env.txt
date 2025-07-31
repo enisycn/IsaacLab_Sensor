@@ -1,27 +1,218 @@
+🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
+🚨🚨🚨 CRITICAL: .distances AND .height_measurements DO NOT EXIST - CAUSE INSTANT CRASH 🚨🚨🚨
+🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
+
+❌ THESE LINES CAUSE ATTRIBUTEERROR CRASH - NEVER USE:
+```python
+lidar_sensor.data.distances          # AttributeError: 'RayCasterData' object has no attribute 'distances'
+height_sensor.data.height_measurements  # AttributeError: 'RayCasterData' object has no attribute 'height_measurements'
+lidar_dist = lidar_sensor.data.distances                 # INSTANT CRASH!
+height_data = height_sensor.data.height_measurements     # INSTANT CRASH!
+```
+
+✅ THESE ARE THE ONLY WORKING PATTERNS - COPY EXACTLY:
+```python
+# LiDAR distances - MANDATORY PATTERN:
+lidar_sensor = env.scene.sensors["lidar"]
+lidar_range = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
+
+# Height scanner - MANDATORY PATTERN:
+height_sensor = env.scene.sensors["height_scanner"]
+height_scan = height_sensor.data.ray_hits_w[..., 2]
+```
+
+🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
+
 **PROVEN ISAAC LAB LOCOMOTION PATTERNS - PRIORITIZE THESE!**
+
+**🚨🚨🚨 CRITICAL ATTRIBUTEERROR WARNING 🚨🚨🚨**
+
+**THE #1 TRAINING CRASH ERROR:**
+```python
+# ❌ DEADLY ERROR - WILL CRASH TRAINING 100% OF THE TIME:
+lidar_sensor.data.distances  # AttributeError: 'RayCasterData' object has no attribute 'distances'
+height_sensor.data.height_measurements  # AttributeError: 'RayCasterData' object has no attribute 'height_measurements'
+```
+
+**✅ MANDATORY CORRECT PATTERNS - COPY EXACTLY:**
+```python
+# LiDAR distances - ALWAYS use this pattern:
+lidar_sensor = env.scene.sensors["lidar"]
+lidar_range = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
+
+# Height scanner - ALWAYS use this pattern:
+height_sensor = env.scene.sensors["height_scanner"]
+height_scan = height_sensor.data.ray_hits_w[..., 2]
+```
+
+**🚨 Isaac Lab RayCaster sensors ONLY have these attributes:**
+- `data.pos_w` - Sensor position [num_envs, 3]
+- `data.quat_w` - Sensor orientation [num_envs, 4]  
+- `data.ray_hits_w` - Ray hit positions [num_envs, num_rays, 3]
+
+**NO OTHER ATTRIBUTES EXIST! Using .distances or .height_measurements = INSTANT CRASH!**
+
+**🚨🚨🚨 CRITICAL BEHAVIORAL ERRORS WARNING 🚨🚨🚨**
+
+**❌ HEIGHT HARDCODING ERROR - CAUSES ROBOTS TO STAND STILL ON STAIRS:**
+```python
+# WRONG - Absolute world height (robots stand still on elevated terrain):
+height_err = torch.abs(robot.data.root_pos_w[:, 2] - 0.74)  # Forces 0.74m absolute height!
+```
+
+**✅ TERRAIN-RELATIVE HEIGHT - ALLOWS NATURAL TERRAIN NAVIGATION:**
+```python
+# CORRECT - Height relative to terrain underneath:
+height_sensor = env.scene.sensors["height_scanner"]
+terrain_height = height_sensor.data.ray_hits_w[..., 2].mean(dim=-1)  # Average terrain under robot
+relative_height = robot.data.root_pos_w[:, 2] - terrain_height
+height_err = torch.abs(relative_height - 0.74)  # 0.74m ABOVE terrain
+```
+
+**❌ ARM BILATERAL SYNCHRONY ERROR - CAUSES UNNATURAL ARM CROSSING:**
+```python
+# WRONG - Forces both arms to same angle (bilateral synchrony):
+mean_sh = torch.mean(torch.abs(sh_angles), dim=1)  # Both arms same angle!
+arm_err = (mean_sh - 0.3)**2  # Forces both to 17° - UNNATURAL!
+```
+
+**✅ NATURAL ARM MOVEMENT - PREFER GRAVITY-DRIVEN OR RECIPROCAL:**
+```python
+# OPTION 1: NO ARM REWARDS (let physics/gravity handle naturally)
+# - Often produces better results than forced constraints
+# - Arms naturally swing as passive pendulums
+
+# OPTION 2: Reciprocal arm-leg coordination (if needed):
+left_arm = sh_angles[:, 0]   # Left shoulder angle
+right_arm = sh_angles[:, 1]  # Right shoulder angle
+reciprocal_reward = -torch.abs(left_arm + right_arm)  # Reward opposite directions
+```
 
 These patterns are battle-tested and known to work for humanoid locomotion. Use them as a foundation:
 
-**1. YAW-ALIGNED VELOCITY TRACKING (SUPERIOR TO BODY FRAME):**
-```python
-# PROVEN: Much better than basic body frame tracking
-from isaaclab.utils.math import quat_apply_inverse, yaw_quat
+**🏆 ISAAC LAB PROVEN REWARD FUNCTIONS (USE THESE FIRST!)**
 
+**These are production-ready Isaac Lab functions that create excellent human-like walking:**
+
+**1. BIPEDAL AIR TIME REWARD (SUPERIOR FOR HUMANOIDS) - SINGLE STANCE IS CRITICAL:**
+```python
+# 🎯 PROVEN: Built-in Isaac Lab function for bipedal gait patterns
+# CRITICAL INSIGHT: Natural human walking = alternating SINGLE SUPPORT phases!
+contact_sensor = env.scene.sensors["contact_forces"]
+foot_ids, _ = contact_sensor.find_bodies(".*_ankle_roll_link")
+foot_ids = torch.tensor(foot_ids, dtype=torch.long, device=env.device)
+
+# Access air time and contact time data (VERIFIED WORKING)
+air_time = contact_sensor.data.current_air_time[:, foot_ids]
+contact_time = contact_sensor.data.current_contact_time[:, foot_ids]
+in_contact = contact_time > 0.0
+
+# 🚀 KEY FOR NATURAL WALKING: Single stance reward (one foot at a time)
+# This is what makes human walking look natural vs robotic shuffling!
+single_stance = torch.sum(in_contact.int(), dim=1) == 1  # ONLY ONE FOOT DOWN!
+in_mode_time = torch.where(in_contact, contact_time, air_time)
+gait_reward = torch.min(torch.where(single_stance.unsqueeze(-1), in_mode_time, 0.0), dim=1)[0]
+
+# ⚡ PROPER AIR TIME MANAGEMENT: 
+# - Threshold prevents excessive foot lifting (unnatural high knees)
+# - Rewards natural step timing for smooth walking rhythm
+gait_reward = torch.clamp(gait_reward, max=0.5)  # Cap at 0.5s for natural step timing
+
+# 🎯 COMMAND DEPENDENCY: No reward for zero command (prevents stationary exploitation)
 commands = env.command_manager.get_command("base_velocity")
 command_magnitude = torch.norm(commands[:, :2], dim=1)
-
-# Transform to yaw-aligned frame (removes pitch/roll interference)
-vel_yaw = quat_apply_inverse(yaw_quat(robot.data.root_quat_w), robot.data.root_lin_vel_w[:, :3])
-lin_vel_error = torch.sum(torch.square(commands[:, :2] - vel_yaw[:, :2]), dim=1)
-vel_reward = torch.exp(-lin_vel_error / (1.0**2))
-
-# CRITICAL: No reward for zero commands (prevents stationary exploitation)
-vel_reward *= (command_magnitude > 0.1).float()
+gait_reward *= (command_magnitude > 0.1).float()  # Only reward when actually moving
 ```
 
-**2. PROPER BIPEDAL GAIT PATTERNS:**
+**WHY THIS PATTERN IS SUPERIOR TO GENERIC AIR TIME:**
+- **Single stance detection**: Natural walking requires alternating support (not double support shuffling)
+- **Contact-aware timing**: Uses actual contact sensor data, not estimated patterns
+- **Anti-exploitation**: No reward for standing still or micro-movements
+- **Natural rhythm**: 0.5s threshold matches human walking cadence
+- **Isaac Lab optimized**: Uses proven sensor patterns that work reliably
+
+**2. YAW-ALIGNED VELOCITY TRACKING (PROVEN SUPERIOR TO BODY FRAME):**
 ```python
-# PROVEN: Rewards single stance phases (proper walking pattern)
+# 🎯 PROVEN: Isaac Lab's yaw-frame tracking - VASTLY superior to basic body frame
+# CRITICAL: Decouples velocity control from robot tilt/lean (prevents control coupling)
+from isaaclab.utils.math import quat_apply_inverse, yaw_quat
+
+robot = env.scene["robot"]
+commands = env.command_manager.get_command("base_velocity")
+
+# 🚀 YAW-ALIGNED TRANSFORMATION: Removes pitch/roll interference
+# This is why Isaac Lab velocity tracking works so much better!
+vel_yaw = quat_apply_inverse(yaw_quat(robot.data.root_quat_w), robot.data.root_lin_vel_w[:, :3])
+lin_vel_error = torch.sum(torch.square(commands[:, :2] - vel_yaw[:, :2]), dim=1)
+vel_reward = torch.exp(-lin_vel_error / (1.0**2))  # Exponential kernel for smooth decay
+
+# 🎯 CRITICAL: No reward for zero commands (anti-exploitation)
+vel_reward *= (torch.norm(commands[:, :2], dim=1) > 0.1).float()
+```
+
+**WHY YAW-ALIGNED IS SUPERIOR:**
+- **Decoupled control**: Velocity tracking unaffected by robot lean/tilt
+- **Stable tracking**: Works even when robot pitches forward/backward
+- **Natural movement**: Allows body dynamics while maintaining velocity goals
+- **Isaac Lab proven**: This is the actual pattern used in successful Isaac Lab locomotion
+
+**3. ANGULAR VELOCITY TRACKING (WORLD FRAME FOR STABILITY):**
+```python
+# 🎯 PROVEN: Isaac Lab's world frame angular tracking (superior to body frame)
+commands = env.command_manager.get_command("base_velocity")
+robot = env.scene["robot"]
+
+# World frame angular velocity for consistent turning control
+ang_vel_error = torch.square(commands[:, 2] - robot.data.root_ang_vel_w[:, 2])
+ang_reward = torch.exp(-ang_vel_error / (1.0**2))
+```
+
+**4. CONTACT-AWARE FOOT SLIDING PENALTY (INTELLIGENT SLIDING DETECTION):**
+```python
+# 🎯 PROVEN: Isaac Lab's sliding penalty - ONLY when foot is actually in contact
+# CRITICAL: This prevents penalizing swing leg motion (which should move freely!)
+contact_sensor = env.scene.sensors["contact_forces"]
+foot_ids, _ = contact_sensor.find_bodies(".*_ankle_roll_link")
+foot_ids = torch.tensor(foot_ids, dtype=torch.long, device=env.device)
+
+# 🚀 SMART CONTACT DETECTION: Use force history for reliable contact state
+forces = contact_sensor.data.net_forces_w_history[:, :, foot_ids, :]
+contacts = forces.norm(dim=-1).max(dim=1)[0] > 1.0  # Actual contact detection
+
+# Get foot velocities and apply sliding penalty ONLY when in contact
+robot = env.scene["robot"]
+body_vel = robot.data.body_lin_vel_w[:, foot_ids, :2]
+slide_penalty = torch.sum(body_vel.norm(dim=-1) * contacts, dim=1)  # Contact-aware!
+```
+
+**WHY CONTACT-AWARE SLIDING IS CRITICAL:**
+- **Swing phase freedom**: Doesn't penalize moving feet during swing phase
+- **Realistic physics**: Only applies when feet should be stationary (in contact)
+- **Force-based detection**: Uses actual physics data, not position estimates
+- **Natural walking**: Allows proper foot lifting and placement
+
+**🔑 CRITICAL SUCCESS FACTORS FOR BIPEDAL WALKING:**
+
+1. **SINGLE STANCE DOMINANCE**: Most natural walking happens in single support!
+2. **YAW-ALIGNED CONTROL**: Decouples velocity from body orientation
+3. **CONTACT-AWARE PENALTIES**: Only apply constraints when physically relevant
+4. **COMMAND SCALING**: No rewards for micro-movements or standing still
+5. **NATURAL TIMING**: Air time thresholds that match human walking rhythm (0.3-0.5s)
+6. **FORCE-BASED DETECTION**: Use contact sensors, not position approximations
+
+**🚨 COMMON BIPEDAL WALKING FAILURES TO AVOID:**
+- **Double support shuffling**: Not rewarding single stance phases
+- **Robotic high stepping**: No upper threshold on air time rewards
+- **Control coupling**: Using body frame instead of yaw-aligned frame
+- **Swing leg penalties**: Penalizing foot motion during swing phase
+- **Zero command exploitation**: Rewarding stationary micro-movements
+
+**✅ USE THESE ISAAC LAB PATTERNS AS YOUR FOUNDATION - THEY ARE BATTLE-TESTED!**
+
+**2. PROPER BIPEDAL GAIT PATTERNS (UPDATED WITH ISAAC LAB INSIGHTS):**
+```python
+# 🎯 PROVEN: Rewards single stance phases (proper walking pattern)
+# CRITICAL FOR WALKING: Human walking = 85% single support, 15% double support!
 foot_ids, _ = contact_sensor.find_bodies(".*_ankle_roll_link")
 foot_ids = torch.tensor(foot_ids, dtype=torch.long, device=env.device)
 
@@ -29,28 +220,64 @@ air_time = contact_sensor.data.current_air_time[:, foot_ids]
 contact_time = contact_sensor.data.current_contact_time[:, foot_ids]
 in_contact = contact_time > 0.0
 
-# Reward single stance (one foot contact at a time)
-single_stance = torch.sum(in_contact.int(), dim=1) == 1
+# 🚀 SINGLE STANCE DETECTION: The secret to natural walking!
+single_stance = torch.sum(in_contact.int(), dim=1) == 1  # One foot at a time
 in_mode_time = torch.where(in_contact, contact_time, air_time)
 gait_reward = torch.min(torch.where(single_stance.unsqueeze(-1), in_mode_time, 0.0), dim=1)[0]
+
+# 🎯 NATURAL STEP TIMING: Prevent robotic high-stepping
 gait_reward = torch.clamp(gait_reward, max=0.5) * (command_magnitude > 0.1).float()
+
+# 🔥 ALTERNATIVE PATTERN - Double Support Bonus (for stability when needed):
+double_stance = torch.sum(in_contact.int(), dim=1) == 2  # Both feet down
+stability_bonus = double_stance.float() * 0.1  # Small bonus for stable phases
 ```
 
-**3. CONTACT-AWARE FOOT SLIDING PENALTY:**
+**ADVANCED BIPEDAL PATTERNS FOR SPECIFIC GAITS:**
+
+**WALKING GAIT (Primary Pattern):**
 ```python
-# PROVEN: Only penalize sliding when foot is actually in contact
-forces = contact_sensor.data.net_forces_w_history[:, :, foot_ids, :]
-contacts = forces.norm(dim=-1).max(dim=1)[0] > 1.0
-body_vel = robot.data.body_lin_vel_w[:, foot_ids, :2]
-slide_penalty = torch.sum(body_vel.norm(dim=-1) * contacts, dim=1)
+# Natural walking = alternating single support + brief double support
+walking_pattern = single_stance.float() * 0.8 + double_stance.float() * 0.2
 ```
 
-**CRITICAL ISAAC LAB INSIGHTS:**
-- **Command scaling**: Never reward when commands are near zero
-- **Yaw alignment**: Removes pitch/roll interference from velocity tracking  
-- **Single stance**: Encourages proper alternating foot pattern
-- **Contact awareness**: Only apply penalties when actually relevant (foot in contact)
-- **Capped rewards**: Air time and other metrics should have reasonable upper bounds
+**RUNNING GAIT (Flight Phase):**
+```python
+# Running = single support + flight phase (no double support)
+flight_phase = torch.sum(in_contact.int(), dim=1) == 0  # Both feet up
+running_pattern = single_stance.float() * 0.6 + flight_phase.float() * 0.4
+```
+
+**MARCHING GAIT (Controlled Single Support):**
+```python
+# Marching = extended single support phases for precision
+extended_single = single_stance & (in_mode_time.max(dim=1)[0] > 0.3)
+marching_pattern = extended_single.float()
+```
+
+**🚨 PRIORITY: Use these proven Isaac Lab functions as your foundation, then add task-specific enhancements!**
+
+**🔥 ADDITIONAL ISAAC LAB BUILT-IN FUNCTION USAGE:**
+
+When environment analysis shows you need specific locomotion patterns, you can use Isaac Lab's built-in reward functions directly in your reward configuration. However, for SDS custom rewards, you should implement the patterns inline as shown above.
+
+**BUILT-IN FUNCTION REFERENCE (for understanding, not direct use in custom rewards):**
+```python
+# These are the actual Isaac Lab functions - understand their patterns:
+# mdp.feet_air_time_positive_biped(env, command_name="base_velocity", threshold=0.5, sensor_cfg=SceneEntityCfg("contact_forces"))
+# mdp.track_lin_vel_xy_yaw_frame_exp(env, std=1.0, command_name="base_velocity")
+# mdp.track_ang_vel_z_world_exp(env, command_name="base_velocity", std=1.0)
+# mdp.feet_slide(env, sensor_cfg=SceneEntityCfg("contact_forces"))
+```
+
+**🎯 CRITICAL ISAAC LAB SUCCESS INSIGHTS:**
+- **Command scaling**: NEVER reward when commands are near zero - prevents exploitation
+- **Yaw alignment**: Removes pitch/roll interference from velocity tracking - critical for stability
+- **Single stance**: Encourages proper alternating foot pattern - key for natural walking
+- **Contact awareness**: Only apply penalties when actually relevant (foot in contact) - prevents swing phase penalties
+- **Capped rewards**: Air time and other metrics should have reasonable upper bounds - prevents over-optimization
+- **Force-based detection**: Use contact sensor forces, not position estimates - more reliable
+- **Exponential kernels**: Provide smooth reward gradients for stable learning - better than linear penalties
 
 ## ISAAC LAB REWARD COMPUTATION PATTERNS
 
@@ -62,7 +289,10 @@ slide_penalty = torch.sum(body_vel.norm(dim=-1) * contacts, dim=1)
 ```python
 # Enhanced sensor-based dynamic target modification for reward computation
 height_scan = env.scene.sensors["height_scanner"].data.ray_hits_w[..., 2]
-lidar_range = env.scene.sensors["lidar"].data.ray_hits_w[..., 2]
+# ❌ INCORRECT: lidar_range = env.scene.sensors["lidar"].data.ray_hits_w[..., 2]  # Gets Z coordinate, not distance!
+# ✅ CORRECT: Calculate actual distances:
+lidar_sensor = env.scene.sensors["lidar"]
+lidar_range = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
 commands = env.command_manager.get_command("base_velocity")
 
 # Adaptive velocity scaling based on forward terrain
@@ -107,7 +337,10 @@ height_reward = torch.exp(-torch.abs(current_height - target_height) / 0.1)
 **6. GAP-SPECIFIC BEHAVIOR SWITCHING IN REWARDS:**
 ```python
 # Mathematical gap size classification for reward computation
-lidar_range = env.scene.sensors["lidar"].data.ray_hits_w[..., 2]
+# ❌ INCORRECT: lidar_range = env.scene.sensors["lidar"].data.ray_hits_w[..., 2]  # Gets Z coordinate, not distance!
+# ✅ CORRECT: Calculate actual distances:
+lidar_sensor = env.scene.sensors["lidar"]
+lidar_range = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
 forward_rays = lidar_range[:, :len(lidar_range[0])//4]  # Forward-facing rays
 min_forward_distance = torch.min(forward_rays, dim=1)[0]
 
@@ -152,6 +385,44 @@ forward_error = torch.where(forward_commands,
 # Combined velocity reward with backward capability
 vel_reward = torch.exp(-(backward_error + forward_error) / 0.8)
 vel_reward *= (torch.abs(commands[:, 0]) > 0.05).float()  # Avoid zero command rewards
+```
+
+**7. INTELLIGENT CONTACT-SENSOR CORRELATION (TECHNICAL PATTERNS):**
+```python
+# TECHNICAL PATTERN: Flexible sensor-contact correlation framework for Isaac Lab
+# PRINCIPLE: Correlate contact forces with environmental predictions, not hardcoded penalties
+
+# STEP 1: ENVIRONMENTAL PREDICTION EXTRACTION
+# Extract sensor data for environmental understanding
+height_sensor = env.scene.sensors["height_scanner"]
+lidar_sensor = env.scene.sensors["lidar"]
+contact_sensor = env.scene.sensors["contact_forces"]
+
+# Process sensor data with appropriate sanitization
+height_scan = height_sensor.data.ray_hits_w[..., 2].view(env.num_envs, -1)
+height_scan = torch.where(torch.isfinite(height_scan), height_scan, torch.zeros_like(height_scan))
+
+# STEP 2: ADAPTIVE CORRELATION ARCHITECTURE
+# Create flexible prediction-validation system
+environmental_predictions = extract_environmental_context(height_scan, lidar_sensor)
+contact_classification = categorize_contact_events(contact_sensor, environmental_predictions)
+
+# STEP 3: CONTEXT-SENSITIVE SCALING
+# Scale rewards based on environmental assessment, not fixed values
+environmental_complexity = assess_terrain_complexity(height_scan)
+correlation_confidence = measure_sensor_agreement(height_sensor, lidar_sensor)
+reward_scaling = compute_adaptive_scaling(environmental_complexity, correlation_confidence)
+
+# STEP 4: INTELLIGENT CORRELATION IMPLEMENTATION
+# Reward/penalize based on prediction-reality correlation
+contact_intelligence = correlate_contact_with_predictions(contact_classification, environmental_predictions)
+terrain_aware_reward = contact_intelligence * reward_scaling  # Adaptive, not fixed values
+
+# TECHNICAL GUIDELINES FOR FLEXIBLE IMPLEMENTATION:
+# - Extract environmental context from available sensors
+# - Classify contact events by their environmental appropriateness  
+# - Scale correlation strength based on sensor confidence and environmental complexity
+# - Adapt reward magnitudes to situational requirements, not fixed penalty/reward values
 ```
 
 **CRITICAL: TRAINING WILL FAIL WITHOUT THESE FIXES!**
@@ -439,6 +710,34 @@ double_support = (left_contact > 0.5) & (right_contact > 0.5)
     
 ## Sensor Access Patterns
 
+**🚨 CRITICAL: CORRECT SENSOR DATA ACCESS PATTERNS**
+
+**❌ COMMON ERRORS THAT CAUSE AttributeError:**
+```python
+# WRONG - These attributes do not exist in Isaac Lab:
+height_measurements = height_sensor.data.height_measurements  # AttributeError!
+lidar_distances = lidar_sensor.data.distances                 # AttributeError!
+lidar_range = lidar_sensor.data.ray_distances                 # AttributeError!
+```
+
+**✅ CORRECT PATTERNS - USE THESE:**
+```python
+# Height Scanner - Correct access for terrain heights:
+height_sensor = env.scene.sensors["height_scanner"]
+height_scan = height_sensor.data.ray_hits_w[..., 2]  # Z coordinates (heights)
+
+# LiDAR - Correct access for obstacle distances:
+lidar_sensor = env.scene.sensors["lidar"]
+lidar_range = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)  # Distances
+```
+
+**🚨 Isaac Lab RayCaster sensors only have these data attributes:**
+- `data.pos_w`: Sensor position in world frame [num_envs, 3]
+- `data.quat_w`: Sensor orientation [num_envs, 4]  
+- `data.ray_hits_w`: Ray hit positions [num_envs, num_rays, 3]
+
+**No other attributes exist! Always calculate distances from ray_hits_w!**
+
 # OPTIONAL: HEIGHT SCANNER ("height_scanner") INTEGRATION:
 # Provides detailed terrain elevation mapping around the robot (140 measurements per robot)
 # Use only if terrain shows significant variation - usage patterns:
@@ -457,10 +756,12 @@ robot_height = height_sensor.data.pos_w[:, 2]  # [num_envs] Scanner position hei
 # LIDAR SCANNER ("lidar") - REQUIRED:
 # Provides 360-degree obstacle detection and distance measurements
 lidar_sensor = env.scene.sensors["lidar"]
-lidar_range = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1).view(env.num_envs, -1)  # [num_envs, 144] - distances
-# Raw sensor access (already available as lidar_sensor above):
-hit_points = lidar_sensor.data.ray_hits_w  # [num_envs, rays, 3] - 3D hit coordinates
-hit_distances = lidar_sensor.data.ray_distances  # [num_envs, rays] - distance measurements
+# ❌ INCORRECT: lidar_range = env.scene.sensors["lidar"].data.ray_hits_w[..., 2]  # This gets Z coordinate, not distance!
+# ✅ CORRECT: Calculate actual distances from ray hits and sensor position:
+lidar_range = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1).view(env.num_envs, -1)  # [num_envs, 144]
+forward_rays = lidar_range[:, :90]    # 0-90 degrees (forward)
+lateral_rays = lidar_range[:, 90:270] # 90-270 degrees (sides)
+backward_rays = lidar_range[:, 270:]  # 270-360 degrees (backward)
 
 # LIDAR INTERPRETATION:
 # - Shape: [num_envs, 144] (8 channels x 18 horizontal rays at 10° resolution)
@@ -485,7 +786,10 @@ backward_terrain = height_grid[:, 2*scan_size//3:, scan_size//3:2*scan_size//3]
 lateral_terrain = height_grid[:, scan_size//3:2*scan_size//3, :]
 
 # 2. LiDAR Processing (360 rays, 5.0m range):
-lidar_range = env.scene.sensors["lidar"].data.ray_hits_w[..., 2]
+lidar_sensor = env.scene.sensors["lidar"]
+# ❌ INCORRECT: lidar_range = env.scene.sensors["lidar"].data.ray_hits_w[..., 2]  # This gets Z coordinate, not distance!
+# ✅ CORRECT: Calculate actual distances from ray hits and sensor position:
+lidar_range = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1).view(env.num_envs, -1)  # [num_envs, 144]
 forward_rays = lidar_range[:, :90]    # 0-90 degrees (forward)
 lateral_rays = lidar_range[:, 90:270] # 90-270 degrees (sides)
 backward_rays = lidar_range[:, 270:]  # 270-360 degrees (backward)

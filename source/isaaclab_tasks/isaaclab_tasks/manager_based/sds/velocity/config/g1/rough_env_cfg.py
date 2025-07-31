@@ -93,10 +93,10 @@ class SDSG1RoughEnvCfg(SDSVelocityRoughEnvCfg):
             },
         }
 
-        # 🚀 ENHANCED: Updated velocity ranges for better navigation
-        self.commands.base_velocity.ranges.lin_vel_x = (-0.1, 0.4)  # Allow backward movement + forward velocity
+        # 🚀 ENHANCED: Updated velocity ranges for forward-only movement
+        self.commands.base_velocity.ranges.lin_vel_x = (0.2, 0.6)     # Forward-only movement (no backward)
         self.commands.base_velocity.ranges.lin_vel_y = (-0.15, 0.15)  # Increased lateral movement range
-        self.commands.base_velocity.ranges.ang_vel_z = (-0.3, 0.3)  # Increased turning range for better maneuverability
+        self.commands.base_velocity.ranges.ang_vel_z = (-0.3, 0.3)    # Increased turning range for better maneuverability
 
         # 🚨 CRITICAL FIX: Minimize standing commands to encourage locomotion
         self.commands.base_velocity.rel_standing_envs = 0.02  # Only 2% standing for active learning

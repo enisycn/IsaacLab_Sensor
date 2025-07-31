@@ -168,9 +168,9 @@ class SUSGenerator(Agent):
         self.prompt_dir = prompt_dir
         super().__init__(system_prompt_file, cfg)
     
-    def generate_sus_prompt(self,encoded_gt_frame_grid, task_description_hint=None):
+    def generate_sus_prompt(self,encoded_gt_frame_grid, task_description_hint=None, encoded_environment_image=None):
         task_descriptor = TaskDescriptor(self.cfg,self.prompt_dir)
-        task_description = task_descriptor.analyse(encoded_gt_frame_grid, task_description_hint)
+        task_description = task_descriptor.analyse(encoded_gt_frame_grid, task_description_hint, encoded_environment_image)
         
         contact_sequence_analyser = ContactSequenceAnalyser(self.cfg,self.prompt_dir)
         contact_pattern = contact_sequence_analyser.analyse(encoded_gt_frame_grid)
@@ -230,6 +230,9 @@ class EnvironmentAwareTaskDescriptor(Agent):
     def run_environment_analysis(self, num_envs=50):
         """Run the environment analysis script and capture output"""
         try:
+            # Log agent activation for consistency with other agents
+            self.logger.info("Activated Agent EnvironmentAnalyzer")
+            
             # Change to IsaacLab directory and run analysis
             isaac_lab_path = "/home/enis/IsaacLab"
             analysis_script = f"{isaac_lab_path}/analyze_environment.py"
@@ -299,7 +302,7 @@ class EnvironmentAwareTaskDescriptor(Agent):
             self.logger.error(f"Error running environment analysis: {e}")
             return None
     
-    def analyse(self, encoded_frame_grid, task_hint=None, num_envs=50):
+    def analyse(self, encoded_frame_grid, task_hint=None, num_envs=50, encoded_environment_image=None):
         """Analyze with real-time environment data injection"""
         # Run environment analysis
         environment_analysis = self.run_environment_analysis(num_envs)
@@ -314,6 +317,12 @@ class EnvironmentAwareTaskDescriptor(Agent):
             
         # Prepare user content for analysis
         user_content = [{"type":"image_uri","data":encoded_frame_grid}]
+        
+        # Add environment image if available
+        if encoded_environment_image:
+            user_content.append({"type":"image_uri","data":encoded_environment_image})
+            self.logger.info("✅ Including environment image in environment-aware task descriptor analysis")
+        
         if task_hint:
             user_content.append({"type":"text","data":f"You are analyzing a video demonstrating: {task_hint}. Focus your analysis on the specific behaviors and movements characteristic of this task while integrating the provided environmental sensor data."})
         
@@ -324,8 +333,14 @@ class TaskDescriptor(Agent):
     def __init__(self, cfg, prompt_dir):
         system_prompt_file=f"{prompt_dir}/task_descriptor_system.txt"
         super().__init__(system_prompt_file, cfg)
-    def analyse(self,encoded_frame_grid, task_hint=None):
+    def analyse(self,encoded_frame_grid, task_hint=None, encoded_environment_image=None):
         user_content = [{"type":"image_uri","data":encoded_frame_grid}]
+        
+        # Add environment image if available
+        if encoded_environment_image:
+            user_content.append({"type":"image_uri","data":encoded_environment_image})
+            self.logger.info("✅ Including environment image in task descriptor analysis")
+        
         if task_hint:
             user_content.append({"type":"text","data":f"You are analyzing a video demonstrating: {task_hint}. Focus your analysis on the specific behaviors and movements characteristic of this task."})
         self.prepare_user_content(user_content)
@@ -337,11 +352,11 @@ class EnhancedSUSGenerator(Agent):
         self.prompt_dir = prompt_dir
         super().__init__(system_prompt_file, cfg)
     
-    def generate_enhanced_sus_prompt(self, encoded_gt_frame_grid, task_description_hint=None, num_envs=50):
+    def generate_enhanced_sus_prompt(self, encoded_gt_frame_grid, task_description_hint=None, num_envs=50, encoded_environment_image=None):
         """Generate SUS prompt with environment awareness"""
         # Use environment-aware task descriptor
         task_descriptor = EnvironmentAwareTaskDescriptor(self.cfg, self.prompt_dir)
-        task_description = task_descriptor.analyse(encoded_gt_frame_grid, task_description_hint, num_envs)   
+        task_description = task_descriptor.analyse(encoded_gt_frame_grid, task_description_hint, num_envs, encoded_environment_image)   
         
         # Continue with regular SUS generation pipeline
         contact_sequence_analyser = ContactSequenceAnalyser(self.cfg, self.prompt_dir)

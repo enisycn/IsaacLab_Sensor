@@ -1,3 +1,86 @@
-Execution error encountered: {traceback_msg}
+🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
+🚨🚨🚨 #1 TRAINING CRASH: SENSOR ATTRIBUTEERROR - READ THIS FIRST 🚨🚨🚨
+🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
 
-Please analyze the error, fix the issue, and provide an improved reward function.
+**MOST COMMON ERROR PATTERN:**
+
+**ATTRIBUTEERROR: 'RayCasterData' object has no attribute 'distances'**
+- CAUSE: Using non-existent sensor attributes (.distances, .height_measurements)
+- CRASH LINE EXAMPLES:
+```python
+lidar_range = lidar_sensor.data.distances  # AttributeError!
+height_data = height_sensor.data.height_measurements  # AttributeError!
+dist = lidar_sensor.data.distances  # INSTANT CRASH!
+```
+- FIX: Use correct sensor access patterns:
+```python
+# ✅ CORRECT LiDAR distances:
+lidar_range = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
+# ✅ CORRECT height scanner:
+height_scan = height_sensor.data.ray_hits_w[..., 2]
+```
+
+🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
+
+Isaac Lab reward functions can encounter various runtime errors. Here's how to diagnose and fix common issues:
+
+**BEHAVIORAL ERRORS - UNNATURAL ROBOT MOVEMENT:**
+
+**HEIGHT HARDCODING ERROR (robots stand still on stairs/platforms):**
+- SYMPTOM: Robots learned to stand still on elevated terrain or go downstairs
+- CAUSE: Using absolute world height instead of terrain-relative height
+- FIX: Use height relative to terrain underneath:
+```python
+# WRONG:
+height_err = torch.abs(robot.data.root_pos_w[:, 2] - 0.74)  # Absolute height
+
+# CORRECT:
+height_sensor = env.scene.sensors["height_scanner"]
+terrain_height = height_sensor.data.ray_hits_w[..., 2].mean(dim=-1)
+relative_height = robot.data.root_pos_w[:, 2] - terrain_height
+height_err = torch.abs(relative_height - 0.74)  # Relative to terrain
+```
+
+**ARM BILATERAL SYNCHRONY ERROR (unnatural arm crossing/backward movement):**
+- SYMPTOM: Arms cross with body, move backward, or look robotic/weird
+- CAUSE: Forcing both arms to same angle (bilateral synchrony)
+- FIX: Use natural gravity-driven movement or reciprocal patterns:
+```python
+# WRONG:
+mean_sh = torch.mean(torch.abs(sh_angles), dim=1)  # Both arms same angle!
+
+# CORRECT OPTIONS:
+# Option 1: No arm rewards (often best - natural pendulum motion)
+# Option 2: Reciprocal coordination
+left_arm = sh_angles[:, 0]
+right_arm = sh_angles[:, 1]
+reciprocal_reward = -torch.abs(left_arm + right_arm)  # Opposite movement
+```
+
+**TECHNICAL ERROR PATTERNS:**
+
+TENSOR BROADCASTING ERRORS (e.g., "output with shape [N] doesn't match broadcast shape [N,N]"):
+- Caused by implicit broadcasting between tensors of incompatible shapes
+- FIX: Use explicit .expand() or .unsqueeze() to match dimensions exactly
+- Example: desired_value.unsqueeze(1).expand(-1, num_feet) instead of desired_value.unsqueeze(1)
+
+NEGATIVE STANDARD DEVIATION ERRORS ("normal expects all elements of std >= 0.0"):
+- Caused by negative values propagating to actor network
+- FIX: Apply torch.clamp(reward_component, min=0.0) to ALL reward terms
+- Check contact sensor times which can be negative during initialization
+
+RUNTIME TENSOR SHAPE ERRORS:
+- Caused by sensor data dimensions not matching expected robot batch size
+- FIX: Validate tensor shapes before operations, use proper indexing for foot_ids and joint_ids
+
+DIVISION BY ZERO ERRORS:
+- Caused by dividing by potentially zero values
+- FIX: Use torch.clamp(denominator, min=1e-6) before division operations
+
+ENVIRONMENTAL SENSING DECISION ERRORS:
+- Caused by dismissing sensor data in favor of visual analysis  
+- SYMPTOMS: "sensors detect gaps/obstacles but visual shows flat terrain"
+- FIX: Always prioritize quantitative sensor measurements over visual interpretation
+- RULE: If sensors detect >5 gaps OR >10 obstacles OR >2cm roughness → include environmental components
+
+Apply these fixes systematically to prevent future runtime crashes.

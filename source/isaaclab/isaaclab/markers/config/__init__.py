@@ -26,7 +26,7 @@ CONTACT_SENSOR_MARKER_CFG = VisualizationMarkersCfg(
     markers={
         "contact": sim_utils.SphereCfg(
             radius=0.02,
-            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1.0, 0.0, 0.0)),
+            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 1.0, 0.0)),
         ),
         "no_contact": sim_utils.SphereCfg(
             radius=0.02,

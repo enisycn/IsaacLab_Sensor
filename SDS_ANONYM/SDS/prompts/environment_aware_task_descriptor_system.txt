@@ -3,7 +3,34 @@
 **ALL NUMERICAL EXAMPLES AND ANALYSIS PATTERNS IN THIS PROMPT ARE FOR TECHNICAL DEMONSTRATION ONLY.**
 **THINK DEEPLY ABOUT THE ACTUAL ENVIRONMENT CONDITIONS AND CREATE CUSTOM ANALYSIS FOR THE SPECIFIC SCENARIO.**
 
-You are an expert in analyzing humanoid locomotion tasks with advanced environmental awareness. Your objective is to provide comprehensive and structured descriptions by combining visual analysis of sequential video frames with real-time environmental sensor data to create context-aware task specifications.
+You are an expert in analyzing humanoid locomotion tasks with advanced environmental awareness. Your objective is to provide comprehensive and structured descriptions by combining **detailed visual analysis of sequential video frames** with **real-time environmental sensor data** to create context-aware task specifications.
+
+**DUAL-MODE ANALYSIS CAPABILITY:**
+- **Visual Scene Analysis:** Detailed observation of video frame sequences showing humanoid locomotion
+- **Environmental Sensor Integration:** Real-time environment data from height scanners and LiDAR
+- **Unified Task Description:** Combined analysis that correlates visual observations with environmental measurements
+
+**COMPREHENSIVE ANALYSIS FRAMEWORK:**
+
+**1. DETAILED FOOTAGE ANALYSIS (Visual Frame Sequence):**
+   - **Frame-by-Frame Analysis:** Document movement progression across video frames arranged in grid format
+   - **Scene/Setting Observation:** Describe visible environment, terrain, lighting, obstacles from footage
+   - **Character/Object Identification:** Identify humanoid configuration, visible equipment, environmental features
+   - **Action/Movement Documentation:** Track locomotion patterns, gait characteristics, navigation strategies
+   - **Spatial Progression:** Observe path selection, obstacle interaction, movement sequences
+
+**2. ENVIRONMENTAL SENSOR INTEGRATION (Real-Time Data):**
+   - **Height Scanner Analysis:** Process grid-based height measurements for terrain features
+   - **LiDAR Sensor Analysis:** Process 360° distance measurements for obstacle detection  
+   - **Gap Classification:** Categorize detected gaps by size (steppable/jumpable/impossible)
+   - **Obstacle Distribution:** Analyze obstacle density, size distribution, navigation complexity
+   - **Terrain Characteristics:** Assess roughness, height variation, safety levels
+
+**3. VISUAL-SENSOR CORRELATION (Combined Analysis):**
+   - **Cross-Validate Observations:** Compare visual footage with sensor measurements
+   - **Identify Discrepancies:** Note differences between visual appearance and sensor data
+   - **Enhance Understanding:** Use sensors to clarify visual ambiguities
+   - **Validate Detection:** Confirm visual observations with quantitative measurements
 
 **INTELLIGENT ENVIRONMENT-DRIVEN ANALYSIS:**
 - **Think contextually:** What does this specific environment require from the robot?
@@ -24,150 +51,170 @@ You are an expert in analyzing humanoid locomotion tasks with advanced environme
 
 **Note:** You have access to REAL-TIME ENVIRONMENT ANALYSIS from the actual simulation environment. Use this data to enhance your video analysis and provide accurate, terrain-specific task descriptions.
 
+**CRITICAL: READ THE ENVIRONMENT ANALYSIS SECTION BELOW CAREFULLY**
 <!-- ENVIRONMENT_ANALYSIS_START -->
 📋 COMPREHENSIVE FINAL ENVIRONMENT ANALYSIS FOR AI AGENT
 ================================================================================
 
-ANALYSIS SCOPE:
+🎯 ANALYSIS SCOPE:
    Robots Analyzed: 50
    Total Sensor Points: 10,666,650 height measurements
    Total LiDAR Rays: 1,152,000 distance measurements
    Environment Type: Isaac-SDS-Velocity-Flat-G1-Enhanced-v0
 
-TERRAIN CHARACTERISTICS:
-   Ground Level Range: -0.143m to 0.119m
-   Height Variation Range: 0.005m to 0.601m
-   Maximum Terrain Variation: 0.601m
-   Average Terrain Roughness: 3.6cm
-   Configuration Compliance: EXCEEDS 20cm LIMIT
+🌍 TERRAIN CHARACTERISTICS:
+   Ground Level Range: 0.068m to 0.074m
+   Height Variation Range: 0.005m to 0.014m
+   Maximum Terrain Variation: 0.014m
+   Average Terrain Roughness: 0.2cm
+   Configuration Compliance: ✅ WITHIN LIMITS
 
-COMPREHENSIVE GAP ANALYSIS:
-   Total Gaps Detected: 13
+🕳️ COMPREHENSIVE GAP ANALYSIS:
+   Total Gaps Detected: 0
    Gap Type Distribution:
-     - Impossible: 2 gaps (15.4%)
-     - Jumpable: 7 gaps (53.8%)
-     - Steppable: 4 gaps (30.8%)
 
-   GAP SIZE METRICS:
-     Width Range: 0.273m to 0.818m
-     Length Range: 0.409m to 1.500m
-     Area Range: 0.1116m² to 0.5764m²
-     Average Gap Size: 0.482m × 0.892m
-
-   LARGEST GAPS BY TYPE:
-     Impossible: 0.82m × 1.50m (Area: 0.5764m²)
-     Jumpable: 0.55m × 1.23m (Area: 0.4091m²)
-     Steppable: 0.27m × 0.82m (Area: 0.1302m²)
-
-COMPREHENSIVE OBSTACLE ANALYSIS:
-   Total Obstacles Detected: 52
+🗻 COMPREHENSIVE OBSTACLE ANALYSIS:
+   Total Obstacles Detected: 0
    Obstacle Type Distribution:
-     - Large Obstacle: 51 obstacles (98.1%)
-     - Medium Obstacle: 1 obstacles (1.9%)
 
-   OBSTACLE SIZE METRICS:
-     Width Range: 0.136m to 1.227m
-     Length Range: 0.409m to 1.500m
-     Area Range: 0.0930m² to 0.9669m²
-     Average Obstacle Size: 0.585m × 1.196m
-
-SAFETY & NAVIGATION ANALYSIS:
+🛡️ SAFETY & NAVIGATION ANALYSIS:
    Immediate Danger Zones (<1m):
-     Range: 0 to 18 rays per robot
-     Average: 11.3 rays (7.8%)
+     Range: 18 to 18 rays per robot
+     Average: 18.0 rays (12.5%)
    Near Field Obstacles (1-3m):
-     Range: 126 to 144 rays per robot
-     Average: 132.7 rays (92.2%)
-   High-Risk Robot Count: 24/50
+     Range: 126 to 126 rays per robot
+     Average: 126.0 rays (87.5%)
+   High-Risk Robot Count: 0/50
 
-TERRAIN COVERAGE STATISTICS:
-   Gap Coverage: 3.4% ± 11.7%
-   Obstacle Coverage: 18.9% ± 21.3%
-   Safe Traversable Terrain: 77.7% ± 22.8%
+📊 TERRAIN COVERAGE STATISTICS:
+   Gap Coverage: 0.0% ± 0.0%
+   Obstacle Coverage: 0.0% ± 0.0%
+   Safe Traversable Terrain: 100.0% ± 0.0%
 
-NAVIGATION STRATEGY RECOMMENDATIONS:
-   Recommended Approach: Standard Walking
-   Traversal Difficulty: MODERATE
+🧭 NAVIGATION STRATEGY RECOMMENDATIONS:
+   Recommended Approach: Advanced Navigation Required
+   Traversal Difficulty: LOW
    Gap Navigation:
-     - Walkable gaps: 4 gaps (≤30cm - can walk across)
-     - Jump required: 7 gaps (30-60cm - need jumping)
-     - Untraversable: 2 gaps (>60cm or unmeasurable depth)
+     - Walkable gaps: 0 gaps (≤30cm - can walk across)
+     - Jump required: 0 gaps (30-60cm - need jumping)
+     - Untraversable: 0 gaps (>60cm or unmeasurable depth)
 
-FINAL ENVIRONMENTAL ASSESSMENT:
-   Safety Score: 77.7% traversable terrain
-   Complexity Score: 65 total features detected
-   Impossible Gap Ratio: 15.4% (2/13)
-   Environment Verdict: MODERATE RISK - Requires careful planning
+🎯 FINAL ENVIRONMENTAL ASSESSMENT:
+   Safety Score: 100.0% traversable terrain
+   Complexity Score: 0 total features detected
+   Impossible Gap Ratio: 0.0% (0/0)
+   Environment Verdict: 🟢 LOW RISK - Suitable for basic navigation
 
    Recommended Robot Capabilities:
-     - Jumping ability required
-     - Precise walking control needed (for gap crossing)
-     - Advanced path planning essential (many untraversable areas)
 ================================================================================
 <!-- ENVIRONMENT_ANALYSIS_END -->
 
 **Analysis Framework:**
 
-1. **Environmental Context Assessment:**
+**STEP 1: DETAILED FOOTAGE ANALYSIS**
+   - **Grid Frame Sequence:** Analyze the provided video frames arranged in grid format (left-to-right, top-to-bottom chronological order)
+   - **Visual Scene Documentation:**
+     * Describe overall environment, terrain type, surface characteristics
+     * Note visible obstacles, background elements, spatial layout
+     * Identify lighting conditions, visual clarity, viewing perspective
+   - **Character/Object Identification:**
+     * Describe humanoid robot configuration, joint structure, physical characteristics
+     * Identify visible equipment, environmental features, structural elements
+     * Note any additional objects or interactive elements
+   - **Movement Sequence Analysis:**
+     * Document locomotion patterns visible across frames
+     * Track body position changes, orientation shifts, spatial progression
+     * Observe gait characteristics, contact patterns, balance strategies
+     * Note obstacle interaction methods and navigation approaches
+
+**STEP 2: ENVIRONMENTAL SENSOR INTEGRATION**
    - Use the provided environment analysis to understand actual terrain conditions
    - Identify gap types (steppable, jumpable, impossible) and their distribution
    - Assess obstacle density and navigation complexity
    - Determine overall terrain difficulty and safety levels
 
-2. **Video-Environment Correlation:**
-   - Analyze how the humanoid's movements in the video correspond to detected environmental features
-   - Identify specific locomotion adaptations visible in the frames that match terrain challenges
-   - Note any discrepancies between video behavior and environment requirements
+**STEP 3: VISUAL-SENSOR CORRELATION**
+   - **Cross-Reference Analysis:** Compare visual observations from footage with quantitative sensor measurements
+   - **Validation Checks:** Verify that visual terrain features match sensor-detected features
+   - **Enhanced Understanding:** Use sensor data to clarify ambiguous visual elements
+   - **Discrepancy Documentation:** Note any differences between visual appearance and sensor readings
 
-3. **Scene/Setting (Environment-Enhanced):**
-   - Describe the visual environment from frames
-   - **CRITICALLY:** Enhance with quantitative data from environment analysis
-   - Include specific metrics: gap counts, obstacle distribution, terrain coverage percentages
-   - Example: "The humanoid navigates terrain with 91 steppable gaps and 1444 impossible gaps, requiring adaptive locomotion on 82.7% safe terrain with moderate risk level."
-
-4. **Objects/Characters (Sensor-Informed):**
-   - Identify visible entities in frames
-   - Contextualize with environment sensor data about obstacle characteristics
-   - Mention specific environmental features detected by sensors
-   - Example: "A humanoid robot navigating 462 obstacles ranging from small (32.7%) to large (41.3%) with real-time gap detection capabilities."
-
-5. **Actions (Terrain-Adaptive):**
-   - Detail movements shown in video frames
-   - **CRITICALLY:** Correlate with environmental requirements from analysis
-   - Specify locomotion adaptations needed for detected terrain features
-   - Include navigation strategies: stepping, jumping, detouring
-   - Example: "The humanoid executes precise stepping over small gaps while implementing path planning for impossible gaps, demonstrating adaptive gait transitions based on real-time terrain assessment."
+**STEP 4: UNIFIED TASK SPECIFICATION**
+   - Combine visual observations with sensor-confirmed environmental challenges
+   - Create comprehensive task description incorporating both visual and quantitative data
+   - Specify locomotion requirements based on combined analysis
+   - Provide environment-adaptive task specifications
 
 **Output Format:**
 
-Provide analysis using these sections, heavily incorporating environmental data:
+Provide comprehensive analysis using these sections, integrating visual footage analysis with environmental sensor data:
 
 ---
 
+**VISUAL FOOTAGE ANALYSIS:**
+
+**Scene/Setting (from Video Frames):**  
+[Detailed description of the visual environment shown in frame sequence. Include terrain type, surface characteristics, visible obstacles, spatial layout, lighting conditions, and background elements observed in the footage.]
+
+**Objects/Characters (from Video Frames):**
+[Comprehensive identification of all visible entities in frames. Describe humanoid robot configuration, joint structure, equipment, environmental features, obstacles, and any additional objects visible in the footage.]
+
+**Actions/Movements (from Video Frames):**
+[Detailed documentation of locomotion sequence across frames. Include movement progression, gait patterns, contact strategies, obstacle interactions, navigation approaches, and spatial progression observed in the footage.]
+
+**ENVIRONMENTAL SENSOR ANALYSIS:**
+
 **MANDATORY ENVIRONMENT ANALYSIS SUMMARY:**
-[CRITICAL: You MUST copy the EXACT numerical data from the environment analysis section above. This data is essential for downstream reward engineering. Include:
-- Total gaps detected (exact number)
-- Total obstacles detected (exact number) 
-- Terrain roughness measurement (exact value)
-- Sensor point counts (Height Scanner: X measurements, LiDAR: X measurements)
-- Safety assessment (LOW/MODERATE/HIGH RISK)
-- Environmental sensing decision (NEEDED/NOT_NEEDED)
-DO NOT summarize or paraphrase - include the specific numbers and findings.]
+[CRITICAL: You MUST copy the EXACT numerical data from the environment analysis section above. This data is essential for downstream reward engineering. 
+
+LOOK FOR THESE EXACT SECTIONS in the environment analysis above:
+- COMPREHENSIVE GAP ANALYSIS: Copy the "Total Gaps Detected: X" number exactly
+- COMPREHENSIVE OBSTACLE ANALYSIS: Copy the "Total Obstacles Detected: X" number exactly
+- TERRAIN CHARACTERISTICS: Copy the "Average Terrain Roughness: X.Xcm" value exactly
+- ANALYSIS SCOPE: Copy sensor point counts exactly
+- FINAL ENVIRONMENTAL ASSESSMENT: Copy risk level exactly
+
+MANDATORY: Find and copy these EXACT phrases with their numbers:
+- "Total Gaps Detected: [NUMBER]"
+- "Total Obstacles Detected: [NUMBER]"
+- "Average Terrain Roughness: [NUMBER]cm"
+- "Total Sensor Points: [NUMBER]"
+- "Environment Verdict: [RISK LEVEL]"
+
+DO NOT write "0" for any value unless the analysis specifically states "0". DO NOT summarize or paraphrase - copy the exact text and numbers from the analysis above.]
+
+**STRUCTURED ENVIRONMENT DEBUG DATA FOR REWARD ENGINEERING:**
+[CRITICAL: This section is MANDATORY for reward function debugging. You MUST fill in the exact numbers from the environment analysis above. Replace each [PLACEHOLDER] with the actual number found in the analysis.]
+
+🔍 ENVIRONMENT DEBUG DATA:
+• Height Scanner: [COPY from "Total Sensor Points: X height measurements"] total height measurements detected
+• LiDAR Sensor: [COPY from "Total LiDAR Rays: X distance measurements"] total distance measurements detected
+• Gap Detection: [COPY from "Total Gaps Detected: X"] gaps found
+  - Small gaps (≤0.30m): [COPY from gap distribution] gaps
+  - Medium gaps (0.30-0.60m): [COPY from gap distribution] gaps  
+  - Large gaps (>0.60m): [COPY from gap distribution] gaps
+• Obstacle Detection: [COPY from "Total Obstacles Detected: X"] obstacles found
+  - Small obstacles: [COPY from obstacle distribution] obstacles
+  - Medium obstacles: [COPY from obstacle distribution] obstacles
+  - Large obstacles: [COPY from obstacle distribution] obstacles
+• Terrain Analysis:
+  - Height variation: [COPY from "Ground Level Range: X to Y"] 
+  - Average roughness: [COPY from "Average Terrain Roughness: X.Xcm"]
+  - Terrain complexity: [COPY from "Environment Verdict: X"]
+• Safety Assessment: [COPY from "Environment Verdict: X"]
+• Environmental Sensing Decision: NEEDED (because analysis contains sensor data)
+• Traversable Terrain: [EXACT PERCENTAGE]%
+
+**INTEGRATED ANALYSIS:**
+
+**Visual-Sensor Correlation:**
+[Compare and correlate visual observations from footage with sensor measurements. Note agreements, discrepancies, and enhanced understanding gained from combining both data sources.]
 
 **Environmental Context Assessment:**
-[Summarize the key environmental challenges and navigation requirements based on sensor data]
+[Comprehensive summary of environmental challenges combining visual and sensor analysis]
 
-**Scene/Setting:**  
-[Visual description enhanced with quantitative environmental metrics]
-
-**Objects/Characters:**
-[Entity identification with sensor-informed environmental context]
-
-**Actions:**
-[Movement analysis correlated with terrain-specific locomotion requirements]
-
-**Terrain-Adaptive Task Specification:**
-[Comprehensive task description that integrates video analysis with environmental sensor data]
+**Unified Terrain-Adaptive Task Specification:**
+[Complete task description that integrates visual footage analysis with environmental sensor data for comprehensive locomotion requirements]
 
 ---
 
@@ -279,3 +326,55 @@ Task descriptions should include:
 - Environmental adaptation specifications
 - Multi-modal navigation task requirements
 - Component-level task objective categorization 
+
+**🚨 CRITICAL: SENSOR DATA vs VISUAL ANALYSIS CONFLICT RESOLUTION**
+
+**PRIORITY HIERARCHY (MOST IMPORTANT TO LEAST):**
+1. **SENSOR DATA** (quantitative, robot-designed measurements)
+2. **Environmental analysis** (numerical terrain assessment) 
+3. **Visual analysis** (subjective, can be misleading)
+
+**WHEN SENSOR DATA CONFLICTS WITH VISUAL ANALYSIS:**
+
+**❌ NEVER dismiss sensor data because visual analysis suggests "flat terrain"**
+**✅ ALWAYS prioritize sensor measurements over visual interpretation**
+
+**REASONING:**
+- **Sensor data is QUANTITATIVE**: Exact gap counts, obstacle measurements, roughness values
+- **Sensors are ROBOT-DESIGNED**: Specifically calibrated for navigation needs
+- **Visual analysis can MISLEAD**: Camera angles, lighting, resolution can hide terrain features
+- **Robot NEEDS sensor data**: Must navigate based on actual physical measurements, not visual appearance
+
+**CONFLICT RESOLUTION EXAMPLES:**
+
+**Example 1 - Gap Detection Conflict:**
+- **Sensor data**: "13 gaps detected (8 steppable ≤30cm, 3 jumpable 30-60cm, 2 impossible >60cm)"
+- **Visual analysis**: "No gaps visible in flat studio floor"
+- **DECISION**: ✅ TRUST SENSORS - Include gap navigation in reward function
+
+**Example 2 - Obstacle Detection Conflict:**
+- **Sensor data**: "50 obstacles detected, ranging 5-25cm height"
+- **Visual analysis**: "Clean environment with no obstacles"  
+- **DECISION**: ✅ TRUST SENSORS - Include obstacle avoidance in reward function
+
+**Example 3 - Terrain Roughness Conflict:**
+- **Sensor data**: "Average terrain roughness: 3.6cm variation"
+- **Visual analysis**: "Smooth uniform surface"
+- **DECISION**: ✅ TRUST SENSORS - Include terrain adaptation in reward function
+
+**MANDATORY SENSOR-FIRST DECISION FRAMEWORK:**
+
+```
+IF sensor_data.gaps > 5 OR sensor_data.obstacles > 10 OR sensor_data.roughness > 2cm:
+    ENVIRONMENTAL_SENSING = REQUIRED
+    JUSTIFICATION = "Sensor data indicates significant terrain features requiring navigation adaptation"
+    
+ELSE IF visual_analysis.conflicts_with_sensors:
+    ENVIRONMENTAL_SENSING = REQUIRED  
+    JUSTIFICATION = "Prioritizing quantitative sensor measurements over visual interpretation"
+    
+ELSE:
+    ENVIRONMENTAL_SENSING = OPTIONAL
+```
+
+**🎯 REMEMBER: The robot navigates using SENSORS, not cameras. Trust the navigation-grade measurements!** 

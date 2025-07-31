@@ -29,7 +29,7 @@ from isaaclab_tasks.manager_based.sds.velocity import mdp
 from .rough_env_cfg import SDSG1RoughEnvCfg, SIMPLE_LEARNING_TERRAIN_CFG  # Import the same terrain!
 
 # 🎯 TERRAIN COMPLEXITY TOGGLE: Change this ONE line to switch terrain types
-USE_COMPLEX_TERRAIN = True  # Set to False for simple terrain, True for complex height variations
+USE_COMPLEX_TERRAIN = False  # Set to False for simple terrain, True for complex height variations
 
 # 🏔️ COMPLEX TERRAIN: Box-shaped height variations for environmental sensing testing
 COMPLEX_BOX_TERRAIN_CFG = TerrainGeneratorCfg(
@@ -122,16 +122,14 @@ class SDSG1FlatWithBoxEnvCfg(SDSG1RoughEnvCfg):
             self.scene.terrain.terrain_generator = SIMPLE_LEARNING_TERRAIN_CFG
             print("🏞️ TERRAIN MODE: SIMPLE flat terrain with gentle bumps")
         
-        # ✅ FIX WEIRD ARM POSITIONS: Natural walking pose for enhanced environment
-        # Override the default arm positions to be more natural for walking
-        # FIXED: Use EXACT same naming convention as original G1 config
+        # Simple arm positions for natural walking
         self.scene.robot.init_state.joint_pos.update({
-            # NATURAL ARM POSITIONS for walking (match original naming convention)
-            "left_shoulder_pitch_joint": 0.0,    # ✅ Specific name (was 0.35 forward)
-            "right_shoulder_pitch_joint": 0.0,   # ✅ Specific name (was 0.35 forward)
-            "left_shoulder_roll_joint": 0.0,     # ✅ Specific name (was 0.16 out)
-            "right_shoulder_roll_joint": 0.0,    # ✅ Specific name (was -0.16 out)  
-            ".*_elbow_pitch_joint": 0.2,         # ✅ Pattern (was 0.87 too bent)
+            # Arms - simple positions
+            "left_shoulder_pitch_joint": 0.0,    
+            "right_shoulder_pitch_joint": 0.0,   
+            "left_shoulder_roll_joint": 0.0,     
+            "right_shoulder_roll_joint": 0.0,    
+            ".*_elbow_pitch_joint": 0.2,         
         })
 
         # Multiple environments for parallel training
@@ -171,6 +169,15 @@ class SDSG1FlatWithBoxEnvCfg(SDSG1RoughEnvCfg):
             max_distance=5.0,  # 5m range
             update_period=0.02,  # 50Hz updates
         )
+
+        # 3. CONTACT FORCES VISUALIZATION - For foot contact analysis
+        # ✅ ENABLE: Contact visualization on existing contact_forces sensor (inherited from base config)
+        # This shows REAL contact forces as visual markers where robot feet actually touch the ground
+        if hasattr(self.scene, 'contact_forces') and self.scene.contact_forces is not None:
+            self.scene.contact_forces.debug_vis = True  # ✅ ENABLE: Visual markers at contact points
+            print("🎯 CONTACT VISUALIZATION ENABLED: Real contact forces will be shown as visual markers")
+        else:
+            print("⚠️ WARNING: contact_forces sensor not found in base configuration")
 
         # === ENVIRONMENTAL OBSERVATIONS (PROPERLY NORMALIZED) ===
         
@@ -217,6 +224,11 @@ class SDSG1FlatWithBoxEnvCfg_PLAY(SDSG1FlatWithBoxEnvCfg):
         # ✅ ENSURE: Sensor visualization is enabled for play mode
         self.scene.height_scanner.debug_vis = True
         self.scene.lidar.debug_vis = True
+        
+        # ✅ ENABLE: Contact forces visualization for play mode
+        if hasattr(self.scene, 'contact_forces') and self.scene.contact_forces is not None:
+            self.scene.contact_forces.debug_vis = True
+            print("🎯 PLAY MODE: Contact visualization enabled - see real foot contact forces!")
         
         # disable randomization for play
         self.observations.policy.enable_corruption = False 

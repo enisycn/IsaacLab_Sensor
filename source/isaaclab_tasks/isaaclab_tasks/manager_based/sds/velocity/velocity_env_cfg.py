@@ -113,9 +113,9 @@ class CommandsCfg:
         heading_control_stiffness=0.5,
         debug_vis=True,   # Enable BLUE velocity arrows
         ranges=mdp.UniformVelocityCommandCfg.Ranges(
-            lin_vel_x=(-0.1, 0.4),    # Allow backward movement + forward velocity for stable learning
-            lin_vel_y=(-0.15, 0.15),  # Increased lateral movement range
-            ang_vel_z=(-0.3, 0.3),    # Increased turning range for better maneuverability
+            lin_vel_x=(0.2, 0.6),        # Forward-only movement (no backward)
+            lin_vel_y=(-0.15, 0.15),     # Increased lateral movement range
+            ang_vel_z=(-0.3, 0.3),       # Increased turning range for better maneuverability
             heading=(-math.pi, math.pi)
         ),
     )
@@ -126,16 +126,16 @@ class ActionsCfg:
     """Action specifications for the MDP."""
 
     # FULL BODY CONTROL: All joints except hand fingers (23 DOF) - complete humanoid control
-    # Includes legs, torso, and arms for comprehensive humanoid locomotion and manipulation
+    # Includes legs, torso, and arms for humanoid locomotion
     joint_pos = mdp.JointPositionActionCfg(
         asset_name="robot", 
-        joint_names=[
-            # LEGS (12 DOF) - for locomotion and balance
-            ".*_hip_yaw_joint", ".*_hip_roll_joint", ".*_hip_pitch_joint", 
+        joint_names = [
+            # LEGS (12 DOF) - Primary locomotion joints
+            ".*_hip_yaw_joint", ".*_hip_roll_joint", ".*_hip_pitch_joint",
             ".*_knee_joint", ".*_ankle_pitch_joint", ".*_ankle_roll_joint",
-            # TORSO (1 DOF) - for upper body posture
+            # TORSO (1 DOF) - Body stability
             "torso_joint",
-            # ARMS (10 DOF) - for balance and natural movement
+            # ARMS (10 DOF) - Simple arm movement
             ".*_shoulder_pitch_joint", ".*_shoulder_roll_joint", ".*_shoulder_yaw_joint",
             ".*_elbow_pitch_joint", ".*_elbow_roll_joint"
         ], 
@@ -172,7 +172,7 @@ class ObservationsCfg:
                 ".*_ankle_pitch_joint", ".*_ankle_roll_joint", 
                 # TORSO (1 DOF) - Upper body posture control
                 "torso_joint",
-                # ARMS (10 DOF) - Shoulder and elbow joints for balance and natural movement
+                # ARMS (10 DOF) - Simple arm movement
                 ".*_shoulder_pitch_joint", ".*_shoulder_roll_joint", ".*_shoulder_yaw_joint",
                 ".*_elbow_pitch_joint", ".*_elbow_roll_joint"
                 # NOTE: Hand finger joints explicitly excluded (.*_zero_joint, .*_one_joint, etc.)
@@ -188,7 +188,7 @@ class ObservationsCfg:
                 ".*_ankle_pitch_joint", ".*_ankle_roll_joint", 
                 # TORSO (1 DOF) - Upper body posture control
                 "torso_joint",
-                # ARMS (10 DOF) - Shoulder and elbow joints for balance and natural movement
+                # ARMS (10 DOF) - Simple arm movement
                 ".*_shoulder_pitch_joint", ".*_shoulder_roll_joint", ".*_shoulder_yaw_joint",
                 ".*_elbow_pitch_joint", ".*_elbow_roll_joint"
                 # NOTE: Hand finger joints explicitly excluded (.*_zero_joint, .*_one_joint, etc.)

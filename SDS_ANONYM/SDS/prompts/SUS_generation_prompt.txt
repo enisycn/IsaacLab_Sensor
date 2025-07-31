@@ -14,6 +14,27 @@ You are an expert in humanoid robotics and task specification generation. Your o
 
 **CRITICAL: DO NOT SUMMARIZE, PARAPHRASE, OR OMIT ANY NUMERICAL VALUES**
 
+**🚨 SENSOR DATA PRIORITY RULE**
+
+**WHEN TASK DESCRIPTION CONTAINS CONFLICTING INFORMATION:**
+
+**SENSOR DATA vs VISUAL ANALYSIS CONFLICTS:**
+- If sensor data shows "X gaps detected, Y obstacles detected, Z terrain roughness"
+- But visual analysis suggests "flat, featureless environment"
+- **ALWAYS PRESERVE AND PRIORITIZE THE SENSOR DATA**
+
+**REASONING:**
+- Sensor data is QUANTITATIVE and designed for robot navigation
+- Visual analysis can be misleading due to camera angles, lighting, resolution
+- Robot navigation systems rely on sensor measurements, not visual appearance
+- Environmental features may be visible to sensors but not obvious in images
+
+**MANDATORY PRESERVATION:**
+- Extract and preserve ALL sensor measurements EXACTLY as provided
+- Include sensor-based terrain complexity assessments
+- Preserve gap/obstacle classifications and counts
+- Note any sensor-visual conflicts but prioritize sensor data for navigation planning
+
 **Inputs Provided:**
 
 1. **Task Description:**

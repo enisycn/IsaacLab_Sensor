@@ -265,6 +265,8 @@ gait_reward *= (command_magnitude > 0.1).float()  # Only reward when actually mo
 - **Isaac Lab optimized**: Uses proven sensor patterns that work reliably
 
 **2. YAW-ALIGNED VELOCITY TRACKING (PROVEN SUPERIOR TO BODY FRAME):**
+
+**🚨 JUMP TASK REQUIREMENT: Always include forward velocity tracking for jump tasks, regardless of terrain type!**
 ```python
 # 🎯 PROVEN: Isaac Lab's yaw-frame tracking - VASTLY superior to basic body frame
 # CRITICAL: Decouples velocity control from robot tilt/lean (prevents control coupling)

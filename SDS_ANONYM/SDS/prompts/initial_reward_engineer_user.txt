@@ -31,6 +31,127 @@ Enable comparison studies demonstrating:
 ❌ Sensors provide only minor bonuses without changing core behavior
 ❌ Conflicting reward objectives that confuse the policy
 
+**🚨 CRITICAL OUTPUT REQUIREMENT: ALWAYS GENERATE PYTHON CODE! 🚨**
+
+**YOUR RESPONSE MUST BE A COMPLETE PYTHON FUNCTION:**
+```python
+def sds_custom_reward(env) -> torch.Tensor:
+    """
+    [Include any image/video analysis here in docstring if provided]
+    ENVIRONMENTAL ANALYSIS DECISION: ...
+    REWARD STRATEGY: ...
+    """
+    # Implementation here
+    return reward
+```
+
+**NEVER respond with standalone text analysis - ALWAYS generate the reward function!**
+
+---
+
+**🚨 CRITICAL: DENSE LEARNING PROGRESSION REQUIREMENT 🚨**
+
+**THE #1 CAUSE OF RL FAILURE: SPARSE REWARD DEATH TRAPS**
+
+**SPARSE REWARD PROBLEM:**
+Most reward functions fail because they only reward FINAL SUCCESS without rewarding the LEARNING STEPS that lead to success. The robot gets zero reward until it achieves perfect behavior, so it never learns how to improve.
+
+**❌ SPARSE REWARD EXAMPLES (CAUSES LEARNING FAILURE):**
+```python
+# WRONG: Only rewards perfect flight time - robot never learns HOW to get airborne
+flight_reward = torch.exp(-((flight_time - 0.125) / 0.05) ** 2)  # Zero until perfect
+
+# WRONG: Only rewards perfect walking gait - robot never learns HOW to walk  
+gait_reward = perfect_alternating_pattern()  # Zero until mastery
+
+# WRONG: Only rewards final achievement - no learning guidance
+success_reward = torch.where(task_completed, 1.0, 0.0)  # Binary success/failure
+```
+
+**✅ DENSE REWARD EXAMPLES (ENABLES LEARNING):**
+```python
+# CORRECT: Rewards movement attempts → directional progress → achievement
+upward_effort = torch.clamp(robot.data.root_lin_vel_w[:, 2] / 2.0, 0.0, 1.0) * 1.5  # Try to move up
+height_gain = torch.clamp((current_height - baseline) / 0.3, 0.0, 1.0) * 2.0        # Achieve height
+flight_bonus = torch.where(air_time > 0.1, 0.5, 0.0)                                # Perfect flight (bonus)
+
+# CORRECT: Rewards foot lifting → forward progress → rhythm development
+foot_clearance = encourage_swing_phase_lifting() * 1.0    # Learn to lift feet
+forward_progress = reward_forward_velocity() * 1.5       # Learn direction
+step_rhythm = reward_alternating_steps() * 1.0           # Learn coordination (bonus)
+```
+
+**📈 SIMPLE LEARNING PROGRESSION 📈**
+
+**Every skill should progress naturally:**
+
+**1. FOUNDATION:** Basic movement attempts (primary weight)
+   - Reward trying to move in the intended direction
+   - Use simple torch.clamp for movement velocities
+
+**2. BUILDING:** Progress toward goal (secondary weight)  
+   - Reward achieving partial objectives
+   - Use simple torch.where for milestone bonuses
+
+**3. REFINEMENT:** Coordination and perfection (bonus weight)
+   - Reward timing and coordination (as bonus only)
+   - Use existing Isaac Lab sensors cleverly
+
+**Simple Pattern:**
+```python
+# Foundation: Basic movement (primary)
+basic_movement = torch.clamp(movement_velocity / target, 0.0, 1.0)
+
+# Building: Progress milestones (secondary)
+progress = torch.clamp(achievement / goal, 0.0, 1.0)  
+
+# Refinement: Coordination bonus (bonus only)
+coordination_bonus = torch.where(condition_met, 0.3, 0.0)
+
+# Always minimal baseline
+baseline = 0.05
+
+total = basic_movement * 2.0 + progress * 1.0 + coordination_bonus + baseline
+```
+
+**🏗️ SIMPLE DESIGN PRINCIPLES 🏗️**
+
+**Start simple, build gradually:**
+
+**1. Use Isaac Lab Components First:**
+- `robot.data.root_lin_vel_w` for movement
+- `contact_sensor.data.current_air_time` for foot lifting
+- `robot.data.projected_gravity_b` for stability
+
+**2. Basic Reward Pattern:**
+- Primary: Movement attempts (torch.clamp)
+- Secondary: Progress milestones (torch.clamp)  
+- Bonus: Coordination (torch.where)
+- Baseline: Minimal (0.05)
+
+**3. Keep Baseline Small:**
+- Robot should get minimal reward for doing nothing
+- Movement attempts should be the main reward source
+- Use 0.05 baseline, not 0.2
+
+**⚠️ SPARSE REWARD WARNING SIGNS ⚠️**
+
+**IF YOUR REWARD FUNCTION HAS THESE, IT WILL FAIL:**
+- Rewards only appear when robot is already successful
+- Most robots get zero reward for most of training
+- Reward requires perfect coordination before any feedback
+- No reward for partial progress or movement attempts
+- Complex mathematical conditions that are rarely satisfied
+
+**✅ DENSE REWARD SUCCESS SIGNS ✅**
+
+**GOOD REWARD FUNCTIONS HAVE THESE:**
+- Robot gets some reward for basic movement attempts
+- Reward increases smoothly as robot improves
+- Clear progression from simple to complex behaviors
+- Foundation skills are always rewarded throughout training
+- Robot can learn each skill component independently
+
 ---
 
 **🚨 MANDATORY FIRST STEP: INTERNAL ENVIRONMENT DATA ANALYSIS 🚨**
@@ -206,12 +327,57 @@ gap_navigation_reward = gap_detected.float() * reward_weight_from_analysis
 ```
 
 **ADVANCED GAP BEHAVIOR NOTE:**
-For comprehensive gap behavior implementation (stepping vs jumping vs avoidance), refer to the detailed behavioral strategies in the system prompt. Each gap size requires fundamentally different locomotion mechanics:
+**🕳️ CRITICAL: TASK-SPECIFIC GAP CROSSING BEHAVIOR REQUIREMENTS**
 
-**ADAPTIVE GAP BEHAVIOR STRATEGIES:**
-- **Small gaps**: Extended stride + precise placement + controlled speed
-- **Medium gaps**: Bilateral coordination + vertical motion + aerial phase
-- **Large gaps**: Turning + lateral movement + conservative approach
+For gaps terrain (TERRAIN_TYPE = 1), the robot learns **different policies** based on task command:
+
+**🚶 WHEN `task=walk` - STEPPING & AVOIDANCE POLICY:**
+- **Small gaps (≤40cm):** STEPPING using sensor-guided foot placement
+  * Controlled forward velocity (0.8-1.2 m/s)
+  * **Sensor-adaptive extended stride** to cross gap
+  * Height scanner detects gap edges and landing zones
+  * Maintain walking gait rhythm
+- **Large gaps (>40cm):** AVOIDANCE using path planning
+  * Reduce forward velocity for safety
+  * Use LiDAR to find alternative paths
+  * Lateral movement to go around gaps
+  * Conservative navigation strategies
+
+**🦘 WHEN `task=jump` - JUMPING & LANDING POLICY:**
+- **Any terrain (flat, gaps, obstacles):** FORWARD JUMPING with velocity tracking
+  * APPROACH: Build forward momentum (1.2-1.8 m/s)
+  * TAKEOFF: Forward velocity tracking + **sensor-adaptive vertical velocity** (1.5-2.5 m/s)
+  * FLIGHT: Maintain trajectory, use sensors when available
+  * LANDING: Controlled deceleration and impact absorption
+  * **CRITICAL: Jump task ALWAYS includes forward velocity tracking, even on flat terrain**
+
+**🔧 ADAPTIVE JUMPING HEIGHT:**
+- **Small jumps** (flat terrain): ~0.1m height - minimal energy, maintain forward momentum
+- **Medium jumps** (small gaps): ~0.3m height for detected small gaps
+- **Higher jumps** (large gaps): ~0.5m height for detected large gaps  
+- **Sensor-based**: Use height scanner gap detection to determine jump intensity
+- **Physics**: Calculate appropriate vertical velocities to achieve target heights
+
+**⚠️ CRITICAL: Prevent over-jumping on flat terrain - only minimal jumps needed!**
+
+**⚠️ CRITICAL: Ensure bilateral jumping coordination!**
+- **Both feet jumping**: Reward when BOTH feet are off ground simultaneously  
+- **No single-leg hopping**: Use minimum air time between feet to ensure bilateral participation
+- **Synchronized takeoff**: Reward coordinated movement of both legs
+
+**🔧 ADAPTIVE STEP SIZES FOR WALKING:**
+- **Normal steps** (flat terrain): Standard stride length (~0.6m)
+- **Extended steps** (small gaps): Stretch stride to cross gaps (0.6-1.0m)
+- **Careful steps** (obstacles): Shorter, precise steps (~0.4m) for navigation
+- **Sensor-based**: Use height scanner gap detection to determine stride length
+
+**⚠️ KEY DISTINCTION: Different task commands train different locomotion policies, not automatic behavior selection!**
+
+For comprehensive task-specific gap behavior implementation, refer to the detailed behavioral strategies in the system prompt. Each task command requires fundamentally different locomotion policies:
+
+**TASK-SPECIFIC GAP BEHAVIOR STRATEGIES:**
+- **task=walk**: Small gaps (≤40cm) → STEPPING with sensors; Large gaps (>40cm) → AVOIDANCE with path planning
+- **task=jump**: Any crossable gap (20-80cm) → FORWARD JUMPING with velocity tracking + controlled landing
 
 **KEY IMPLEMENTATION PRINCIPLES:**
 - **Real-time gap classification**: Use height sensor data to categorize gaps by size
@@ -672,155 +838,33 @@ You are tasked with creating the **MOST EFFECTIVE** reward function possible for
 
 **SPECIFIC WALKING GAIT CHALLENGES TO ADDRESS:**
 
-**For WALKING Tasks - "The Natural Human Walking Challenge":**
-- **Core Challenge:** Creating natural, energy-efficient bipedal locomotion with proper foot clearance and arm coordination
-- **Foot Clearance Issues:** Understanding why "draggy feet" occur and how to encourage proper swing phase foot lifting
-- **Arm Swing Problems:** Recognizing robotic arm patterns and promoting natural cross-pattern coordination
-- **Creative Opportunities:** How do you reward the effortless flow of natural human walking? Consider:
-  - Smooth heel-to-toe foot progression with adequate ground clearance
-  - Natural pendulum-like arm swing that opposes leg movement
-  - Energy-efficient momentum conservation between steps
-  - Rhythmic cadence that matches natural human walking patterns
-- **Innovation Ideas:** 
-  - Multi-phase foot clearance analysis (toe-off → peak clearance → heel contact)
-  - Cross-correlation between arm and leg movements for natural timing
-  - Momentum flow analysis to reward energy-efficient walking
-  - Gait symmetry metrics that account for natural bilateral coordination
-- **Mastery Metrics:** What distinguishes "natural human-like" walking from "functional robotic" walking?
-  - Smooth, controlled foot clearance without drag or excessive lift
-  - Reciprocal arm-leg timing that matches human biomechanics
-  - Energy efficiency that minimizes metabolic cost
-  - Stable, rhythmic gait patterns that adapt to speed changes
+**For WALKING Tasks - "Simple Isaac Lab Components":**
 
-**BIOMECHANICAL EDUCATION FOR REWARD DESIGN:**
+**Use what Isaac Lab already provides:**
+```python
+# 1. Forward movement (primary)
+forward_vel = robot.data.root_lin_vel_w[:, 0]  
+velocity_reward = torch.clamp(forward_vel / target_velocity, 0.0, 1.0)
 
-**Understanding Human Gait Phases:**
-- **Stance Phase (60%):** Weight-bearing phase with heel contact, foot flat, heel-off, toe-off
-- **Swing Phase (40%):** Non-weight-bearing phase with acceleration, mid-swing, deceleration
-- **Double Support:** Brief periods when both feet contact ground during transitions
-- **Phase Transitions:** Critical moments requiring smooth coordination between stance and swing
+# 2. Foot lifting (secondary) - like feet_air_time
+air_time = contact_sensor.data.current_air_time
+foot_clearance = torch.clamp(air_time.sum(dim=1) / 0.5, 0.0, 1.0)
 
-**Natural Coordination Patterns:**
-- **Alternating Support:** Weight shifts between legs in predictable rhythm
-- **Pendulum Mechanics:** Leg swing uses gravity and momentum for energy efficiency  
-- **Counter-rotation:** Arms and torso provide rotational balance for leg movements
-- **Temporal Coupling:** Natural frequency relationships between different body segments
+# 3. Upright posture (stability)
+gravity_proj = robot.data.projected_gravity_b[:, 2]  # Should be close to 1.0
+upright_reward = torch.clamp(gravity_proj, 0.0, 1.0)
 
-**Movement Quality Indicators:**
-- **Smoothness:** Gradual transitions without abrupt changes in velocity or direction
-- **Efficiency:** Achievement of locomotion goals with minimal energy expenditure
-- **Stability:** Maintained balance and controlled center of mass throughout gait cycle
-- **Naturalness:** Movement patterns that match human biomechanical principles
+# 4. Minimal baseline
+baseline = 0.05
 
-**TASK ANALYSIS AND ENVIRONMENT INSIGHTS:**
-{sus_string}
-
-The Isaac Lab environment structure is:
-
-{task_obs_code_string}
-
-You are working with Isaac Lab's Unitree G1 humanoid robot. Essential specifications:
-- Base body: "torso_link" (main chassis)
-- Foot bodies: "left_ankle_roll_link", "right_ankle_roll_link" (for contact detection)
-- Height: 0.74m, Mass: ~35kg
-- Contact threshold: Consider mass-scaled thresholds (e.g., 10% of robot weight)
-
-Essential Isaac Lab API access patterns:
-- Robot: `robot = env.scene["robot"]`
-- Contact: `contact_sensor = env.scene.sensors["contact_forces"]`
-- Commands: `commands = env.command_manager.get_command("base_velocity")`
-- Feet: `foot_ids, _ = contact_sensor.find_bodies(".*_ankle_roll_link")`
-
-The environment's ContactSensor named "contact_forces" was spawned with:
-```yaml
-ContactSensorCfg:
-  prim_path: "/World/envs/env_.*/Robot/.*_ankle_roll_link"
-  force_threshold: 50.0
-  track_air_time: True
+total = velocity_reward * 2.0 + foot_clearance * 1.0 + upright_reward * 0.5 + baseline
 ```
 
-It exposes:
-- data.net_forces_w: FloatTensor [num_envs, 2, 3] of foot-link forces
-- data.current_air_time / data.current_contact_time: FloatTensor [num_envs, 2] of timing
-
-**IMU Sensor Specification:**
-An IMU sensor named "imu" can be spawned via an ImuCfg:
-```yaml
-ImuCfg:
-  prim_path: "/World/envs/env_.*/Robot/torso_link"
-  update_period: 0.02  # 50 Hz
-  gravity_bias: [0.0, 0.0, 9.81]
-```
-
-**Exposed IMU fields** in `env.scene.sensors["imu"].data`:
-- `pos_w`, `quat_w`: World position/orientation [num_envs, 3/4]
-- `lin_vel_b`, `ang_vel_b`: Body-frame velocity [num_envs, 3]
-- `lin_acc_b`, `ang_acc_b`: Body-frame acceleration [num_envs, 3]
-
-**Backflip IMU Usage:**
-- Head-pitch angles: Extract from `quat_w` using quaternion-to-euler conversion
-- Yaw angular velocity: Use `ang_vel_b[:, 2]` (Z-axis in body frame)
-- Spatial awareness: Use `pos_w` and `quat_w` for rotation monitoring
-
-## **Video Analysis Framework**
-
-**Step 1: Identify Movement Characteristics and Natural Phases**
-- **Gait Type:** What locomotion pattern is demonstrated?
-- **Movement Phases:** What are the natural phases of this gait cycle?
-- **Phase Transitions:** How smoothly do phases flow into each other?
-- **Coordination:** Are legs working together (synchronized) or alternating?
-- **Contact Patterns:** When and how do feet contact the ground in each phase?
-- **Movement Quality:** Is motion smooth and natural or jerky and robotic?
-
-**Step 2: Identify Potential Problems with Phase Execution**
-Common humanoid locomotion issues to watch for:
-- **Phase Skipping:** Missing essential movement phases (e.g., no preparation phase)
-- **Harsh Transitions:** Abrupt changes between phases instead of smooth progressions
-- **Poor Phase Timing:** Inappropriate duration or sequence of movement phases
-- **Single-leg jumping:** Robot using one leg instead of bilateral coordination
-- **Jerky movements:** Rapid, unnatural motions that waste energy
-- **Poor timing:** Uncoordinated contact patterns that don't match human biomechanics
-- **Instability:** Excessive leaning, spinning, or falling tendencies
-
-**Step 3: Design Phase-Based Problem-Solving Approach**
-Ask yourself:
-- **What natural phases should this gait include?**
-- **How can I reward proper phase progression and smooth transitions?**
-- **What makes this movement natural and efficient in each phase?**
-- **What pathological patterns should be prevented in each phase?**
-- **How can I encourage bilateral coordination when needed?**
-- **What timing and rhythm characteristics are important for phase execution?**
-
-## **Biomechanical Problem-Solving Principles**
-
-**GAIT-SPECIFIC CREATIVE CHALLENGES:**
-
-Use these problem frameworks as **INSPIRATION** for deeper creative thinking about each gait type:
-
-**For JUMPING Tasks - "The Bilateral Symphony Challenge":**
-- **Core Challenge:** Creating perfectly coordinated bilateral takeoff with controlled landing
-- **Beyond Basic Solutions:** Consider momentum conservation laws, force symmetry, predictive landing mechanics
-- **Creative Opportunities:** How can you reward the "explosive grace" of perfect jumping? Think about energy efficiency, spatial accuracy, temporal precision
-- **Innovation Ideas:** Multi-scale symmetry (joint-level + force-level), preparatory tension measurement, landing impact prediction
-- **Mastery Metrics:** What distinguishes an "adequate" jump from a "beautiful" jump in terms of measurable biomechanics?
-
-**Advanced Jump Reward Design Considerations:**
-- **Center-of-Mass Trajectory Rewards:** How do you reward smooth parabolic CoM arcs with apex timing at 0.15-0.20s into flight phase?
-- **Ground Reaction Force Shaping:** How do you reward smooth force rise over 40-60ms during push-off, peaking at 1.2-1.5× body weight, with landing impulse <30ms rise time and <2.5× body weight peak?
-- **Joint-Angle Precision:** How can you reward proper preparation angles (hip flexion 20-30°, knee 60-90°, ankle neutral→dorsiflexion) and take-off positioning (hip extension 10-15° past neutral, knee full extension, ankle slight plantarflexion)?
-- **Temporal Phase Precision:** How can you reward appropriate phase durations (Preparation 0.15-0.25s, Take-off 0.10-0.15s, Flight 0.20-0.40s, Landing 0.15-0.25s)?
-- **Coronal-Plane & Yaw Stability:** How do you maintain body roll within ±5° throughout all phases and limit yaw drift around vertical axis?
-- **Energy & Jerk Metrics:** How can you track integrated joint torque (reward lower totals for efficiency) and penalize angular jerk spikes especially at take-off and landing?
-- **Foot Clearance & Placement:** How do you reward 10-25mm toe clearance during early flight and foot orientation within ±5° of level at landing contact?
-- **Head & Torso Cues:** How can you maintain upright torso pitch within ±5° during flight and encourage slight head upward pitch during ascent then forward/downward to spot landing?
-- **Failure Mode Prevention:** How do you heavily penalize early touchdown before minimum flight duration, asymmetric take-off, or uneven foot contact forces at landing?
-
-**For WALKING Tasks - "The Pendulum Elegance Challenge":**
-- **Core Challenge:** Capturing the natural efficiency of human walking's inverted pendulum mechanics
-- **Beyond Basic Solutions:** Think about energy recycling between steps, optimal cadence discovery, natural rhythm emergence
-- **Creative Opportunities:** How do you reward the effortless flow of great walking? Consider momentum conservation, minimal energy expenditure, graceful weight transfer
-- **Innovation Ideas:** Pendulum motion analysis, energy efficiency metrics, gait rhythm consistency, natural step prediction
-- **Mastery Metrics:** What makes walking look "natural" vs "robotic"? How can you measure walking elegance?
+**Key Principles:**
+- Start with forward movement (like Isaac Lab's `track_lin_vel_xy_yaw_frame_exp`)
+- Use existing air time sensors (like Isaac Lab's `feet_air_time_positive_biped`)  
+- Keep it simple with basic Isaac Lab data
+- Build progressively: movement → lifting → stability
 
 **For MARCHING Tasks - "The Controlled Precision Challenge":**
 - **Core Challenge:** Balancing deliberate high knee lift with stability and rhythmic precision

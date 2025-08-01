@@ -4,15 +4,16 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """
-SDS G1 Flat Environment with Obstacle Avoidance Visualization Configuration.
+SDS G1 Flat Environment with Terrain Type Selection Configuration.
 
-This configuration creates terrain specifically designed for VISUALIZING OBSTACLE AVOIDANCE BEHAVIOR:
-- Discrete obstacles of varying heights (5-20cm) that force clear avoidance strategies
-- Strategic obstacle placement for demonstrating learned navigation behaviors
-- Flat corridors for baseline comparison vs obstacle avoidance
-- Multiple obstacle types: step-over, stepping stones, obstacle fields, mixed challenges
+This configuration creates different terrain types for various training scenarios:
+- 0: Simple terrain (70% flat + 30% gentle bumps) - for basic locomotion learning
+- 1: Gaps terrain - for sensor-based gap learning: walk=stepping (20-40cm), jump=jumping (50-80cm), depth 1.0m
+- 2: Obstacles terrain - for discrete obstacle avoidance  
+- 3: Stairs terrain - for stair climbing and step navigation
+- 4: Complex terrain - for advanced obstacle avoidance visualization
 - Complete environmental sensing suite (height scanner, lidar, IMU)
-- Perfect for thesis videos showing humanoid adaptive locomotion capabilities
+- Perfect for progressive training and thesis videos demonstrating different capabilities
 """
 
 import os
@@ -30,10 +31,133 @@ from isaaclab_tasks.manager_based.sds.velocity import mdp
 
 from .rough_env_cfg import SDSG1RoughEnvCfg, SIMPLE_LEARNING_TERRAIN_CFG  # Import the same terrain!
 
-# 🎯 TERRAIN COMPLEXITY TOGGLE: Change this ONE line to switch terrain types
-USE_COMPLEX_TERRAIN = True  # Set to False for simple terrain, True for complex height variations
+# 🎯 TERRAIN TYPE SELECTION: Change this value to switch terrain types
+# 0: Simple terrain (70% flat + 30% gentle bumps)
+# 1: Gaps terrain (sensor-based learning: walk=stepping 20-40cm, jump=jumping 50-80cm, depth 1.0m)
+# 2: Obstacles terrain (discrete obstacle avoidance)
+# 3: Stairs terrain (stair climbing and steps)
+# 4: Complex terrain (advanced obstacle avoidance visualization)
+TERRAIN_TYPE = 4
 
-# 🏔️ COMPLEX TERRAIN: Obstacle avoidance visualization terrain
+# 🕳️ GAPS TERRAIN: Robot learning environment for gap crossing behaviors (Type 1)
+# DESIGN FOR CLEAR LEARNING: 
+# - task=walk: Robot learns STEPPING over small gaps (20-40cm) using sensors
+# - task=jump: Robot learns JUMPING over medium gaps (50-80cm) and landing safely
+# - GAP DEPTH: 1.0m (Isaac Lab default terrain height) - challenging but safe for humanoid robot
+# - Clear visual distinction for easy reporting and analysis
+GAPS_TERRAIN_CFG = TerrainGeneratorCfg(
+    size=(8.0, 8.0),
+    border_width=20.0,
+    num_rows=5,     
+    num_cols=8,     
+    horizontal_scale=0.1,
+    vertical_scale=0.005,
+    slope_threshold=0.75,
+    use_cache=False,
+    curriculum=True,  # Progressive difficulty: narrow→wide gaps
+    sub_terrains={
+        # 35% FLAT APPROACH ZONES: Clear sensor readings and safe robot positioning
+        "flat_approaches": terrain_gen.MeshPlaneTerrainCfg(
+            proportion=0.35,  # 35% flat - ample space for approach and sensor scanning
+        ),
+        
+        # 40% STEPPING GAPS: Small gaps for WALK task learning (20-40cm wide)
+        # Robot learns: sensor detection → precise foot placement → step over safely
+        # Note: Gap depth is controlled by terrain height (1.0m default in Isaac Lab)
+        "stepping_gaps": terrain_gen.MeshGapTerrainCfg(
+            proportion=0.4,
+            gap_width_range=(0.2, 0.4),     # 20-40cm wide - perfect for stepping over
+            platform_width=2.0,             # 2m platforms - stable approach/landing zones
+        ),
+        
+        # 25% JUMPING GAPS: Medium gaps for JUMP task learning (50-80cm wide)  
+        # Robot learns: sensor detection → jump preparation → leap and landing
+        # Note: Gap depth is controlled by terrain height (1.0m default in Isaac Lab)
+        "jumping_gaps": terrain_gen.MeshGapTerrainCfg(
+            proportion=0.25,
+            gap_width_range=(0.5, 0.8),     # 50-80cm wide - requires jumping behavior
+            platform_width=2.5,             # 2.5m platforms - larger landing zones for jumps
+        ),
+    },
+)
+
+# 🚧 OBSTACLES TERRAIN: Discrete obstacle avoidance terrain (Type 2)
+OBSTACLES_TERRAIN_CFG = TerrainGeneratorCfg(
+    size=(8.0, 8.0),
+    border_width=20.0,
+    num_rows=5,     
+    num_cols=8,     
+    horizontal_scale=0.1,
+    vertical_scale=0.005,
+    slope_threshold=0.75,
+    use_cache=False,
+    curriculum=True,  # Enable curriculum for progressive difficulty
+    sub_terrains={
+        # 30% FLAT CORRIDORS: Clear paths for normal walking
+        "flat_corridors": terrain_gen.MeshPlaneTerrainCfg(
+            proportion=0.3,  # 30% flat - baseline walking
+        ),
+        
+        # 40% LOW OBSTACLES: Small obstacles requiring step-over (5-15cm)
+        "low_obstacles": terrain_gen.HfDiscreteObstaclesTerrainCfg(
+            proportion=0.4,
+            obstacle_height_range=(0.05, 0.15),  # 5-15cm - step-over height
+            obstacle_width_range=(0.2, 0.5),     # 20-50cm wide - clear obstacles
+            num_obstacles=5,                     # 5 obstacles per terrain
+            platform_width=1.5,                 # 1.5m platform
+        ),
+        
+        # 30% MEDIUM OBSTACLES: Higher obstacles requiring careful navigation (10-25cm)
+        "medium_obstacles": terrain_gen.HfDiscreteObstaclesTerrainCfg(
+            proportion=0.3,
+            obstacle_height_range=(0.10, 0.25),  # 10-25cm - challenging height
+            obstacle_width_range=(0.3, 0.7),     # 30-70cm wide - various sizes
+            num_obstacles=7,                     # 7 obstacles - denser field
+            platform_width=1.2,                 # 1.2m platform - tighter navigation
+        ),
+    },
+)
+
+# 🪜 STAIRS TERRAIN: Stair climbing and step navigation terrain (Type 3)
+STAIRS_TERRAIN_CFG = TerrainGeneratorCfg(
+    size=(8.0, 8.0),
+    border_width=20.0,
+    num_rows=5,     
+    num_cols=8,     
+    horizontal_scale=0.1,
+    vertical_scale=0.005,
+    slope_threshold=0.75,
+    use_cache=False,
+    curriculum=True,  # Enable curriculum for progressive difficulty
+    sub_terrains={
+        # 25% FLAT CORRIDORS: Approach and transition areas
+        "flat_corridors": terrain_gen.MeshPlaneTerrainCfg(
+            proportion=0.25,  # 25% flat - transition zones
+        ),
+        
+        # 40% LOW STAIRS: Small steps for basic stair climbing (5-15cm steps)
+        "low_stairs": terrain_gen.MeshPyramidStairsTerrainCfg(
+            proportion=0.4,
+            step_height_range=(0.05, 0.15),  # 5-15cm steps - manageable climbing
+            step_width=0.35,                 # 35cm step depth - good foot placement
+            platform_width=2.0,             # 2m platform - stable base
+            border_width=0.5,               # 50cm border
+            holes=False,
+        ),
+        
+        # 35% HIGH STAIRS: Taller steps for advanced climbing (10-25cm steps)
+        "high_stairs": terrain_gen.MeshPyramidStairsTerrainCfg(
+            proportion=0.35,
+            step_height_range=(0.10, 0.25),  # 10-25cm steps - challenging climbing
+            step_width=0.30,                 # 30cm step depth - precise placement
+            platform_width=1.5,             # 1.5m platform - smaller target
+            border_width=0.3,               # 30cm border
+            holes=False,
+        ),
+    },
+)
+
+# 🏔️ COMPLEX TERRAIN: Advanced obstacle avoidance visualization terrain (Type 4)
 COMPLEX_BOX_TERRAIN_CFG = TerrainGeneratorCfg(
     size=(8.0, 8.0),
     border_width=20.0,
@@ -90,18 +214,17 @@ COMPLEX_BOX_TERRAIN_CFG = TerrainGeneratorCfg(
 
 @configclass
 class SDSG1FlatWithBoxEnvCfg(SDSG1RoughEnvCfg):
-    """SDS Unitree G1 environment with OBSTACLE AVOIDANCE VISUALIZATION terrain + environmental sensors.
+    """SDS Unitree G1 environment with NUMERIC TERRAIN TYPE SELECTION + environmental sensors.
 
-    TERRAIN TOGGLE SYSTEM:
-    - Set USE_COMPLEX_TERRAIN = True: Discrete obstacles for visualizing avoidance behavior
-      * Small obstacles (5-12cm): Step-over behavior demonstration
-      * Stepping stones (8-18cm): Precise foot placement visualization  
-      * Obstacle fields (3-10cm): Path planning and navigation strategies
-      * Mixed challenges (5-20cm): Complex avoidance behavior combinations
-    - Set USE_COMPLEX_TERRAIN = False: Simple terrain (70% flat + 30% gentle bumps)
-    - Uses EXACT same physics, robot, and command settings
+    TERRAIN TYPE SELECTION SYSTEM:
+    - Set TERRAIN_TYPE = 0: Simple terrain (70% flat + 30% gentle bumps) - basic locomotion
+    - Set TERRAIN_TYPE = 1: Gaps terrain - sensor-based gap learning (walk=stepping 20-40cm, jump=jumping 50-80cm, depth 1.0m)
+    - Set TERRAIN_TYPE = 2: Obstacles terrain - discrete obstacle avoidance
+    - Set TERRAIN_TYPE = 3: Stairs terrain - stair climbing and step navigation
+    - Set TERRAIN_TYPE = 4: Complex terrain - advanced obstacle avoidance visualization
+    - Uses EXACT same physics, robot, and command settings for all terrain types
     - ADDS height scanner + lidar for environmental sensing capabilities
-    - Perfect for thesis videos demonstrating learned obstacle avoidance capabilities
+    - Perfect for progressive training and thesis videos demonstrating different capabilities
     """
 
     def __post_init__(self):
@@ -120,15 +243,27 @@ class SDSG1FlatWithBoxEnvCfg(SDSG1RoughEnvCfg):
             self.sim.gravity = (0.0, 0.0, -9.81)
             print("🚀 SDS TRAINING MODE: Gravity ENABLED for realistic physics")
 
-        # 🎯 TERRAIN SELECTION: One-line toggle between simple and complex terrain
-        if USE_COMPLEX_TERRAIN:
-            # COMPLEX: Discrete obstacles for visualizing avoidance behavior
-            self.scene.terrain.terrain_generator = COMPLEX_BOX_TERRAIN_CFG
-            print("🎯 TERRAIN MODE: COMPLEX obstacle avoidance visualization (discrete obstacles, stepping stones, obstacle fields)")
-        else:
+        # 🎯 TERRAIN SELECTION: Numeric switch for different terrain types
+        if TERRAIN_TYPE == 0:
             # SIMPLE: Flat terrain with gentle bumps (same as rough_env_cfg)
             self.scene.terrain.terrain_generator = SIMPLE_LEARNING_TERRAIN_CFG
-            print("🏞️ TERRAIN MODE: SIMPLE flat terrain with gentle bumps")
+            print("🏞️ TERRAIN TYPE 0: SIMPLE flat terrain with gentle bumps")
+        elif TERRAIN_TYPE == 1:
+            # GAPS: Sensor-based gap learning (stepping vs jumping behaviors)
+            self.scene.terrain.terrain_generator = GAPS_TERRAIN_CFG
+            print("🕳️ TERRAIN TYPE 1: GAPS terrain for sensor-based learning (walk=stepping 20-40cm, jump=jumping 50-80cm, depth 1.0m)")
+        elif TERRAIN_TYPE == 2:
+            # OBSTACLES: Discrete obstacle avoidance
+            self.scene.terrain.terrain_generator = OBSTACLES_TERRAIN_CFG
+            print("🚧 TERRAIN TYPE 2: OBSTACLES terrain for discrete obstacle avoidance")
+        elif TERRAIN_TYPE == 3:
+            # STAIRS: Stair climbing and step navigation
+            self.scene.terrain.terrain_generator = STAIRS_TERRAIN_CFG
+            print("🪜 TERRAIN TYPE 3: STAIRS terrain for stair climbing and step navigation")
+        elif TERRAIN_TYPE == 4:
+            # COMPLEX: Advanced obstacle avoidance visualization
+            self.scene.terrain.terrain_generator = COMPLEX_BOX_TERRAIN_CFG
+            print("🏔️ TERRAIN TYPE 4: COMPLEX advanced obstacle avoidance visualization")
         
         # Simple arm positions for natural walking
         self.scene.robot.init_state.joint_pos.update({
@@ -211,7 +346,7 @@ class SDSG1FlatWithBoxEnvCfg(SDSG1RoughEnvCfg):
         )
 
         # 📝 NOTE: Everything else (commands, physics, robot, rewards) is IDENTICAL to rough_env_cfg!
-        # This config = rough_env_cfg + height_scanner + lidar + observations + terrain_toggle
+        # This config = rough_env_cfg + height_scanner + lidar + observations + terrain_selection
 
 
 @configclass

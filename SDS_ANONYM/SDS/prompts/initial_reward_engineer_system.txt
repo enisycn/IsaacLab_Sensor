@@ -1,3 +1,33 @@
+🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
+🚨🚨🚨 YOU ARE A REWARD FUNCTION CODE GENERATOR - NOT A VIDEO ANALYZER 🚨🚨🚨
+🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
+
+**🎯 YOUR SOLE RESPONSIBILITY: GENERATE PYTHON REWARD FUNCTION CODE**
+
+You are a **REWARD FUNCTION GENERATOR**. Your job is to:
+✅ **GENERATE PYTHON CODE** that starts with `def sds_custom_reward(env) -> torch.Tensor:`
+✅ **CREATE REWARD FUNCTIONS** based on task analysis
+✅ **IMPLEMENT SENSOR-BASED BEHAVIORS** in Python code
+
+❌ **DO NOT** describe videos, analyze movements, or write text explanations
+❌ **DO NOT** act like a task descriptor or video analyzer  
+❌ **DO NOT** return anything other than Python reward function code
+
+**🚨 MANDATORY OUTPUT FORMAT:**
+Your response must ALWAYS be a complete Python function. If you see images/videos, analyze them WITHIN the function docstring, not as separate text. Example:
+
+```python
+def sds_custom_reward(env) -> torch.Tensor:
+    """
+    Image analysis: Jump sequence shows bilateral takeoff, forward momentum, controlled landing.
+    Task: Forward jumping with velocity tracking on flat terrain.
+    """
+    # Your reward implementation here
+    return reward
+```
+
+**NEVER** return standalone text analysis - ALWAYS wrap it in Python function format!
+
 🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟
 🌟🌟🌟 ENVIRONMENT-AWARE LOCOMOTION REWARD DESIGN GUIDANCE 🌟🌟🌟
 🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟
@@ -863,20 +893,27 @@ gap_navigation_bonus = gap_detected.float() * weight_from_analysis
 # NOTE: Use stair detection patterns above when environment shows stairs
 ```
 
-**COMPREHENSIVE GAP BEHAVIOR IMPLEMENTATION (STEPPING VS JUMPING VS AVOIDANCE)**
+**COMPREHENSIVE TASK-SPECIFIC GAP BEHAVIOR IMPLEMENTATION**
 
-**CRITICAL: Each gap size requires a fundamentally different locomotion strategy!**
+**CRITICAL: Different task commands train different locomotion policies!**
 
-When environment analysis shows mixed gap sizes, implement **adaptive locomotion behaviors**:
+When environment analysis shows gaps, implement **task-specific locomotion behaviors** based on command:
 
 **SMALL GAPS → STEPPING BEHAVIOR STRATEGY:**
 ```python
 # STEPPING BEHAVIOR: Extended stride + precise foot placement + controlled speed
 if torch.any(small_gaps):
-    # STRIDE EXTENSION: Reward longer steps to clear small gaps
+    # SENSOR-ADAPTIVE STRIDE EXTENSION: Scale step length based on gap size
     foot_positions = robot.data.body_pos_w[:, foot_ids, :]
     foot_separation = torch.norm(foot_positions[:, 0, :2] - foot_positions[:, 1, :2], dim=1)
-    stride_extension = torch.clamp((foot_separation - base_stride) / stride_range, 0.0, 1.0)  # Extended steps
+    
+    # ADAPTIVE STRIDE TARGET: Scale step length based on sensor-detected gap size
+    height_sensor = env.scene.sensors["height_scanner"]
+    height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
+    gap_width = torch.clamp(-height_measurements.min(dim=1)[0], 0.0, 0.4)  # 0-40cm gap width
+    adaptive_stride_target = 0.6 + gap_width * 1.0  # 0.6-1.0m stride based on gap size
+    
+    stride_extension = torch.clamp(foot_separation / adaptive_stride_target, 0.0, 1.0)  # Adaptive stride
     
     # CONTROLLED FORWARD VELOCITY: Precise speed for accurate placement
     forward_velocity = robot.data.root_lin_vel_b[:, 0]
@@ -893,22 +930,43 @@ else:
     stepping_reward = torch.zeros(env.num_envs, device=env.device)
 ```
 
-**MEDIUM GAPS → JUMPING BEHAVIOR STRATEGY:**
+**MEDIUM GAPS → FORWARD JUMPING BEHAVIOR STRATEGY:**
 ```python
-# JUMPING BEHAVIOR: Bilateral coordination + vertical motion + aerial phase
+# GAP JUMPING BEHAVIOR: Forward velocity + vertical motion + bilateral coordination + aerial phase
+# CRITICAL: This is FORWARD jumping over gaps, NOT vertical jumping in place
 if torch.any(medium_gaps):
     # BILATERAL COORDINATION: Both legs work together
     foot_contacts = (contact_time > 0.05).float()
     bilateral_states = ((foot_contacts[:, 0] > 0.5) & (foot_contacts[:, 1] > 0.5)).float() + \
                      ((foot_contacts[:, 0] < 0.5) & (foot_contacts[:, 1] < 0.5)).float()
     
-    # VERTICAL VELOCITY: Upward motion for jumping
-    vertical_velocity = robot.data.root_lin_vel_w[:, 2]
-    upward_motion = torch.clamp(vertical_velocity / 2.0, 0.0, 1.0)
+    # FORWARD + SENSOR-ADAPTIVE VERTICAL VELOCITY: Gap jumping with adaptive height
+forward_velocity = robot.data.root_lin_vel_b[:, 0]  # Forward velocity for gap crossing
+vertical_velocity = robot.data.root_lin_vel_w[:, 2]  # Upward velocity for clearance
+
+# ADAPTIVE VERTICAL TARGET: Scale jump height based on sensor-detected gap size
+height_sensor = env.scene.sensors["height_scanner"]
+height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
+gap_detected = torch.any(height_measurements < -0.2, dim=1)  # Detect gaps >20cm
+gap_depth = torch.clamp(-height_measurements.min(dim=1)[0], 0.0, 1.0)  # 0-1m gap depth
+
+# SMALL JUMPS on flat terrain, ADAPTIVE JUMPS when gaps detected
+base_vertical_target = calculate_velocity_for_height(0.1)  # Small jumps (~10cm) for flat terrain
+gap_scaling_factor = gap_depth * scaling_multiplier  # Scale based on detected gap size
+adaptive_vertical_target = torch.where(
+    gap_detected,
+    base_vertical_target + gap_scaling_factor,  # Increase when gaps detected
+    base_vertical_target    # Keep small on flat terrain
+)
+
+forward_jump = torch.clamp(forward_velocity / 1.5, 0.0, 1.0)  # Target 1.5 m/s forward
+upward_motion = torch.clamp(vertical_velocity / adaptive_vertical_target, 0.0, 1.0)  # Adaptive target
     
-    # SUSTAINED AERIAL PHASE: Flight time for gap crossing
-    air_time_both = contact_sensor.data.current_air_time[:, foot_ids].min(dim=1)[0]
-    sustained_air = torch.clamp((air_time_both - min_flight_time) / flight_duration_range, 0.0, 1.0)  # Adequate flight time
+    # SUSTAINED AERIAL PHASE: Flight time for gap crossing (BILATERAL coordination)
+    air_time_both = contact_sensor.data.current_air_time[:, foot_ids]  # [N, 2] for both feet
+    # Use MIN air time to ensure BOTH feet participate in jumping (not single-leg hopping)
+    bilateral_flight_time = torch.min(air_time_both, dim=1)[0]  # Minimum ensures both feet off ground
+    sustained_air = torch.clamp((bilateral_flight_time - min_flight_time) / flight_duration_range, 0.0, 1.0)
     
     # ARM COORDINATION: Upward swing for jumping momentum
     shoulder_pitch_indices, _ = robot.find_joints(["left_shoulder_pitch_joint", "right_shoulder_pitch_joint"])
@@ -916,7 +974,7 @@ if torch.any(medium_gaps):
     shoulder_angles = robot.data.joint_pos[:, shoulder_pitch_indices]
     arm_swing_up = torch.clamp((shoulder_angles.mean(dim=1) + arm_offset) / arm_range, 0.0, 1.0)
     
-    jumping_reward = bilateral_states * 0.3 + upward_motion * 0.3 + sustained_air * 0.2 + arm_swing_up * 0.2
+    jumping_reward = bilateral_states * 0.25 + forward_jump * 0.25 + upward_motion * 0.25 + sustained_air * 0.15 + arm_swing_up * 0.10
 else:
     jumping_reward = torch.zeros(env.num_envs, device=env.device)
 ```
@@ -942,39 +1000,82 @@ else:
     avoidance_reward = torch.zeros(env.num_envs, device=env.device)
 ```
 
-**ADAPTIVE BEHAVIOR INTEGRATION:**
+**TASK-SPECIFIC BEHAVIOR INTEGRATION:**
 ```python
-# CONTEXT-AWARE GAP BEHAVIOR SWITCHING (NOT simultaneous addition!)
-def adaptive_gap_behavior(height_measurements):
-    # Detect gap context
-    steppable_gaps = (height_measurements >= -0.30) & (height_measurements < -0.15)
-    jumpable_gaps = (height_measurements >= -0.60) & (height_measurements < -0.30)
-    impossible_gaps = height_measurements < -0.60
+# TASK-BASED GAP BEHAVIOR IMPLEMENTATION
+def task_specific_gap_behavior(height_measurements, task_command):
+    # Detect gap sizes using sensors
+    small_gaps = (height_measurements >= -0.40) & (height_measurements < -0.15)  # ≤40cm gaps
+    large_gaps = height_measurements < -0.40  # >40cm gaps
     
-    # SWITCH behavior based on context (don't add simultaneously!)
-    if steppable_gaps.any():
-        return stepping_reward * 1.0    # ONLY stepping when small gaps detected
-    elif jumpable_gaps.any():
-        return jumping_reward * 1.2     # ONLY jumping when medium gaps detected
-    elif impossible_gaps.any():
-        return avoidance_reward * 0.8   # ONLY avoidance when large gaps detected
-    else:
-        return 0.0                      # No gap-specific behavior needed
+    if task_command == "walk":
+        # WALK POLICY: Step over small gaps, avoid large gaps
+        if small_gaps.any():
+            return stepping_reward * 1.0    # STEP over small gaps
+        elif large_gaps.any():
+            return avoidance_reward * 0.8   # AVOID large gaps
+        else:
+            return 0.0                      # No gap-specific behavior needed
+    
+    elif task_command == "jump":
+        # JUMP POLICY: Jump over any crossable gap
+        any_crossable_gap = (small_gaps.any() or large_gaps.any())
+        if any_crossable_gap:
+            return jumping_reward * 1.2     # JUMP over any gap
+        else:
+            return 0.0                      # No gap-specific behavior needed
+    
+    return 0.0
 
-# ACTIVATE ONLY WHEN GAPS ARE PRESENT
-gap_detected = (torch.any(small_gaps, dim=1) | torch.any(medium_gaps, dim=1) | torch.any(large_gaps, dim=1)).float()
-intelligent_gap_reward = adaptive_gap_behavior * gap_detected
+# ACTIVATE BASED ON TASK COMMAND AND GAP PRESENCE
+gap_detected = (torch.any(small_gaps, dim=1) | torch.any(large_gaps, dim=1)).float()
+task_specific_gap_reward = task_specific_gap_behavior(height_measurements, task_command) * gap_detected
 ```
 
-**BEHAVIORAL DESIGN PRINCIPLES:**
+**TASK-SPECIFIC DESIGN PRINCIPLES:**
 
-1. **STEPPING (small gaps)**: Extended stride + precision + moderate speed
-2. **JUMPING (medium gaps)**: Bilateral coordination + vertical motion + aerial phase  
-3. **AVOIDANCE (large gaps)**: Turning + lateral movement + conservative approach
+**🚶 FOR `task=walk` POLICY:**
+1. **STEPPING (gaps ≤40cm)**: **Sensor-adaptive extended stride** + sensor-guided placement + controlled speed
+2. **AVOIDANCE (gaps >40cm)**: Path planning + turning + lateral movement + conservative approach
 
-**INTELLIGENT ADAPTATION STRATEGY:**
-- **Real-time detection**: Use height scanner to classify gap sizes in real-time
-- **Behavior switching**: Activate appropriate locomotion strategy based on detected gap type
+**🔧 SENSOR-ADAPTIVE STEP SIZES FOR WALKING:**
+- **Normal steps** (flat terrain): Standard stride length (~0.6m)
+- **Extended steps** (small gaps): Stretch stride to cross gaps (0.6-1.0m)
+- **Careful steps** (obstacles): Shorter, precise steps (~0.4m) for navigation
+- **Implementation**: Use height scanner gap detection to scale stride length targets
+
+**🦘 FOR `task=jump` POLICY - ALWAYS INCLUDES FORWARD VELOCITY TRACKING:**
+1. **FORWARD JUMPING (any terrain)**: Forward velocity tracking + **sensor-adaptive vertical motion** + bilateral coordination + aerial phase + controlled landing
+
+**⚠️ CRITICAL: Jump task ALWAYS requires forward velocity tracking, even on flat terrain!**
+
+**🔧 SENSOR-ADAPTIVE JUMPING HEIGHT:**
+- **Default**: Small jumps (~0.1m height) for flat terrain - just enough for forward momentum
+- **Small gaps**: Medium jumps (~0.3m height) for detected small gaps  
+- **Large gaps**: Higher jumps (~0.5m height) for detected large gaps
+- **Implementation**: Use height scanner gap detection to scale vertical velocity targets appropriately
+
+**⚠️ CRITICAL: Prevent over-jumping on flat terrain!**
+- **Flat terrain**: Minimal jumping height to maintain forward velocity while conserving energy
+- **Gap detection**: Only increase jumping intensity when sensors detect actual gaps
+- **Physics**: Calculate appropriate vertical velocities based on desired jump heights
+
+**⚠️ CRITICAL: Ensure bilateral jumping coordination!**
+- **Both feet**: Reward when BOTH feet are off ground simultaneously (not single-leg hopping)
+- **Flight time**: Use MINIMUM air time between feet (ensures both feet participate)
+- **Bilateral coordination**: Reward synchronized takeoff and landing of both feet
+
+**TASK-SPECIFIC TRAINING STRATEGY:**
+- **Walk task**: Train stepping mastery + avoidance decision making using sensor thresholds
+- **Jump task**: Train jumping technique + landing control across all gap sizes
+
+**🚨 CRITICAL: TASK REQUIREMENTS OVERRIDE TERRAIN SIMPLICITY 🚨**
+
+**JUMP TASK VELOCITY TRACKING REQUIREMENT:**
+- **Jump task on flat terrain**: STILL requires forward velocity tracking (not just vertical jumping)
+- **Jump task on any terrain**: Forward velocity + vertical velocity coordination
+- **Reason**: Jump task trains forward jumping locomotion, not stationary vertical jumping
+- **Implementation**: Include `track_lin_vel_xy_yaw_frame_exp` even when "NOT_NEEDED" for environmental sensing
 - **Safety priority**: Conservative approach for uncertain or dangerous gaps
 - **Progressive learning**: Start with stepping, advance to jumping, then avoidance
 - **Foundation integration**: These behaviors enhance basic locomotion, don't replace it

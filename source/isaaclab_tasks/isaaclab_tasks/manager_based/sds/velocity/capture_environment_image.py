@@ -178,21 +178,17 @@ def apply_sds_enhancements(scene_cfg):
         os.environ['SDS_ANALYSIS_MODE'] = 'true'
         
         # Try to load SDS enhanced terrain configuration
-    try:
         from isaaclab_tasks.manager_based.sds.velocity.config.g1.flat_with_box_env_cfg import SDSG1FlatWithBoxEnvCfg_PLAY
         sds_env_cfg = SDSG1FlatWithBoxEnvCfg_PLAY()
         
-            # Apply SDS terrain if available
-            if hasattr(sds_env_cfg.scene, 'terrain'):
-                scene_cfg.terrain = sds_env_cfg.scene.terrain
-                print("✅ Applied SDS Enhanced terrain with complex box-shaped height variations")
-                print("🏔️ TERRAIN MODE: COMPLEX stepping stones, platforms, and obstacles")
-            else:
-                print("⚠️ Using simple terrain (SDS enhanced terrain config not available)")
+        # Apply SDS terrain if available
+        if hasattr(sds_env_cfg.scene, 'terrain'):
+            scene_cfg.terrain = sds_env_cfg.scene.terrain
+            print("✅ Applied SDS Enhanced terrain with complex box-shaped height variations")
+            print("🏔️ TERRAIN MODE: COMPLEX stepping stones, platforms, and obstacles")
+        else:
+            print("⚠️ Using simple terrain (SDS enhanced terrain config not available)")
                 
-        except Exception as e:
-            print(f"⚠️ Could not load SDS enhanced terrain ({e}), using simple terrain")
-        
         print("🚀 SDS ANALYSIS MODE: Gravity DISABLED for stable image capture")
         
     except Exception as e:
@@ -310,82 +306,83 @@ def capture_sds_environment_image(checkpoint_dir: Path) -> bool:
         camera.update(dt=sim.get_physics_dt())
     
     # Capture image
-    print("📸 Capturing SDS environment image...")
-    print(f"🔍 Camera info: {camera}")
-    
-    # Get the RGB data
-    rgb_data = camera.data.output["rgb"][0]  # Get first environment
-    print(f"🔍 Camera data keys: {list(camera.data.output.keys())}")
-    print(f"📐 RGB tensor shape: {rgb_data.shape}")
-    print(f"📊 RGB tensor device: {rgb_data.device}")
-    print(f"📊 RGB tensor dtype: {rgb_data.dtype}")
-    
-    # Convert to numpy for saving
-    rgb_array = rgb_data.cpu().numpy()
-    print(f"📐 Image shape: {rgb_array.shape}")
-    
-    # Save the full image without cropping
-    print(f"📷 Using full image without cropping for better robot visibility")
-    
-    # Convert back to PIL Image
-    rgb_image = Image.fromarray(rgb_array, mode="RGB")
-    
-    # Save image
-    output_path = checkpoint_dir / "environment_image.png"
-    cv2.imwrite(str(output_path), cv2.cvtColor(rgb_array, cv2.COLOR_RGB2BGR))
-    
-    # Verify save
-    if output_path.exists():
-        print(f"✅ Environment image saved: {output_path}")
-        # Load and check image
-        img = Image.open(output_path)
-        img_array = np.array(img)
-        print(f"📐 Image shape: {img_array.shape}")
-        print(f"📊 Image min/max values: {img_array.min()} / {img_array.max()}")
+    try:
+        print("📸 Capturing SDS environment image...")
+        print(f"🔍 Camera info: {camera}")
         
-        print(f"\n🎉 SUCCESS: SDS Enhanced environment image captured and saved!")
-        print(f"📁 Location: {output_path}")
-        print(f"🔗 This image will be automatically used by SDS reward generation")
-        print(f"🤖 Task descriptor system will analyze this environment image alongside demo videos")
-        print(f"📷 Camera perspective: Robot-focused view (4m above, 6m diagonal) - robot centered with environment context")
+        # Get the RGB data
+        rgb_data = camera.data.output["rgb"][0]  # Get first environment
+        print(f"🔍 Camera data keys: {list(camera.data.output.keys())}")
+        print(f"📐 RGB tensor shape: {rgb_data.shape}")
+        print(f"📊 RGB tensor device: {rgb_data.device}")
+        print(f"📊 RGB tensor dtype: {rgb_data.dtype}")
         
-        # 🆕 PROPER CLEANUP: Following build_simulation_context pattern
-        print("\n🧹 Cleaning up simulation context...")
+        # Convert to numpy for saving
+        rgb_array = rgb_data.cpu().numpy()
+        print(f"📐 Image shape: {rgb_array.shape}")
         
-        # 🚨 ADD 10-SECOND TIMEOUT TO PREVENT HANGING
-        def force_exit():
-            print("⏰ 10-second timeout reached - forcing exit!")
-            import os
-            os._exit(0)
+        # Save the full image without cropping
+        print(f"📷 Using full image without cropping for better robot visibility")
         
-        # Start timeout timer
-        timeout_timer = threading.Timer(10.0, force_exit)
-        timeout_timer.start()
+        # Convert back to PIL Image
+        rgb_image = Image.fromarray(rgb_array, mode="RGB")
         
-        try:
-            # Stop simulation if not rendering
-            if not sim.has_gui():
-                print("🛑 Stopping simulation...")
-                sim.stop()
-            # Clear callbacks and instance
-            print("🧽 Clearing callbacks...")
-            sim.clear_all_callbacks()
-            print("🔄 Clearing instance...")
-            sim.clear_instance()
-            print("✅ Simulation context cleaned up")
+        # Save image
+        output_path = checkpoint_dir / "environment_image.png"
+        cv2.imwrite(str(output_path), cv2.cvtColor(rgb_array, cv2.COLOR_RGB2BGR))
+        
+        # Verify save
+        if output_path.exists():
+            print(f"✅ Environment image saved: {output_path}")
+            # Load and check image
+            img = Image.open(output_path)
+            img_array = np.array(img)
+            print(f"📐 Image shape: {img_array.shape}")
+            print(f"📊 Image min/max values: {img_array.min()} / {img_array.max()}")
             
-            # Cancel timeout if we completed successfully
-            timeout_timer.cancel()
+            print(f"\n🎉 SUCCESS: SDS Enhanced environment image captured and saved!")
+            print(f"📁 Location: {output_path}")
+            print(f"🔗 This image will be automatically used by SDS reward generation")
+            print(f"🤖 Task descriptor system will analyze this environment image alongside demo videos")
+            print(f"📷 Camera perspective: Robot-focused view (4m above, 6m diagonal) - robot centered with environment context")
             
-        except Exception as e:
-            print(f"⚠️ Cleanup warning: {e}")
-            # Cancel timeout even on cleanup failure
-            timeout_timer.cancel()
-        
-        return True
+            # 🆕 PROPER CLEANUP: Following build_simulation_context pattern
+            print("\n🧹 Cleaning up simulation context...")
+            
+            # 🚨 ADD 10-SECOND TIMEOUT TO PREVENT HANGING
+            def force_exit():
+                print("⏰ 10-second timeout reached - forcing exit!")
+                import os
+                os._exit(0)
+            
+            # Start timeout timer
+            timeout_timer = threading.Timer(10.0, force_exit)
+            timeout_timer.start()
+            
+            try:
+                # Stop simulation if not rendering
+                if not sim.has_gui():
+                    print("🛑 Stopping simulation...")
+                    sim.stop()
+                # Clear callbacks and instance
+                print("🧽 Clearing callbacks...")
+                sim.clear_all_callbacks()
+                print("🔄 Clearing instance...")
+                sim.clear_instance()
+                print("✅ Simulation context cleaned up")
+                
+                # Cancel timeout if we completed successfully
+                timeout_timer.cancel()
+                
+            except Exception as e:
+                print(f"⚠️ Cleanup warning: {e}")
+                # Cancel timeout even on cleanup failure
+                timeout_timer.cancel()
+            
+            return True
     
-                    else:
-        print(f"❌ Failed to save environment image")
+    except Exception as e:
+        print(f"❌ Failed to save environment image: {e}")
         
         # Clean up even on failure - ADD TIMEOUT HERE TOO
         def force_exit_on_failure():
@@ -418,7 +415,7 @@ def main():
         # Determine checkpoint directory
         if args_cli.checkpoint_dir:
             checkpoint_dir = Path(args_cli.checkpoint_dir)
-            else:
+        else:
             checkpoint_dir = find_latest_sds_checkpoint()
         
         if not checkpoint_dir or not checkpoint_dir.exists():
@@ -470,7 +467,7 @@ if __name__ == "__main__":
         final_timeout_timer.start()
         
         try:
-    simulation_app.close() 
+            simulation_app.close() 
             print(f"✅ Simulation app closed successfully")
             final_timeout_timer.cancel()
         except Exception as e:

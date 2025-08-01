@@ -177,6 +177,15 @@ def gen_placehold_image(grid_size=(GRID_SIZE, GRID_SIZE), margin=10):
     return grid_image 
     
 
-def save_grid_image(image, output_path):
-    cv2.imwrite(output_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+def save_grid_image(image, output_path, quality=85):
+    """Save grid image with compression quality (default 85 for good balance of size/quality)"""
+    if output_path.endswith('.png'):
+        # For PNG, use compression level (0-9, where 9 is max compression)
+        cv2.imwrite(output_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR), [cv2.IMWRITE_PNG_COMPRESSION, 6])
+    elif output_path.endswith('.jpg') or output_path.endswith('.jpeg'):
+        # For JPEG, use quality (0-100, where 100 is best quality)
+        cv2.imwrite(output_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR), [cv2.IMWRITE_JPEG_QUALITY, quality])
+    else:
+        # Default behavior for other formats
+        cv2.imwrite(output_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
 

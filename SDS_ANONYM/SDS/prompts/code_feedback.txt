@@ -1,4 +1,21 @@
 Please carefully analyze the policy feedback and provide a new, improved reward function that can better solve the task. Some helpful tips for analyzing the policy feedback:
+
+    **🚨 FIRST PRIORITY: CHECK FOR SPARSE REWARD PROBLEMS 🚨**
+    (0) **Sparse Reward Analysis:** If mean reward is consistently low or zero:
+        (a) **Zero Reward Problem**: Check if most robots get zero reward most of the time
+        (b) **Learning Progression Missing**: Verify robot gets reward for basic movement attempts, not just perfect execution
+        (c) **Foundation-First Fix**: Start with simple movement rewards (upward velocity for jumping, forward motion for walking)
+        (d) **Progressive Complexity**: Add coordination and perfection rewards only after foundation works
+        (e) **Dense Feedback Rule**: Robot should get SOME reward for ANY progress toward goal
+        (f) **Example Fix**: Replace `flight_time_perfect_reward` with `upward_movement_reward + height_gain_reward + flight_bonus`
+
+    **🚨 SECOND PRIORITY: CHECK FOR TRAPPING PROBLEMS 🚨**
+    (0.5) **Anti-Trapping Analysis:** If robot converges to unwanted behavior (standing still, minimal effort):
+        (a) **Baseline Check**: Verify baseline reward is minimal - just enough to prevent zeros
+        (b) **Movement Incentive**: Ensure task attempts are substantially more rewarding than inactivity  
+        (c) **Activity Requirement**: Primary rewards should require target behavior, not passive existence
+        (d) **Quick Test**: Calculate "doing nothing" vs "attempting task" rewards - attempts should be much better
+
     (1) If the values for a certain reward component are near identical throughout, then this means RL is not able to optimize this component as it is written. You may consider
         (a) Changing its scale or the value of its temperature parameter
         (b) Re-writing the reward components

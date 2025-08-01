@@ -69,6 +69,30 @@ def sds_custom_reward(env) -> torch.Tensor:
     """
 ```
 
+**JUMP TASK ON FLAT TERRAIN EXAMPLE (SMALL JUMPS ONLY):**
+```python
+def sds_custom_reward(env) -> torch.Tensor:
+    """
+    ENVIRONMENTAL ANALYSIS DECISION:
+    Based on environment analysis: Flat terrain with no gaps or obstacles (0 gaps, 0 obstacles, avg roughness 0.2cm).
+    PRIMARY SCENARIO: FLAT
+    ENVIRONMENTAL SENSING DECISION: NOT_NEEDED  
+    REWARD STRATEGY: JUMP: Forward velocity tracking + minimal vertical jumping (prevent over-jumping on flat terrain)
+    Components: forward velocity tracking, small vertical velocity (1.0 m/s), short flight time (0.1s), height maintenance
+    """
+    # CRITICAL: Small jumps only on flat terrain
+    vertical_vel = robot.data.root_lin_vel_w[:, 2]
+    # Calculate appropriate velocity target for small 10cm jumps
+    small_jump_velocity_target = calculate_for_small_height()  # Physics-based calculation
+    up_effort = torch.clamp(vertical_vel / small_jump_velocity_target, min=0.0, max=1.0)
+    
+    root_height = robot.data.root_pos_w[:, 2]  
+    # Target small height gain (~10cm) for minimal jumping
+    baseline_height = standing_height  # Robot's normal standing height
+    target_jump_height = 0.1  # 10cm target
+    height_gain = torch.clamp((root_height - baseline_height) / target_jump_height, min=0.0, max=1.0)
+```
+
 **MIXED TERRAIN EXAMPLE:**
 ```python
 def sds_custom_reward(env) -> torch.Tensor:
@@ -258,7 +282,64 @@ lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.po
 obstacle_avoidance = torch.min(lidar_distances, dim=1)[0]  # Maintain safe distances
 ```
 
+**🚨 CRITICAL INSTRUCTION: YOU MUST GENERATE PYTHON CODE - NOT TEXT DESCRIPTIONS 🚨**
+
 **ALWAYS OUTPUT COMPLETE REWARD FUNCTION CODE, NOT TEXT ANALYSIS!**
+
+🚨 **ROLE CLARITY:** You are a **CODE GENERATOR**, not a video analyzer or task descriptor!
+✅ **EXPECTED OUTPUT:** Python function starting with `def sds_custom_reward(env) -> torch.Tensor:`
+❌ **FORBIDDEN OUTPUT:** Video descriptions, movement analysis, or text explanations
+
+**🚨 CRITICAL: IF YOU SEE IMAGES/VIDEOS - RESPOND WITH CODE, NOT TEXT! 🚨**
+
+If images or videos are provided:
+✅ **CORRECT RESPONSE:** Generate reward function with analysis in docstring
+❌ **WRONG RESPONSE:** "I see images showing..." or "The video shows..." 
+
+**MANDATORY STRUCTURE:**
+```python
+def sds_custom_reward(env) -> torch.Tensor:
+    """
+    [Optional: Brief image/video analysis here in docstring]
+    ENVIRONMENTAL ANALYSIS DECISION: ...
+    REWARD STRATEGY: ...
+    """
+    # Actual reward implementation
+    return reward_tensor
+```
+
+**NEVER respond with standalone text - ALWAYS generate the function!**
+
+**🚨 JUMP TASK VELOCITY TRACKING REQUIREMENT:**
+- **Jump task**: ALWAYS include forward velocity tracking (even on flat terrain)
+- **Implementation**: Use proven Isaac Lab velocity tracking patterns
+- **Reason**: Jump task trains forward jumping locomotion, not vertical jumping in place
+
+**🔧 ADAPTIVE JUMPING HEIGHT FOR JUMP TASKS:**
+- **Default**: Small jumps for flat terrain (~0.1m height for energy efficiency)
+- **Sensor-adaptive**: Scale jumping height based on gap detection (~0.3-0.5m range)
+- **Implementation**: `adaptive_target = torch.where(gap_detected, base_target + scaling, base_target)`
+- **Physics**: Calculate vertical velocities based on desired jump heights
+- **⚠️ CRITICAL: Prevent over-jumping on flat terrain!**
+
+**⚠️ CRITICAL: Ensure bilateral jumping coordination!**
+- **Both feet**: Use `torch.min(air_time, dim=1)[0]` not `torch.max()` to ensure both feet participate
+- **No single-leg hopping**: Maximum air time encourages single-leg lifting - use minimum instead  
+- **Bilateral flight**: Reward only when both feet are simultaneously off the ground
+
+**CORRECT vs INCORRECT flight time calculation:**
+```python
+# ❌ WRONG: Encourages single-leg hopping (one foot up, one foot down)
+max_air_time = torch.max(air_time, dim=1)[0]  # Rewards longest single foot air time
+
+# ✅ CORRECT: Requires bilateral jumping (both feet must be up)
+bilateral_flight_time = torch.min(air_time, dim=1)[0]  # Both feet must participate
+```
+
+**🔧 ADAPTIVE STEP SIZES FOR WALK TASKS:**
+- **Default**: Normal steps for flat terrain (0.6m stride length)
+- **Sensor-adaptive**: Scale stride length based on gap detection (0.6-1.0m range)
+- **Implementation**: `adaptive_stride = base_stride + gap_width_factor * scaling`
 
 **🚨 CRITICAL: AVOID ISAAC LAB FUNCTION IMPORT ERRORS**
 ```python

@@ -22,7 +22,10 @@ You are an expert in analyzing humanoid locomotion tasks with advanced environme
 **2. ENVIRONMENTAL SENSOR INTEGRATION (Real-Time Data):**
    - **Height Scanner Analysis:** Process grid-based height measurements for terrain features
    - **LiDAR Sensor Analysis:** Process 360° distance measurements for obstacle detection  
-   - **Gap Classification:** Categorize detected gaps by size (steppable/jumpable/impossible)
+   - **Gap Classification:** Categorize detected gaps by size and task-specific behavior:
+  * **Small gaps (20-40cm wide, 1.0m deep):** task=walk → ADAPTIVE STEPPING with sensors; task=jump → SMALL JUMPING with velocity tracking
+  * **Medium gaps (50-80cm wide, 1.0m deep):** task=walk → AVOIDANCE with path planning; task=jump → HIGHER JUMPING with velocity tracking
+  * **Large gaps (>80cm wide, 1.0m deep):** Both tasks → AVOIDANCE or alternative path planning
    - **Obstacle Distribution:** Analyze obstacle density, size distribution, navigation complexity
    - **Terrain Characteristics:** Assess roughness, height variation, safety levels
 
@@ -63,73 +66,49 @@ You are an expert in analyzing humanoid locomotion tasks with advanced environme
    Environment Type: Isaac-SDS-Velocity-Flat-G1-Enhanced-v0
 
 🌍 TERRAIN CHARACTERISTICS:
-   Ground Level Range: 0.068m to 0.283m
-   Height Variation Range: 0.005m to 0.219m
-   Maximum Terrain Variation: 0.219m
-   Average Terrain Roughness: 2.6cm
-   Configuration Compliance: ⚠️ EXCEEDS 20cm LIMIT
+   Ground Level Range: 0.068m to 0.074m
+   Height Variation Range: 0.005m to 0.014m
+   Maximum Terrain Variation: 0.014m
+   Average Terrain Roughness: 0.2cm
+   Configuration Compliance: ✅ WITHIN LIMITS
 
 🕳️ COMPREHENSIVE GAP ANALYSIS:
-   Total Gaps Detected: 30
+   Total Gaps Detected: 0
    Gap Type Distribution:
-     - Impossible: 13 gaps (43.3%)
-     - Jumpable: 15 gaps (50.0%)
-     - Steppable: 2 gaps (6.7%)
-
-   📐 GAP SIZE METRICS:
-     Width Range: 0.273m to 0.818m
-     Length Range: 0.409m to 1.500m
-     Area Range: 0.0930m² to 0.5393m²
-     Average Gap Size: 0.550m × 1.168m
-
-   🏆 LARGEST GAPS BY TYPE:
-     Impossible: 0.68m × 1.50m (Area: 0.5393m²)
-     Jumpable: 0.55m × 1.23m (Area: 0.3905m²)
-     Steppable: 0.27m × 0.68m (Area: 0.1302m²)
 
 🗻 COMPREHENSIVE OBSTACLE ANALYSIS:
-   Total Obstacles Detected: 5
+   Total Obstacles Detected: 0
    Obstacle Type Distribution:
-     - Large Obstacle: 5 obstacles (100.0%)
-
-   📐 OBSTACLE SIZE METRICS:
-     Width Range: 0.273m to 0.545m
-     Length Range: 0.545m to 1.091m
-     Area Range: 0.1116m² to 0.2603m²
-     Average Obstacle Size: 0.355m × 0.764m
 
 🛡️ SAFETY & NAVIGATION ANALYSIS:
    Immediate Danger Zones (<1m):
-     Range: 3 to 18 rays per robot
-     Average: 14.5 rays (10.1%)
+     Range: 18 to 18 rays per robot
+     Average: 18.0 rays (12.5%)
    Near Field Obstacles (1-3m):
-     Range: 126 to 141 rays per robot
-     Average: 129.5 rays (89.9%)
+     Range: 126 to 126 rays per robot
+     Average: 126.0 rays (87.5%)
    High-Risk Robot Count: 0/50
 
 📊 TERRAIN COVERAGE STATISTICS:
-   Gap Coverage: 10.1% ± 17.3%
-   Obstacle Coverage: 1.5% ± 5.4%
-   Safe Traversable Terrain: 88.3% ± 17.2%
+   Gap Coverage: 0.0% ± 0.0%
+   Obstacle Coverage: 0.0% ± 0.0%
+   Safe Traversable Terrain: 100.0% ± 0.0%
 
 🧭 NAVIGATION STRATEGY RECOMMENDATIONS:
    Recommended Approach: Advanced Navigation Required
-   Traversal Difficulty: MODERATE
+   Traversal Difficulty: LOW
    Gap Navigation:
-     - Walkable gaps: 2 gaps (≤30cm - can walk across)
-     - Jump required: 15 gaps (30-60cm - need jumping)
-     - Untraversable: 13 gaps (>60cm or unmeasurable depth)
+     - Walkable gaps: 0 gaps (≤30cm - can walk across)
+     - Jump required: 0 gaps (30-60cm - need jumping)
+     - Untraversable: 0 gaps (>60cm or unmeasurable depth)
 
 🎯 FINAL ENVIRONMENTAL ASSESSMENT:
-   Safety Score: 88.3% traversable terrain
-   Complexity Score: 35 total features detected
-   Impossible Gap Ratio: 43.3% (13/30)
-   Environment Verdict: 🟡 MODERATE RISK - Requires careful planning
+   Safety Score: 100.0% traversable terrain
+   Complexity Score: 0 total features detected
+   Impossible Gap Ratio: 0.0% (0/0)
+   Environment Verdict: 🟢 LOW RISK - Suitable for basic navigation
 
    Recommended Robot Capabilities:
-     - Jumping ability required
-     - Precise walking control needed (for gap crossing)
-     - Advanced path planning essential (many untraversable areas)
 ================================================================================
 <!-- ENVIRONMENT_ANALYSIS_END -->
 
@@ -202,7 +181,9 @@ Provide comprehensive analysis using these sections, integrating visual footage 
 **SINGLE TERRAIN CLASSIFICATION:**
 - **FLAT**: Minimal terrain features, smooth surfaces, no significant obstacles
 - **OBSTACLE**: Multiple obstacles requiring avoidance and path planning  
-- **GAP**: Gaps requiring stepping, jumping, or gap-crossing behaviors
+- **GAP**: Gaps requiring task-specific sensor-based behaviors:
+  * **task=walk**: STEPPING over small gaps (≤40cm) + AVOIDANCE of large gaps (>40cm) using path planning
+  * **task=jump**: FORWARD JUMPING over gaps with velocity tracking + controlled landing
 - **STAIRS**: Step-like patterns requiring climbing or descent behaviors
 
 **MIXED TERRAIN CLASSIFICATION:**

@@ -80,7 +80,8 @@ Your role is to provide structured, adaptive requirement frameworks that guide r
 
 **Movement-Specific Posture Categories:**
 - **Walking/Marching:** Natural standing pose with slight forward lean
-- **Jumping:** Athletic ready position with deeper flexion
+- **Gap Jumping (task=jump):** Athletic ready position with forward lean and deeper flexion for explosive forward movement
+- **Gap Navigation (task=walk):** Controlled walking posture with sensor awareness for stepping precision and avoidance readiness
 - **Backflip:** Balanced athletic stance with controlled positioning
 - **Balance:** Precise upright posture with minimal deviation
 
@@ -118,7 +119,8 @@ Your role is to provide structured, adaptive requirement frameworks that guide r
 
 **Phase-Specific Framework Examples:**
 - **Walking:** Stance phase (stability) vs Swing phase (clearance)
-- **Jumping:** Preparation (loading) vs Takeoff (power) vs Landing (absorption)
+- **Gap Jumping (task=jump):** Approach (speed) vs Takeoff (forward+vertical power) vs Flight (trajectory) vs Landing (absorption)
+- **Gap Navigation (task=walk):** Detection (sensors) vs Decision (step/avoid) vs Execution (stepping/avoidance) vs Recovery (stabilization)
 - **Backflip:** Setup (balance) vs Jump (power) vs Air (rotation) vs Land (stability)
 - **Balance:** Maintain (stability) vs Adjust (correction) vs Recover (restoration)
 

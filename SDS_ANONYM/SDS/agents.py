@@ -227,7 +227,7 @@ class EnvironmentAwareTaskDescriptor(Agent):
             self.logger.error(f"Failed to inject environment analysis: {e}")
             return False
     
-    def run_environment_analysis(self, num_envs=50):
+    def run_environment_analysis(self, num_envs=100):
         """Run the environment analysis script and capture output"""
         try:
             # Log agent activation for consistency with other agents
@@ -302,7 +302,7 @@ class EnvironmentAwareTaskDescriptor(Agent):
             self.logger.error(f"Error running environment analysis: {e}")
             return None
     
-    def analyse(self, encoded_frame_grid, task_hint=None, num_envs=50, encoded_environment_image=None):
+    def analyse(self, encoded_frame_grid, task_hint=None, num_envs=100, encoded_environment_image=None):
         """Analyze with real-time environment data injection"""
         # Run environment analysis
         environment_analysis = self.run_environment_analysis(num_envs)
@@ -352,7 +352,7 @@ class EnhancedSUSGenerator(Agent):
         self.prompt_dir = prompt_dir
         super().__init__(system_prompt_file, cfg)
     
-    def generate_enhanced_sus_prompt(self, encoded_gt_frame_grid, task_description_hint=None, num_envs=50, encoded_environment_image=None):
+    def generate_enhanced_sus_prompt(self, encoded_gt_frame_grid, task_description_hint=None, num_envs=100, encoded_environment_image=None):
         """Generate SUS prompt with environment awareness"""
         # Use environment-aware task descriptor
         task_descriptor = EnvironmentAwareTaskDescriptor(self.cfg, self.prompt_dir)

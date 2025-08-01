@@ -1,105 +1,169 @@
-**CRITICAL: TRAINING CRASHES WITHOUT THESE FIXES!**
+🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟
+🌟🌟🌟 ENVIRONMENT-AWARE LOCOMOTION REWARD DESIGN GUIDANCE 🌟🌟🌟
+🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟
 
-**THESE PATTERNS WILL INSTANTLY CRASH TRAINING:**
+**CRITICAL PROJECT UNDERSTANDING:**
 
+These guidance explanations are designed for creating **environment-aware locomotion rewards** that enable **intelligent sensor-driven behavior adaptation** for humanoid robots.
+
+**🎯 PRIMARY OBJECTIVE:** 
+Create reward functions that make **measurable positive impact when sensors are used** compared to **without sensor usage**.
+
+**🔬 RESEARCH PURPOSE:**
+Enable comparison studies demonstrating:
+- **WITHOUT SENSORS:** Basic locomotion behavior 
+- **WITH SENSORS:** Adaptive, context-aware behavior that responds to environmental challenges
+
+**🧠 DESIGN METHODOLOGY:**
+1. **ANALYZE:** Understand the environment (gaps, obstacles, terrain complexity)
+2. **THINK:** Determine which sensors are needed and how they should influence behavior
+3. **DECIDE:** Implement context-aware behavioral switching (NOT simultaneous conflicting rewards)
+4. **IMPACT:** Ensure sensors create observable behavioral differences for scientific comparison
+
+**📊 SUCCESS CRITERIA:**
+✅ Robot behaves measurably different with sensors vs. without sensors
+✅ Sensor-enabled robot adapts to environmental challenges more effectively
+✅ Clear behavioral switching based on environmental context
+✅ No conflicting simultaneous behaviors (e.g., walking + jumping simultaneously)
+
+**⚠️ FAILURE INDICATORS:**
+❌ Robot behaves identically with/without sensors
+❌ Sensors provide only minor bonuses without changing core behavior
+❌ Conflicting reward objectives that confuse the policy
+
+---
+
+**🚨 MANDATORY FIRST STEP: INTERNAL ENVIRONMENT DATA ANALYSIS 🚨**
+
+**BEFORE WRITING CODE, INTERNALLY ANALYZE THE INPUT:**
+
+1. **SEARCH FOR ENVIRONMENT ANALYSIS SECTION** in the input above
+2. **INTERNALLY EXTRACT THESE NUMBERS (don't output them):**
+   - Look for: "Total Gaps Detected: [NUMBER]" → Use this number
+   - Look for: "Total Obstacles Detected: [NUMBER]" → Use this number  
+   - Look for: "Average Terrain Roughness: [NUMBER]cm" → Use this value
+   - Look for: "VISUAL TERRAIN CHARACTERISTICS:" → Extract visual environment features
+   - Look for: "VISUAL MOVEMENT CHALLENGES:" → Extract specific visual challenges
+   - Look for: "VISUAL NAVIGATION REQUIREMENTS:" → Extract navigation needs from visual analysis
+
+3. **MAKE INTERNAL ENVIRONMENTAL SENSING DECISION:**
+   - If Obstacles > 0: Include obstacle avoidance components
+   - If Gaps > 0: Include gap navigation components
+   - If Roughness > 5cm: Include terrain adaptation components
+
+**CRITICAL: ENSURE IMPLEMENTATION FOLLOWS DETECTION:**
+- **Obstacles detected** → MUST include LiDAR-based obstacle avoidance (use `env.scene.sensors["lidar"]`)
+- **Gaps detected** → MUST include height scanner gap navigation (use `env.scene.sensors["height_scanner"]`)
+- **Gap crossing** → Reward CROSSING BEHAVIOR (maintaining height over gaps), not just detection
+- **Obstacle avoidance** → Reward SAFE DISTANCES from obstacles, not just sensing them
+
+**🎯 SENSOR-DRIVEN BEHAVIORAL ADAPTATION REQUIREMENT 🎯**
+
+**CRITICAL PROJECT GOAL: SENSORS MUST CHANGE ROBOT BEHAVIOR MEASURABLY!**
+
+**PURPOSE:** Create observable differences for with/without sensor comparison studies
+
+**❌ FORBIDDEN APPROACH - Adding sensor data without behavioral change:**
 ```python
-# DEADLY BUG - TENSOR CONVERSION:
-joint_indices, _ = robot.find_joints(["joint_name"])
-joint_data = robot.data.joint_pos[:, joint_indices]  # TRAINING KILLER!
-
-# LIFE-SAVING FIX:
-joint_indices, _ = robot.find_joints(["joint_name"])
-joint_indices = torch.tensor(joint_indices, dtype=torch.long, device=env.device)
-joint_data = robot.data.joint_pos[:, joint_indices]  # WORKS!
+# WRONG - Just adding sensor values without changing robot behavior
+obstacle_bonus = (lidar_distances < 2.0).float() * 0.1  # Minimal impact
+gap_bonus = (height_measurements < -0.3).float() * 0.1   # Doesn't change gait
+total = foundation_walking + obstacle_bonus + gap_bonus  # Same walking behavior!
 ```
 
-**CRITICAL: PPO WILL CRASH WITH "std >= 0.0" ERROR WITHOUT THESE FIXES!**
-
-**GUARANTEED PPO TRAINING FAILURE:**
-
+**✅ REQUIRED APPROACH - Sensor-driven behavioral switching:**
 ```python
-# DEADLY: Unbounded reward values (>10) crash PPO standard deviation
-reward = large_value  # Any value >10 can cause "std >= 0.0" error
+# CORRECT - Sensors change how robot moves and adapts
+gap_ahead = detect_gaps_ahead(height_sensor)
+obstacle_ahead = detect_obstacles_ahead(lidar_sensor)
 
-# DEADLY: NaN/Inf in environmental sensor data crashes PPO
-height_scan = height_sensor.data.ray_hits_w[..., 2]  # Can contain NaN!
-lidar_range = torch.norm(lidar_sensor.data.ray_hits_w - pos, dim=-1)  # Can be Inf!
-
-# DEADLY: Division by zero in environmental calculations
-reward = 1.0 / distance_to_obstacle  # Zero distance = Inf reward = PPO crash
+# Different behaviors based on sensor input
+if gap_ahead and not obstacle_ahead:
+    # Robot adapts for gap crossing - different gait pattern
+    adaptive_behavior = foundation + gap_crossing_preparation()
+elif obstacle_ahead and not gap_ahead:
+    # Robot adapts for obstacle avoidance - careful navigation  
+    adaptive_behavior = foundation + careful_navigation_mode()
+elif gap_ahead and obstacle_ahead:
+    # Robot handles complex terrain - combined adaptations
+    adaptive_behavior = foundation + complex_terrain_navigation()
+else:
+    # Robot uses efficient walking - no sensor input needed
+    adaptive_behavior = foundation_locomotion_only()
 ```
 
-**PPO-SAFE ENVIRONMENTAL PATTERNS (WHEN USING ENVIRONMENTAL SENSORS):**
+**BEHAVIORAL IMPACT REQUIREMENTS:**
 
+**1. HEIGHT SCANNER IMPACT:**
+- **Flat terrain**: No behavioral change (sensor unused)
+- **Gap terrain**: Robot prepares for gaps BEFORE reaching them
+- **Stair terrain**: Robot adapts height expectations for terrain following
+
+**2. LiDAR IMPACT:**  
+- **Open terrain**: No behavioral change (sensor unused)
+- **Obstacle terrain**: Robot maintains safe distances, plans paths around obstacles
+- **Dense obstacles**: Robot navigates carefully with conservative movement
+
+**3. SENSOR COMPARISON VALIDATION:**
+- **Without sensors**: Generic walking that fails on challenging terrain
+- **With sensors**: Adaptive walking that succeeds on challenging terrain
+- **Measurable difference**: Success rate, efficiency, stability improvements
+
+**IMPLEMENTATION STRATEGY:**
 ```python
-# IF using environmental sensor data, ALWAYS sanitize:
-height_scan = torch.where(torch.isfinite(height_scan), height_scan, torch.zeros_like(height_scan))
-lidar_range = torch.where(torch.isfinite(lidar_range), lidar_range, torch.ones_like(lidar_range) * 10.0)
+# Look ahead with sensors to adapt behavior BEFORE reaching challenges
+forward_height = height_measurements[:, front_sensor_indices]  
+forward_lidar = lidar_distances[:, front_ray_indices]
 
-# IF using environmental calculations, ALWAYS clamp:
-obstacle_distance = torch.clamp(min_obstacle_distance, min=0.1, max=15.0)
-terrain_roughness = torch.clamp(torch.var(height_scan, dim=1), max=1.0)
+upcoming_challenge = analyze_ahead(forward_height, forward_lidar)
 
-# ALWAYS use safe division:
-reward = torch.exp(-error / torch.clamp(tolerance, min=1e-6))
-
-# ALWAYS bound final reward for PPO stability:
-return torch.clamp(reward, min=0.0, max=10.0)
+# Modify robot behavior based on what's coming, not where robot currently is
+if upcoming_challenge == "gap_crossing_needed":
+    prepare_gait_for_gap()      # Different air time, step length
+elif upcoming_challenge == "obstacle_avoidance_needed":
+    prepare_for_careful_navigation()  # Different velocity, path planning
 ```
 
-**EVERY find_joints() CALL → IMMEDIATE torch.tensor() CONVERSION!**
+**THEN GENERATE REWARD FUNCTION WITH COMPREHENSIVE ANALYSIS COMMENTS**
 
-**CRITICAL: GENERATE ONLY REWARD FUNCTIONS - NO OBSERVATIONS!**
+**Your reward function MUST start with a detailed analysis comment block like this:**
 
-**FORBIDDEN - NEVER GENERATE:**
-- `def observation_function(...)` or any observation functions
-- `lambda env: env.scene.sensors[...]` observation lambdas
-- `ObsTerm(...)` observation configurations  
-- `RayCasterCfg(...)` sensor configurations
-- Environment or observation modifications
-
-**ONLY GENERATE:**
-- Single `def sds_custom_reward(env) -> torch.Tensor:` function
-- Use existing sensor data WITHIN the reward function only
-
-**The environment sensors are already configured - just ACCESS them in your reward!**
-
-**ALL NUMERICAL EXAMPLES, CODE SNIPPETS, AND REWARD PATTERNS ARE FOR TECHNICAL DEMONSTRATION ONLY.**
-**DO NOT COPY EXAMPLES DIRECTLY! ANALYZE THE ENVIRONMENT AND CREATE INTELLIGENT, CONTEXTUAL REWARDS.**
-
-**INTELLIGENT ENVIRONMENT-AWARE REWARD DESIGN:**
-
-**THINK BEFORE CODING:** Read the environment analysis carefully and design rewards that make sense for the actual conditions:
-- **No obstacles detected?** Don't include obstacle avoidance terms
-- **Steppable gaps only?** Focus on step adjustment, not jumping mechanics
-- **Complex mixed terrain?** Design progressive difficulty rewards
-- **Flat terrain?** Emphasize efficiency and smoothness, not gap navigation
-
-**ENVIRONMENTAL SENSOR INTEGRATION (MANDATORY WHEN DATA PROVIDED)**
-
-**STEP 1: MANDATORY ENVIRONMENTAL ANALYSIS ACKNOWLEDGMENT**
-
-**CRITICAL: ALWAYS START YOUR REWARD FUNCTION WITH THIS COMMENT BLOCK:**
 ```python
-"""
-ENVIRONMENTAL ANALYSIS DECISION:
-Based on environment analysis: [COPY exact summary from the provided environment analysis data]
-- Gaps detected: [COPY exact gap count - must match the analysis, do not guess or use 0 unless analysis shows 0]
-- Obstacles detected: [COPY exact obstacle count - must match the analysis, do not guess or use 0 unless analysis shows 0]  
-- Terrain roughness: [COPY exact terrain measurements and description from analysis]
-- Safety assessment: [COPY exact safety verdict and percentages from analysis]
-
-ENVIRONMENTAL SENSING DECISION: [NEEDED/NOT_NEEDED]
-JUSTIFICATION: [COPY specific numerical measurements from analysis to support your decision]
-
-[If NOT_NEEDED: Explain why foundation locomotion is sufficient]
-[If NEEDED: List specific environmental components to include]
-"""
+def sds_custom_reward(env) -> torch.Tensor:
+    """
+    🔍 COMPREHENSIVE ENVIRONMENT ANALYSIS:
+    
+    📊 NUMERICAL ANALYSIS RESULTS:
+    - Gaps Detected: [exact number found] gaps ([breakdown by type])
+    - Obstacles Detected: [exact number found] obstacles ([breakdown by type])
+    - Terrain Roughness: [exact value found]cm (complexity level)
+    - Safety Score: [percentage]% traversable terrain
+    
+    📸 VISUAL ANALYSIS INSIGHTS:
+    - Primary terrain type: [Extract from task description - what terrain was visually observed]
+    - Visual environment features: [Extract specific visual features mentioned in task description]
+    - Movement challenges observed: [Extract specific challenges described from visual analysis]
+    - Navigation requirements: [Extract specific navigation needs identified visually]
+    - Visual-sensor correlation: [Note any discrepancies between visual and sensor data mentioned]
+    
+    🎯 REWARD STRATEGY DECISION:
+    - PRIMARY SCENARIO: [chosen scenario based on analysis]
+    - Environmental sensing: [NEEDED/NOT_NEEDED] based on [reasoning]
+    - Component priorities: [list of components and reasoning]
+    - Expected robot behavior: [describe intended behavior]
+    
+    📋 IMPLEMENTATION COMPONENTS:
+    - Foundation: velocity tracking, angular velocity, gait patterns, height maintenance
+    - Environmental: [gap navigation/obstacle avoidance/terrain adaptation if needed]
+    - Weights: [brief explanation of weight choices based on challenge priorities]
+    """
+    
+    # Your reward function implementation here...
 ```
 
-**STEP 2: INTELLIGENT ENVIRONMENTAL DATA EXTRACTION**
+**ONLY AFTER COMPLETING THIS INTERNAL ANALYSIS, PROCEED TO REWARD DESIGN**
 
-**MANDATORY: THINK LIKE A ROBOTICS EXPERT, NOT A CODE COPIER!**
+---
 
 **🔍 HOW TO INTELLIGENTLY ANALYZE ENVIRONMENTAL DATA:**
 
@@ -122,26 +186,23 @@ JUSTIFICATION: [COPY specific numerical measurements from analysis to support yo
 
 **🔥 INTELLIGENT DATA-TO-STRATEGY MAPPING EXAMPLES:**
 
-**SCENARIO A: "13 gaps detected (4 steppable ≤0.30m, 7 jumpable 0.30-0.60m, 2 impassable >0.60m)"**
+**SCENARIO A: GAP NAVIGATION EXAMPLE**
 
 **INTELLIGENT ANALYSIS:**
-- **Dominant challenge**: 7/13 (54%) are jumpable gaps
-- **Secondary capability**: 4/13 (31%) are steppable  
-- **Safety concern**: 2/13 (15%) are impassable
-- **Optimal strategy**: Prioritize jumping mechanics with stepping fallback and avoidance safety
+- **Primary scenario**: GAP based on environment analysis
+- **Strategy**: Use gap classification and thresholds from environment analysis
 
 **💻 INTELLIGENT IMPLEMENTATION:**
 ```python
-# ANALYSIS-DRIVEN DESIGN: Prioritize jumping (dominant) with stepping backup
-gap_depth = robot_height.unsqueeze(1) - forward_terrain
-steppable_gaps = (gap_depth >= 0.15) & (gap_depth <= 0.30)  # 4 gaps - secondary
-jumpable_gaps = (gap_depth > 0.30) & (gap_depth <= 0.60)   # 7 gaps - PRIMARY
-impossible_gaps = gap_depth > 0.60                          # 2 gaps - safety
+# ANALYSIS-DRIVEN DESIGN: Use values from environment analysis
+height_sensor = env.scene.sensors["height_scanner"]
 
-# WEIGHT BASED ON ANALYSIS: High weight for jumping (dominant type)
-jumping_bonus = torch.any(jumpable_gaps, dim=1).float() * 0.4  # HIGH: dominant challenge
-stepping_bonus = torch.any(steppable_gaps, dim=1).float() * 0.2  # LOW: secondary capability
-safety_penalty = torch.any(impossible_gaps, dim=1).float() * -0.3  # NEGATIVE: safety
+# Gap detection using physical thresholds from environment analysis
+height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
+
+# Gap detection using thresholds from environment analysis
+gap_detected = torch.any(height_measurements < gap_threshold_from_analysis, dim=1)
+gap_navigation_reward = gap_detected.float() * reward_weight_from_analysis
 ```
 
 **ADVANCED GAP BEHAVIOR NOTE:**
@@ -165,47 +226,49 @@ When implementing gap detection, ensure proper distinction between stairs and ga
 - **Gaps**: Sudden height drops requiring different navigation strategies
 - **Adaptive behavior**: Modify height constraints and encourage controlled descent for stairs while maintaining gap navigation for true gaps
 
-**SCENARIO B: "52 obstacles detected (predominantly large, 0.136-1.227m width)"**
+**SCENARIO B: OBSTACLE AVOIDANCE EXAMPLE**
 
 **INTELLIGENT ANALYSIS:**
-- **Challenge type**: Dense obstacle field (52 obstacles = high density)
-- **Obstacle size**: Large obstacles (0.136-1.227m) = difficult to navigate around
-- **Optimal strategy**: Conservative navigation with wide safety margins and careful path planning
+- **Primary scenario**: OBSTACLE based on environment analysis
+- **Strategy**: Use obstacle detection and safety thresholds from environment analysis
 
 **💻 INTELLIGENT IMPLEMENTATION:**
 ```python
-# ANALYSIS-DRIVEN DESIGN: Large safety margins for dense, large obstacles
-forward_lidar = lidar_range[:, :lidar_range.shape[1]//4]  
-lateral_lidar = lidar_range[:, lidar_range.shape[1]//4:3*lidar_range.shape[1]//4]
+# ANALYSIS-DRIVEN DESIGN: Use obstacle thresholds from environment analysis
+lidar_sensor = env.scene.sensors["lidar"]
+lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
 
-# CONSERVATIVE DISTANCES: Adapted for large obstacles in dense field
-safe_forward_dist = torch.min(forward_lidar, dim=1)[0]
-safe_lateral_dist = torch.min(lateral_lidar, dim=1)[0]
-
-# INTELLIGENT MARGINS: Larger thresholds for large obstacles
-forward_safety = torch.clamp((safe_forward_dist - forward_clearance) / clearance_range, 0.0, 1.0)  # Forward clearance
-lateral_safety = torch.clamp((safe_lateral_dist - lateral_clearance) / lateral_range, 0.0, 1.0)   # Lateral clearance
-navigation_bonus = forward_safety * lateral_safety * dense_weight  # Appropriate weight for dense environment
+# Obstacle detection using physical thresholds from environment analysis (in meters)
+obstacle_detected = torch.any(lidar_distances < obstacle_threshold_from_analysis, dim=1)
+obstacle_avoidance_reward = obstacle_detected.float() * reward_weight_from_analysis
 ```
 
-**SCENARIO C: "terrain roughness 3.6cm" + "77.7% safe traversable terrain"**
+**SCENARIO C: FLAT TERRAIN EXAMPLE**
 
 **INTELLIGENT ANALYSIS:**
-- **Terrain challenge**: 3.6cm = LOW roughness (below 20cm threshold)
-- **Safety level**: 77.7% safe = HIGH safety (minimal terrain hazards)
-- **Optimal strategy**: Focus on efficiency and smooth locomotion, minimal terrain adaptation
+- **Primary scenario**: FLAT based on environment analysis
+- **Strategy**: Focus on foundation locomotion efficiency
 
 **💻 INTELLIGENT IMPLEMENTATION:**
 ```python
-# ANALYSIS-DRIVEN DESIGN: Minimal terrain processing for low-challenge environment
-terrain_variance = torch.var(height_scan, dim=1)
-
-# INTELLIGENT WEIGHTING: Low weight since terrain is not challenging (3.6cm roughness)
-smooth_locomotion = torch.exp(-terrain_variance * variance_scale) * terrain_weight  # Appropriate weight for terrain difficulty
-# Focus more on foundation locomotion efficiency rather than terrain adaptation
+# ANALYSIS-DRIVEN DESIGN: Foundation locomotion for flat terrain
+# No environmental sensing needed for flat scenario
+foundation_locomotion_reward = velocity_tracking + orientation_stability + height_maintenance
 ```
 
 **MANDATORY: WHEN ENVIRONMENT ANALYSIS DATA IS PROVIDED, YOU MUST USE IT!**
+
+**DECISION LOGIC FOR ENVIRONMENTAL SENSING:**
+- **ALWAYS**: Start reward function with environmental analysis acknowledgment comment
+- **IF environment analysis shows gaps detected (>0)**: MUST INCLUDE gap navigation components
+- **IF environment analysis shows obstacles detected (>0)**: MUST INCLUDE obstacle avoidance components
+- **IF environment analysis shows stairs/slopes detected**: MUST INCLUDE terrain adaptation components
+- **IF environment analysis data contains specific numbers**: USE those exact numbers in your decisions
+
+**MIXED TERRAIN GUIDANCE:**
+- **When analysis shows multiple features**: Choose PRIMARY scenario by most prominent feature (highest count)
+- **Include foundation + primary components**: Add secondary features as minor enhancements
+- **Keep strategy focused**: Don't overcomplicate with equal treatment of all features
 
 **🔍 HOW TO FIND ENVIRONMENTAL DATA:**
 1. **Look in "TASK ANALYSIS AND ENVIRONMENT INSIGHTS" section above** for environmental context
@@ -252,97 +315,6 @@ smooth_locomotion = torch.exp(-terrain_variance * variance_scale) * terrain_weig
 
 ALL reward functions MUST prioritize GENTLE, CONTROLLED, SUSTAINABLE movements:
 
-**TASK-SPECIFIC GENTLENESS TARGETS:**
-
-**VERTICAL JUMP TASK REQUIREMENTS:**
-- **Height:** Moderate clearance appropriate for basic vertical jumps
-- **Velocity:** Controlled vertical velocity suitable for gentle movements
-- **Coordination:** Bilateral synchronization with gentle loading/release
-- **Landing:** Controlled impact absorption with bilateral symmetry
-
-**WALKING TASK REQUIREMENTS:**
-- **Height:** Standard body height maintained consistently during locomotion
-- **Velocity:** Natural walking speeds appropriate for forward movement
-- **Coordination:** Cross-pattern arm-leg coordination (opposite timing)
-- **Landing:** Controlled heel-to-toe contact progression
-
-**BACKFLIP TASK REQUIREMENTS:**
-- **Height:** Sufficient altitude for complete rotation
-- **Flight time:** Adequate duration for complete rotation
-- **Rotation:** Controlled rotational velocity for full rotation (robot must complete entire backflip and land upright)
-- **Coordination:** Phase-specific arm patterns (backward swing → tuck → extend)
-- **Landing:** Controlled bilateral impact with upright orientation (robot lands on feet, not on back)
-
-**MARCH TASK REQUIREMENTS:**
-- **Height:** Standard height maintained with controlled knee lift
-- **Velocity:** Deliberate cadence appropriate for ceremonial movement
-- **Coordination:** Opposite arm-leg ceremonial patterns
-- **Landing:** Precise foot placement with controlled impact
-
-**SPRINT TASK REQUIREMENTS:**
-- **Height:** Standard height maintained during high-speed movement
-- **Velocity:** High forward velocity exceeding normal walking speeds
-- **Coordination:** Reciprocal arm drive for forward propulsion
-- **Landing:** Controlled high-speed ground contact
-
-**PACE TASK REQUIREMENTS:**
-- **Height:** Standard height maintained during lateral movement
-- **Velocity:** Controlled lateral velocity for sideways movement
-- **Coordination:** Compensatory arms for lateral stability
-- **Landing:** Controlled lateral foot placement
-
-**TASK-SPECIFIC FORBIDDEN BEHAVIORS:**
-
-**For VERTICAL JUMP Tasks:**
-- Excessive jumping heights beyond task requirements
-- Excessive velocities inappropriate for gentle movements
-- Single-leg jumping instead of bilateral coordination
-- Harsh landing impacts
-
-**For WALKING Tasks:**
-- Same-side arm-leg coordination (robotic pattern)
-- Excessive height variation from standard baseline
-- Harsh foot impacts or jarring steps
-- Missing heel-to-toe contact progression
-
-**For BACKFLIP Tasks:**
-- Insufficient height for rotation completion
-- Excessive rotation speed that compromises safety
-- Missing arm coordination phases
-- Landing without upright orientation (robot lands on back/side instead of feet)
-- Incomplete rotation (partial backflips that don't result in upright landing)
-
-**For MARCH Tasks:**
-- Military-sharp movements (too rigid)
-- Inconsistent knee lift heights
-- Missing opposite arm-leg coordination
-- Rushed or uncontrolled timing
-
-**For SPRINT Tasks:**
-- Excessive energy waste
-- Poor forward propulsion efficiency
-- Missing reciprocal arm drive
-- Uncontrolled high-speed impacts
-
-**For PACE Tasks:**
-- Abrupt direction changes
-- Loss of lateral stability
-- Missing compensatory arm movement
-- Uncontrolled lateral momentum
-
-**UNIVERSAL GENTLE MOVEMENT PRINCIPLES:**
-- Smooth muscle loading and controlled release
-- Gradual transitions between movement phases
-- Controlled impact absorption during landings
-- Energy-efficient, sustainable motions
-- Natural human-like movement quality
-
-**REWARD THESE GENTLE BEHAVIORS:**
-- Smooth muscle loading and controlled release
-- Gradual transitions between movement phases
-- Controlled impact absorption during landings
-- Energy-efficient, sustainable motions
-- Natural human-like movement quality
 
 **UNDERSTANDING NATURAL WALKING BIOMECHANICS:**
 
@@ -363,33 +335,44 @@ Many humanoid robots fail to achieve natural walking because they don't properly
 - Account for ankle joint position (dorsiflexion) during swing
 - Penalize insufficient clearance that creates tripping risk
 
-**NATURAL ARM SWING - THE "ROBOTIC MOVEMENT" PROBLEM:**
+**SIMPLIFIED ARM CONTROL - KEEP NEAR DEFAULTS:**
 
-Robotic walking often exhibits unnatural arm patterns, including arms staying behind the body, same-side arm-leg coordination, or completely rigid arm positions. Natural human walking requires specific arm-leg coordination patterns.
+**✅ RECOMMENDED: Simple arm control near defaults**
 
-**Key Biomechanical Principles:**
-- **Cross-pattern coordination:** Left arm swings forward when right leg swings forward (opposite pattern)
-- **Natural amplitude:** Arms swing approximately 15-20° forward and 10-15° backward from vertical
-- **Pendulum motion:** Arms act as passive pendulums driven by shoulder rotation and body movement
-- **Energy efficiency:** Natural arm swing reduces walking energy cost by 5-12%
-- **Balance assistance:** Arms help maintain lateral balance and control rotational momentum
+The G1 robot has good natural arm defaults:
+- `shoulder_pitch: 0.35` (arms slightly forward - asset default)  
+- `shoulder_roll: 0.16/-0.16` (slight outward angle - asset default)
+- `elbow_pitch: 0.87` (natural elbow bend - asset default)
 
-**Common Robotic Arm Problems to Avoid:**
-- **"Negative side restriction":** Arms staying behind body, never swinging forward
-- **Same-side coordination:** Arms and legs on same side moving together (like robot march)
-- **Bilateral synchrony:** Both arms moving in same direction simultaneously ⚠️ CRITICAL: This includes forcing both arms to the same angle!
-- **Rigid positioning:** Arms held stiff without natural pendulum motion
-- **Excessive restriction:** Arms held close to body without natural swing
-- **Mean angle targeting:** Using torch.mean() to force both shoulders to same angle - causes unnatural arm crossing!
+**Simple Implementation:**
+```python
+# ✅ RECOMMENDED: Simple arm control near defaults
+robot = env.scene["robot"]
+shoulder_joints = ["left_shoulder_pitch_joint", "right_shoulder_pitch_joint"] 
+shoulder_indices, _ = robot.find_joints(shoulder_joints)
+shoulder_indices = torch.tensor(shoulder_indices, dtype=torch.long, device=env.device)
+shoulder_angles = robot.data.joint_pos[:, shoulder_indices]  # [N, 2]
 
-**Design Considerations for Natural Arm Swing:**
-- **AVOID bilateral synchrony:** Never force both arms to same angle (e.g., mean_sh = torch.mean(torch.abs(sh_angles)) is WRONG!)
-- **Consider no arm rewards:** Often gravity-driven arms look more natural than constrained ones
-- **If arm control needed:** Reward reciprocal (opposite) arm-leg coordination patterns, not fixed angles
-- Consider arm swing amplitude and timing relative to walking speed
-- Account for natural frequency coupling between arms and legs (1:1 ratio)
-- Ensure arms can swing forward past neutral position
-- Balance arm movement with overall gait stability
+# Keep arms near default positions (0.35 for shoulder_pitch - arms slightly forward)
+target_shoulder_pos = 0.35  # Asset default position
+arm_deviation = torch.mean(torch.abs(shoulder_angles - target_shoulder_pos), dim=1)
+arm_reward = torch.exp(-arm_deviation / 0.2) * 0.1  # Simple and stable
+```
+
+**Optional Small Movement:**
+```python
+# ✅ OPTIONAL: Small reciprocal movement
+left_shoulder = shoulder_angles[:, 0]
+right_shoulder = shoulder_angles[:, 1]
+reciprocal_bonus = -torch.abs(left_shoulder + right_shoulder) * 0.5
+total_arm_reward = (arm_relaxation + reciprocal_bonus) * 0.05  # Keep weight small
+```
+
+**Key Principles:**
+- **Minimal control:** Arms are secondary to locomotion
+- **Small weights:** Use 0.05-0.1 maximum for arm rewards
+- **Default preference:** Reward staying near configured defaults
+- **Avoid complexity:** Don't control multiple arm joints simultaneously
 
 **CRITICAL ARM IMPLEMENTATION WARNING:**
 ❌ **WRONG - Causes bilateral synchrony and arm crossing:**
@@ -895,7 +878,7 @@ Use these problem frameworks as **INSPIRATION** for deeper creative thinking abo
 - **Arm Stability Control:** How do you reward arm positioning that maintains rotational axis stability and prevents off-axis rotation?
 - **Landing Recovery Arm Support:** How can you reward arm positioning that assists balance recovery and impact absorption during landing?
 
-## **Reward Engineering Best Practices**
+## **Reward Engineering Best Practices (Dony copy paste directly These are just Examples!)**
 
 **1. Normalize Components to [0,1] Range:**
 ```python
@@ -1146,3 +1129,26 @@ Modern RL systems routinely learn complex temporal behaviors including:
 The key is designing reward functions that capture the phase-specific requirements while allowing the RL algorithm's temporal learning capabilities to discover optimal coordination patterns.
 
 IMPORTANT: Provide ONLY the Python code wrapped in ```python ```
+
+**ISAAC LAB STANDARD SENSOR ACCESS FOR REWARD FUNCTIONS**
+
+🚨 CRITICAL: ISAAC LAB REWARD FUNCTIONS USE RAW SENSOR ACCESS! 🚨
+
+⚠️ WARNING: Do NOT use observation manager for reward functions - use direct sensor access!
+
+SENSOR ACCESS PATTERN:
+- height_scanner: Raw terrain height measurements relative to sensor position (for gap detection, not robot height tracking)
+- lidar: Raw distances in meters to obstacles/surfaces
+
+✅ CORRECT ACCESS FOR ISAAC LAB REWARD FUNCTIONS:
+height_sensor = env.scene.sensors["height_scanner"]
+lidar_sensor = env.scene.sensors["lidar"]
+
+height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
+lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
+
+# Use physical thresholds from environment analysis (in meters):
+gaps = torch.any(height_measurements < gap_threshold_from_analysis, dim=1)
+obstacles = torch.any(lidar_distances < obstacle_threshold_from_analysis, dim=1)
+
+✅ Use Isaac Lab standard raw sensor access for all reward functions with physical measurements!

@@ -162,7 +162,7 @@ Your role is to provide structured, adaptive requirement frameworks that guide r
 - **Small Features:** Stepping strategies for minor terrain variations
 - **Medium Features:** Jumping or avoidance strategies for moderate obstacles
 - **Large Features:** Avoidance or alternative path strategies for major obstacles
-- **Complex Terrain:** Multi-modal behavior switching based on real-time analysis
+- **Classified Terrain:** Behavior specific to primary scenario classification
 
 ## UNIVERSAL REQUIREMENT FRAMEWORKS
 

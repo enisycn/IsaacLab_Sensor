@@ -1,4 +1,39 @@
-🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
+🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟
+🌟🌟🌟 ENVIRONMENT-AWARE LOCOMOTION REWARD DESIGN GUIDANCE 🌟🌟🌟
+🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟
+
+**CRITICAL PROJECT UNDERSTANDING:**
+
+These guidance explanations are designed for creating **environment-aware locomotion rewards** that enable **intelligent sensor-driven behavior adaptation** for humanoid robots.
+
+**🎯 PRIMARY OBJECTIVE:** 
+Create reward functions that make **measurable positive impact when sensors are used** compared to **without sensor usage**.
+
+**🔬 RESEARCH PURPOSE:**
+Enable comparison studies demonstrating:
+- **WITHOUT SENSORS:** Basic locomotion behavior 
+- **WITH SENSORS:** Adaptive, context-aware behavior that responds to environmental challenges
+
+**🧠 DESIGN METHODOLOGY:**
+1. **ANALYZE:** Understand the environment (gaps, obstacles, terrain complexity)
+2. **THINK:** Determine which sensors are needed and how they should influence behavior
+3. **DECIDE:** Implement context-aware behavioral switching (NOT simultaneous conflicting rewards)
+4. **IMPACT:** Ensure sensors create observable behavioral differences for scientific comparison
+
+**📊 SUCCESS CRITERIA:**
+✅ Robot behaves measurably different with sensors vs. without sensors
+✅ Sensor-enabled robot adapts to environmental challenges more effectively
+✅ Clear behavioral switching based on environmental context
+✅ No conflicting simultaneous behaviors (e.g., walking + jumping simultaneously)
+
+**⚠️ FAILURE INDICATORS:**
+❌ Robot behaves identically with/without sensors
+❌ Sensors provide only minor bonuses without changing core behavior
+❌ Conflicting reward objectives that confuse the policy
+
+---
+
+🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨��🚨🚨🚨🚨🚨🚨🚨🚨🚨
 🚨🚨🚨 #1 TRAINING CRASH: SENSOR ATTRIBUTEERROR - READ THIS FIRST 🚨🚨🚨
 🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
 
@@ -12,12 +47,20 @@ lidar_range = lidar_sensor.data.distances  # AttributeError!
 height_data = height_sensor.data.height_measurements  # AttributeError!
 dist = lidar_sensor.data.distances  # INSTANT CRASH!
 ```
-- FIX: Use correct sensor access patterns:
+✅ CORRECT SENSOR ACCESS PATTERN (Isaac Lab standard for reward functions):
 ```python
-# ✅ CORRECT LiDAR distances:
-lidar_range = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
-# ✅ CORRECT height scanner:
-height_scan = height_sensor.data.ray_hits_w[..., 2]
+# Isaac Lab standard raw sensor access for reward functions
+height_sensor = env.scene.sensors["height_scanner"]
+lidar_sensor = env.scene.sensors["lidar"]
+
+height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
+lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
+```
+
+❌ WRONG PATTERNS THAT CAUSE CRASHES:
+```python
+height_scan = height_sensor.data.distances  # AttributeError: no such attribute
+lidar_range = lidar_sensor.data.range_measurements  # AttributeError: no such attribute
 ```
 
 🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
@@ -28,33 +71,50 @@ Isaac Lab reward functions can encounter various runtime errors. Here's how to d
 
 **HEIGHT HARDCODING ERROR (robots stand still on stairs/platforms):**
 - SYMPTOM: Robots learned to stand still on elevated terrain or go downstairs
-- CAUSE: Using absolute world height instead of terrain-relative height
-- FIX: Use height relative to terrain underneath:
-```python
-# WRONG:
-height_err = torch.abs(robot.data.root_pos_w[:, 2] - 0.74)  # Absolute height
+- CAUSE: Using inappropriate height tracking method for the terrain characteristics
+- FIX: Choose height tracking method based on environment analysis:
 
-# CORRECT:
-height_sensor = env.scene.sensors["height_scanner"]
-terrain_height = height_sensor.data.ray_hits_w[..., 2].mean(dim=-1)
-relative_height = robot.data.root_pos_w[:, 2] - terrain_height
-height_err = torch.abs(relative_height - 0.74)  # Relative to terrain
+**ABSOLUTE HEIGHT - For consistent body clearance:**
+```python
+# Use when: Flat terrain OR gap crossing (large stepping) OR consistent platform heights
+height_err = torch.abs(robot.data.root_pos_w[:, 2] - 0.74)  # Target height above world origin
+height_reward = torch.exp(-height_err / 0.3)
 ```
 
-**ARM BILATERAL SYNCHRONY ERROR (unnatural arm crossing/backward movement):**
-- SYMPTOM: Arms cross with body, move backward, or look robotic/weird
-- CAUSE: Forcing both arms to same angle (bilateral synchrony)
-- FIX: Use natural gravity-driven movement or reciprocal patterns:
+**TERRAIN-RELATIVE HEIGHT - For adaptive surface following:**
 ```python
-# WRONG:
-mean_sh = torch.mean(torch.abs(sh_angles), dim=1)  # Both arms same angle!
+# Use when: Variable terrain heights OR climbing stairs OR navigating slopes
+height_sensor = env.scene.sensors["height_scanner"]
+height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
+avg_terrain_height = height_measurements.mean(dim=-1)  # Average terrain height in meters
+# Terrain-relative height tracking with physical measurements
+# Robot height above terrain surface (corrected calculation)
+robot_terrain_relative_height = robot.data.root_pos_w[:, 2] - avg_terrain_height
+height_err = torch.abs(robot_terrain_relative_height - 0.74)  # Maintain 0.74m above terrain
+```
 
-# CORRECT OPTIONS:
-# Option 1: No arm rewards (often best - natural pendulum motion)
-# Option 2: Reciprocal coordination
-left_arm = sh_angles[:, 0]
-right_arm = sh_angles[:, 1]
-reciprocal_reward = -torch.abs(left_arm + right_arm)  # Opposite movement
+**DECISION GUIDE - Let environment analysis guide your choice:**
+- Large gaps requiring stepping → Absolute height maintains clearance
+- Variable surface heights → Terrain-relative adapts to surface
+- Consistent platform levels → Absolute height for smooth transitions
+- Climbing/descending behavior needed → Terrain-relative for adaptation
+
+**ARM CONTROL ISSUES (weird arm behavior):**
+- SYMPTOM: Arms moving unnaturally, crossing body, or excessive movement
+- CAUSE: Complex arm control or forcing unnatural positions
+- FIX: Use simplified approach keeping arms near defaults:
+```python
+# ✅ SIMPLE & EFFECTIVE: Keep arms near defaults (0.35)
+robot = env.scene["robot"]
+shoulder_joints = ["left_shoulder_pitch_joint", "right_shoulder_pitch_joint"]
+shoulder_indices, _ = robot.find_joints(shoulder_joints)
+shoulder_indices = torch.tensor(shoulder_indices, dtype=torch.long, device=env.device)
+shoulder_angles = robot.data.joint_pos[:, shoulder_indices]  # [N, 2]
+
+# Reward staying near default positions (shoulder_pitch = 0.35)
+target_shoulder_pos = 0.35  # Asset default position
+arm_deviation = torch.mean(torch.abs(shoulder_angles - target_shoulder_pos), dim=1)
+arm_reward = torch.exp(-arm_deviation / 0.2) * 0.1  # Simple and stable
 ```
 
 **TECHNICAL ERROR PATTERNS:**
@@ -81,6 +141,44 @@ ENVIRONMENTAL SENSING DECISION ERRORS:
 - Caused by dismissing sensor data in favor of visual analysis  
 - SYMPTOMS: "sensors detect gaps/obstacles but visual shows flat terrain"
 - FIX: Always prioritize quantitative sensor measurements over visual interpretation
-- RULE: If sensors detect >5 gaps OR >10 obstacles OR >2cm roughness → include environmental components
+- RULE: Use environment analysis classification to determine if environmental components are needed
+
+COMMON ERRORS AND FIXES:
+
+SENSOR ACCESS ERRORS:
+- SYMPTOMS: AttributeError when accessing .distances or .height_measurements
+- CAUSE: Using non-existent sensor attributes
+- FIX: Use Isaac Lab standard raw sensor access:
+  height_sensor = env.scene.sensors["height_scanner"]
+  height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
+
+TENSOR OPERATION ERRORS:
+- SYMPTOMS: RuntimeError during math operations (division by zero, NaN values)
+- CAUSE: Unstable mathematical operations
+- FIX: Use torch.clamp(denominator, min=1e-6) before division operations
+
+ENVIRONMENTAL SENSING DECISION ERRORS:
+- Caused by dismissing sensor data in favor of visual analysis  
+- SYMPTOMS: "sensors detect gaps/obstacles but visual shows flat terrain"
+- FIX: Always prioritize quantitative sensor measurements over visual interpretation
+- RULE: Use environment analysis classification to determine if environmental components are needed
+
+SENSOR BEHAVIORAL ADAPTATION ERRORS:
+- SYMPTOMS: Robot behaves identically with/without sensors (no measurable difference)
+- CAUSE: Adding minimal sensor bonuses instead of behavioral switching
+- FIX: Use context-aware behavioral adaptation:
+```python
+# ❌ WRONG: Minimal sensor impact
+total = foundation + sensor_bonus * 0.1  # Robot still walks the same way
+
+# ✅ CORRECT: Behavioral switching
+if gap_detected:
+    behavior = foundation + gap_crossing_adaptation()  # Different gait
+elif obstacle_detected:
+    behavior = foundation + obstacle_avoidance_adaptation()  # Different navigation
+else:
+    behavior = foundation_only()  # Normal walking
+```
+- RULE: Sensors must create observable behavioral differences for comparison studies
 
 Apply these fixes systematically to prevent future runtime crashes.

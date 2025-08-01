@@ -13,10 +13,10 @@ GPT-based reward generation. The image is saved to the most recent SDS checkpoin
 directory for integration with the reward generation pipeline.
 
 Features:
-- Angled overhead camera view to show 3D terrain features clearly
+- Camera positioned behind robot to analyze whole scene and environment
 - Automatic SDS checkpoint detection and image saving
 - Support for SDS Enhanced terrain with complex box-shaped height variations
-- High-resolution image capture (768x1280 pixels)
+- High-resolution image capture (1080x1920 pixels - Full HD)
 - Robust error handling and proper script termination
 
 Usage:
@@ -112,12 +112,12 @@ class SDSCaptureSceneCfg(InteractiveSceneCfg):
                 "right_knee_joint": 0.6,
                 "right_ankle_pitch_joint": -0.3,
                 "right_ankle_roll_joint": 0.0,
-                # Simple arm positions
-                "left_shoulder_pitch_joint": 0.0,
-                "right_shoulder_pitch_joint": 0.0,
-                "left_shoulder_roll_joint": 0.0,
-                "right_shoulder_roll_joint": 0.0,
-                ".*_elbow_pitch_joint": 0.2,
+                # Arms - using asset defaults for consistency with training
+                "left_shoulder_pitch_joint": 0.35,    # Asset default (arms slightly forward)
+                "right_shoulder_pitch_joint": 0.35,   # Asset default (arms slightly forward)
+                "left_shoulder_roll_joint": 0.16,     # Asset default (slight outward angle)
+                "right_shoulder_roll_joint": -0.16,   # Asset default (slight outward angle)
+                ".*_elbow_pitch_joint": 0.87,         # Asset default (natural elbow bend)
             },
             joint_vel={},  # Empty dictionary for zero velocities
         ),
@@ -155,12 +155,12 @@ class SDSCaptureSceneCfg(InteractiveSceneCfg):
         debug_vis=False,
     )
     
-    # Camera for capturing environment image - positioned to focus on robots
+    # Camera for capturing environment image - positioned behind robot for scene analysis
     capture_camera: CameraCfg = CameraCfg(
         prim_path="{ENV_REGEX_NS}/CaptureCamera",
         update_period=0,  # Update every step for immediate capture
-        height=768,
-        width=1280,
+        height=1200,      # Enhanced HD+ resolution for good detail/performance balance
+        width=2048,       # Enhanced HD+ resolution for good detail/performance balance
         data_types=["rgb"],
         spawn=sim_utils.PinholeCameraCfg(
             focal_length=24.0,
@@ -205,10 +205,9 @@ def capture_sds_environment_image(checkpoint_dir: Path) -> bool:
     """Capture SDS environment image using angled overhead camera view."""
     print("🎯 === SDS ENVIRONMENT IMAGE CAPTURE ===")
     
-    # Camera positioning - ROBOT FOCUSED like Isaac Lab demos + SDS RobotFocus
-    # Use the high camera position but focus on robot center and apply SDS-style cropping
-    CAMERA_EYE = [-35.0, 0.0, 60.0]      # High position for full scene view
-    CAMERA_TARGET = [0.0, 0.0, 0.0]      # Look at scene center
+    # Updated camera constants for better robot-focused environment capture
+    CAMERA_EYE = [-12.0, 0.0, 8.0]     # Medium distance (12m back, 8m up) for robot focus with environment context
+    CAMERA_TARGET = [0.0, 0.0, 1.0]    # Look at robot body height (1m up from ground)
     
     # But we'll apply robot focus positioning dynamically after scene creation
     
@@ -259,9 +258,9 @@ def capture_sds_environment_image(checkpoint_dir: Path) -> bool:
         # Use first robot as reference for camera focus
         center_robot_pos = robot_pos[0]  # Use first robot as focus point
         
-        # Robot-focused camera position: closer and lower for better visibility
-        robot_focused_eye = center_robot_pos + torch.tensor([-6.0, -6.0, 3.0], device=sim.device)  # 6m back, 3m up from robot (lower)
-        robot_focused_target = center_robot_pos + torch.tensor([0.0, 0.0, 1.0], device=sim.device)  # Robot center + 1m height
+        # Robot-focused camera position: positioned for optimal robot viewing with environment context
+        robot_focused_eye = center_robot_pos + torch.tensor([0, -8.0, 3.0], device=sim.device)   # 8m back, 3m higher from robot
+        robot_focused_target = center_robot_pos + torch.tensor([0.0, 0.0, 0.8], device=sim.device)  # Look at robot's torso height (0.8m)
         
         # Update simulation camera to focus on robots
         sim.set_camera_view(
@@ -280,10 +279,10 @@ def capture_sds_environment_image(checkpoint_dir: Path) -> bool:
         )
     
         print(f"📷 Camera dynamically positioned to focus on robots at {robot_focused_eye.cpu().numpy()} → {robot_focused_target.cpu().numpy()}")
-        print(f"🎯 Robot-focused view: 3m above, 6m back from robot center (lower for better angle)")
+        print(f"🎯 Robot-focused view: 3m above, 8m straight back from robot - good balance of robot detail and environment context")
         
     except Exception as e:
-        print(f"⚠️ Could not set robot-focused camera, using default high view: {e}")
+        print(f"⚠️ Could not set robot-focused camera, using default medium view: {e}")
         # Fallback to original positioning
         num_envs = scene_cfg.num_envs
         camera_eyes = torch.tensor([CAMERA_EYE] * num_envs, device=sim.device)
@@ -295,8 +294,8 @@ def capture_sds_environment_image(checkpoint_dir: Path) -> bool:
         )
         print(f"📷 Fallback camera positioned at: {CAMERA_EYE} → {CAMERA_TARGET}")
     
-    print(f"🤖 Capturing image with {num_envs} G1 robots using lower robot-focused camera")
-    print("✅ Camera positioned for robot visibility (lower view without cropping)")
+    print(f"🤖 Capturing image with {num_envs} G1 robots using scene-focused camera")
+    print("✅ Camera positioned behind robot for whole scene analysis")
     
     # Perform simulation steps to initialize everything
     print("⏳ Initializing SDS environment and camera...")
@@ -348,7 +347,7 @@ def capture_sds_environment_image(checkpoint_dir: Path) -> bool:
         print(f"📁 Location: {output_path}")
         print(f"🔗 This image will be automatically used by SDS reward generation")
         print(f"🤖 Task descriptor system will analyze this environment image alongside demo videos")
-        print(f"📷 Camera perspective: Lower robot-focused view (3m above, 6m back) - full image without cropping")
+        print(f"📷 Camera perspective: Robot-focused view (4m above, 6m diagonal) - robot centered with environment context")
         
         # 🆕 PROPER CLEANUP: Following build_simulation_context pattern
         print("\n🧹 Cleaning up simulation context...")
@@ -384,6 +383,7 @@ def capture_sds_environment_image(checkpoint_dir: Path) -> bool:
             timeout_timer.cancel()
         
         return True
+    
                     else:
         print(f"❌ Failed to save environment image")
         

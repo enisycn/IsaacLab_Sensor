@@ -5,7 +5,7 @@ Please carefully analyze the policy feedback and provide a new, improved reward 
         (c) Discarding the reward components
         (d) Add new reward components
     (2) If some reward components' magnitude is significantly larger, then you must re-scale its value to a proper range
-    (3) **Full-Body Coordination Check:** Ensure the reward function includes proper coordination between all controlled joints (legs, arms, torso) for natural humanoid locomotion. Consider adding missing components like arm swing coordination, bilateral symmetry, and upper body integration.
+    (3) **Simplified Arm Integration:** If arms behave unnaturally, use minimal arm control keeping them near default positions (shoulder_pitch=0.35, elbow=0.87) with small weights (0.05-0.1). Avoid complex multi-joint arm coordination.
     (4) **Foundation-First Stability Analysis:** If training is crashing or mean reward is zero:
         (a) **FIRST**: Check if basic locomotion foundation is stable (height, velocity, orientation)
         (b) **SECOND**: Verify mathematical stability (no aggressive exponentials, tight tolerances, or multiplicative chains)
@@ -21,7 +21,7 @@ Please carefully analyze the policy feedback and provide a new, improved reward 
         (g) **Foundation First**: Always test basic locomotion (velocity, height, orientation) before adding sensor components
         (h) **Progressive Integration**: Add sensor components incrementally: velocity tracking → basic contact → terrain adaptation
         (i) **Reward Balance Check**: Ensure sensor-based rewards don't overwhelm core locomotion components (max 30% weight)
-        (j) **Flat-with-Box Specifics**: Use 12x12 height scanner and 360-ray lidar patterns, not generic sensor assumptions
+        (j) **Flat-with-Box Specifics**: Use 13x10 height scanner (130 points, 15cm resolution, 2x1.5m coverage) and 144-ray lidar (8 channels × 18 horizontal rays, 180° FOV), not generic sensor assumptions
     (6) **Mathematical Stability Check:** If rewards are consistently zero or training crashes:
         (a) Replace aggressive exponentials (factors >3.0) with moderate ones (0.5-2.0)
         (b) Use relaxed tolerances (0.3-1.0) instead of tight ones (0.1 or smaller)
@@ -33,24 +33,23 @@ Please carefully analyze the policy feedback and provide a new, improved reward 
             - Check adaptive velocity scaling: `obstacle_factor = torch.clamp((terrain_clearance + 0.2) / 0.4, min=0.1, max=1.0)`
             - Verify terrain clearance calculation from height scanner forward strips
             - Ensure velocity rewards use adapted commands, not original commands
-        (b) **Stair Freezing Issues**: If robot stops at top of stairs instead of descending:
-            - Check height gradient analysis: `height_gradient = torch.diff(forward_strip.mean(dim=2), dim=1)`
-            - Verify stair detection: `is_stair_pattern = (torch.abs(height_gradient) < 0.15).all(dim=1)`
-            - Ensure adaptive height targets: `target_height = torch.where(is_stair_pattern, current_height - 0.05, 0.74)`
-        (c) **Gap Behavior Inconsistencies**: If stepping/jumping behaviors are random:
-            - Check LiDAR-based gap classification: `min_forward_distance = torch.min(forward_rays, dim=1)[0]`
-            - Verify thresholds: small_gap (0.3-0.8m), medium_gap (0.8-1.5m), large_gap (>1.5m)
+        (b) **Stair Behavior Issues**: If robot behavior is incorrect for STAIRS scenario:
+            - Use STAIRS scenario classification from environment analysis
+            - Apply stair-specific locomotion rewards based on analysis
+        (c) **Gap Behavior Issues**: If behavior is incorrect for GAP scenario:
+            - Use GAP scenario classification from environment analysis  
+            - Apply gap-specific thresholds from environment analysis
             - Ensure conditional rewards use proper masking: `torch.where(gap_condition.unsqueeze(-1), reward_value, zeros)`
         (d) **Backward Movement Problems**: If negative velocity commands cause issues:
             - Check bidirectional velocity tracking: separate forward/backward error calculation
             - Verify sensor coverage: height scanner and lidar cover backward movement areas
             - Ensure yaw-aligned velocity transformation works with negative commands
         (e) **Sensor Integration Crashes**: If adding height_scanner or lidar causes failures:
-            - Test sensor data shapes: height_scan should be [num_envs, 140], lidar should be [num_envs, 360]
-            - Check grid reshaping: `height_grid = height_scan.view(env.num_envs, 12, 12)`
-            - Verify ray indexing: forward_rays = lidar_range[:, :90], backward_rays = lidar_range[:, 270:]
+            - Test sensor data shapes: height_measurements should be [num_envs, 130], lidar_distances should be [num_envs, 144] 
+            - Check grid access: use height_measurements directly (already flattened from 13x10 grid)
+            - Verify ray indexing: forward_rays = lidar_distances[:, :72], backward_rays = lidar_distances[:, 72:]
         (f) **Enhanced Environment Specific**: For Isaac-SDS-Velocity-Flat-G1-Enhanced-v0:
-            - Use exact sensor configurations: GridPatternCfg (12x12, 5.0m range), LidarCfg (360 rays, 5.0m range)
+            - Use exact sensor configurations: GridPatternCfg (2.0x1.5m, 0.15m resolution), LidarPatternCfg (8 channels, 180° FoV, 10° resolution)
             - Account for velocity ranges: x: (-0.1, 0.4), y: (-0.15, 0.15), z: (-0.3, 0.3)
             - Include full-body coordination: 23 DOF control (legs, arms, torso) not just legs
 Please analyze each existing reward component in the suggested manner above first, and then write the reward function code. 

@@ -236,7 +236,7 @@ def main(cfg):
         sus_generator = EnhancedSUSGenerator(cfg, prompt_dir)
         
         # Generate environment-aware SUS prompt
-        num_envs_for_analysis = getattr(cfg, 'environment_analysis_robots', 50)
+        num_envs_for_analysis = getattr(cfg, 'environment_analysis_robots', 100)
         logging.info(f"Using environment-aware SUS generation with {num_envs_for_analysis} robots for terrain analysis")
         
         SUS_prompt = sus_generator.generate_enhanced_sus_prompt(

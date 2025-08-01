@@ -63,49 +63,73 @@ You are an expert in analyzing humanoid locomotion tasks with advanced environme
    Environment Type: Isaac-SDS-Velocity-Flat-G1-Enhanced-v0
 
 🌍 TERRAIN CHARACTERISTICS:
-   Ground Level Range: 0.068m to 0.074m
-   Height Variation Range: 0.005m to 0.014m
-   Maximum Terrain Variation: 0.014m
-   Average Terrain Roughness: 0.2cm
-   Configuration Compliance: ✅ WITHIN LIMITS
+   Ground Level Range: 0.068m to 0.283m
+   Height Variation Range: 0.005m to 0.219m
+   Maximum Terrain Variation: 0.219m
+   Average Terrain Roughness: 2.6cm
+   Configuration Compliance: ⚠️ EXCEEDS 20cm LIMIT
 
 🕳️ COMPREHENSIVE GAP ANALYSIS:
-   Total Gaps Detected: 0
+   Total Gaps Detected: 30
    Gap Type Distribution:
+     - Impossible: 13 gaps (43.3%)
+     - Jumpable: 15 gaps (50.0%)
+     - Steppable: 2 gaps (6.7%)
+
+   📐 GAP SIZE METRICS:
+     Width Range: 0.273m to 0.818m
+     Length Range: 0.409m to 1.500m
+     Area Range: 0.0930m² to 0.5393m²
+     Average Gap Size: 0.550m × 1.168m
+
+   🏆 LARGEST GAPS BY TYPE:
+     Impossible: 0.68m × 1.50m (Area: 0.5393m²)
+     Jumpable: 0.55m × 1.23m (Area: 0.3905m²)
+     Steppable: 0.27m × 0.68m (Area: 0.1302m²)
 
 🗻 COMPREHENSIVE OBSTACLE ANALYSIS:
-   Total Obstacles Detected: 0
+   Total Obstacles Detected: 5
    Obstacle Type Distribution:
+     - Large Obstacle: 5 obstacles (100.0%)
+
+   📐 OBSTACLE SIZE METRICS:
+     Width Range: 0.273m to 0.545m
+     Length Range: 0.545m to 1.091m
+     Area Range: 0.1116m² to 0.2603m²
+     Average Obstacle Size: 0.355m × 0.764m
 
 🛡️ SAFETY & NAVIGATION ANALYSIS:
    Immediate Danger Zones (<1m):
-     Range: 18 to 18 rays per robot
-     Average: 18.0 rays (12.5%)
+     Range: 3 to 18 rays per robot
+     Average: 14.5 rays (10.1%)
    Near Field Obstacles (1-3m):
-     Range: 126 to 126 rays per robot
-     Average: 126.0 rays (87.5%)
+     Range: 126 to 141 rays per robot
+     Average: 129.5 rays (89.9%)
    High-Risk Robot Count: 0/50
 
 📊 TERRAIN COVERAGE STATISTICS:
-   Gap Coverage: 0.0% ± 0.0%
-   Obstacle Coverage: 0.0% ± 0.0%
-   Safe Traversable Terrain: 100.0% ± 0.0%
+   Gap Coverage: 10.1% ± 17.3%
+   Obstacle Coverage: 1.5% ± 5.4%
+   Safe Traversable Terrain: 88.3% ± 17.2%
 
 🧭 NAVIGATION STRATEGY RECOMMENDATIONS:
    Recommended Approach: Advanced Navigation Required
-   Traversal Difficulty: LOW
+   Traversal Difficulty: MODERATE
    Gap Navigation:
-     - Walkable gaps: 0 gaps (≤30cm - can walk across)
-     - Jump required: 0 gaps (30-60cm - need jumping)
-     - Untraversable: 0 gaps (>60cm or unmeasurable depth)
+     - Walkable gaps: 2 gaps (≤30cm - can walk across)
+     - Jump required: 15 gaps (30-60cm - need jumping)
+     - Untraversable: 13 gaps (>60cm or unmeasurable depth)
 
 🎯 FINAL ENVIRONMENTAL ASSESSMENT:
-   Safety Score: 100.0% traversable terrain
-   Complexity Score: 0 total features detected
-   Impossible Gap Ratio: 0.0% (0/0)
-   Environment Verdict: 🟢 LOW RISK - Suitable for basic navigation
+   Safety Score: 88.3% traversable terrain
+   Complexity Score: 35 total features detected
+   Impossible Gap Ratio: 43.3% (13/30)
+   Environment Verdict: 🟡 MODERATE RISK - Requires careful planning
 
    Recommended Robot Capabilities:
+     - Jumping ability required
+     - Precise walking control needed (for gap crossing)
+     - Advanced path planning essential (many untraversable areas)
 ================================================================================
 <!-- ENVIRONMENT_ANALYSIS_END -->
 
@@ -153,6 +177,15 @@ Provide comprehensive analysis using these sections, integrating visual footage 
 
 **VISUAL FOOTAGE ANALYSIS:**
 
+**VISUAL TERRAIN CHARACTERISTICS (from Environment Image/Video):**  
+[Detailed description of the visual environment. Include specific terrain features, surface characteristics, visible gaps, obstacles, spatial layout, lighting conditions, and environmental features observed visually.]
+
+**VISUAL MOVEMENT CHALLENGES (from Video Analysis):**
+[Specific movement challenges visible in the footage. Include locomotion difficulties, obstacle navigation needs, gap crossing requirements, terrain adaptation needs, and movement constraints observed.]
+
+**VISUAL NAVIGATION REQUIREMENTS (from Visual Analysis):**
+[Required navigation strategies based on visual observation. Include path planning needs, precision requirements, timing considerations, and behavioral adaptations needed based on visual scene analysis.]
+
 **Scene/Setting (from Video Frames):**  
 [Detailed description of the visual environment shown in frame sequence. Include terrain type, surface characteristics, visible obstacles, spatial layout, lighting conditions, and background elements observed in the footage.]
 
@@ -164,7 +197,24 @@ Provide comprehensive analysis using these sections, integrating visual footage 
 
 **ENVIRONMENTAL SENSOR ANALYSIS:**
 
+🎯 **PRIMARY SCENARIO CLASSIFICATION** (MANDATORY - Choose ONE):
+
+**SINGLE TERRAIN CLASSIFICATION:**
+- **FLAT**: Minimal terrain features, smooth surfaces, no significant obstacles
+- **OBSTACLE**: Multiple obstacles requiring avoidance and path planning  
+- **GAP**: Gaps requiring stepping, jumping, or gap-crossing behaviors
+- **STAIRS**: Step-like patterns requiring climbing or descent behaviors
+
+**MIXED TERRAIN CLASSIFICATION:**
+- **When multiple features detected**: Choose PRIMARY based on most prominent feature (highest count or coverage)
+- **Secondary features**: Note as minor components but focus strategy on primary
+- **Keep classification simple**: Avoid complex multi-category classifications
+
 **MANDATORY ENVIRONMENT ANALYSIS SUMMARY:**
+
+🎯 **PRIMARY SCENARIO CLASSIFICATION**: [FLAT | OBSTACLE | GAP | STAIRS]
+**JUSTIFICATION**: [Why this scenario was chosen based on quantitative sensor data]
+
 [CRITICAL: You MUST copy the EXACT numerical data from the environment analysis section above. This data is essential for downstream reward engineering. 
 
 LOOK FOR THESE EXACT SECTIONS in the environment analysis above:
@@ -183,27 +233,21 @@ MANDATORY: Find and copy these EXACT phrases with their numbers:
 
 DO NOT write "0" for any value unless the analysis specifically states "0". DO NOT summarize or paraphrase - copy the exact text and numbers from the analysis above.]
 
-**STRUCTURED ENVIRONMENT DEBUG DATA FOR REWARD ENGINEERING:**
-[CRITICAL: This section is MANDATORY for reward function debugging. You MUST fill in the exact numbers from the environment analysis above. Replace each [PLACEHOLDER] with the actual number found in the analysis.]
+**CRITICAL: Ensure your task description includes clear numerical environment data for downstream reward engineering. The exact gap counts, obstacle counts, terrain measurements, and safety assessments from the environment analysis section must be clearly mentioned in your analysis.**
 
-🔍 ENVIRONMENT DEBUG DATA:
-• Height Scanner: [COPY from "Total Sensor Points: X height measurements"] total height measurements detected
-• LiDAR Sensor: [COPY from "Total LiDAR Rays: X distance measurements"] total distance measurements detected
-• Gap Detection: [COPY from "Total Gaps Detected: X"] gaps found
-  - Small gaps (≤0.30m): [COPY from gap distribution] gaps
-  - Medium gaps (0.30-0.60m): [COPY from gap distribution] gaps  
-  - Large gaps (>0.60m): [COPY from gap distribution] gaps
-• Obstacle Detection: [COPY from "Total Obstacles Detected: X"] obstacles found
-  - Small obstacles: [COPY from obstacle distribution] obstacles
-  - Medium obstacles: [COPY from obstacle distribution] obstacles
-  - Large obstacles: [COPY from obstacle distribution] obstacles
-• Terrain Analysis:
-  - Height variation: [COPY from "Ground Level Range: X to Y"] 
-  - Average roughness: [COPY from "Average Terrain Roughness: X.Xcm"]
-  - Terrain complexity: [COPY from "Environment Verdict: X"]
-• Safety Assessment: [COPY from "Environment Verdict: X"]
-• Environmental Sensing Decision: NEEDED (because analysis contains sensor data)
-• Traversable Terrain: [EXACT PERCENTAGE]%
+**Your task description should naturally include phrases like:**
+- "32 gaps detected (3 steppable, 17 jumpable, 12 impossible)"
+- "2 obstacles detected (2 large obstacles)"  
+- "Average terrain roughness: 2.6cm"
+- "Safety score: 88.2% traversable terrain"
+
+**ENSURE YOUR OUTPUT INCLUDES CLEAR VISUAL ANALYSIS SECTIONS:**
+- **VISUAL TERRAIN CHARACTERISTICS:** Describe what you observe in the environment image/video
+- **VISUAL MOVEMENT CHALLENGES:** Specific challenges visible in the footage
+- **VISUAL NAVIGATION REQUIREMENTS:** What the robot needs to do based on visual observation
+- **VISUAL-SENSOR CORRELATION:** How visual observations align with or differ from sensor data
+
+This data is essential for subsequent reward engineering to make informed environmental sensing decisions and include proper visual analysis insights in generated reward functions.
 
 **INTEGRATED ANALYSIS:**
 
@@ -247,7 +291,7 @@ Based on the environment analysis, provide specific task description guidance:
 **TERRAIN-ADAPTIVE TASK SPECIFICATIONS:**
 - **Multiple gap types detected:** Describe adaptive navigation requirements across different gap categories
 - **High obstacle density:** Emphasize careful navigation and path planning requirements
-- **Mixed terrain complexity:** Specify multi-modal locomotion adaptation needs
+- **Scenario-specific complexity:** Specify locomotion needs for primary terrain type
 - **Variable safety zones:** Balance progress requirements with risk management needs
 
 **ENVIRONMENT-SPECIFIC LOCOMOTION REQUIREMENTS:**
@@ -259,7 +303,7 @@ Based on the environment analysis, provide specific task description guidance:
 **TASK COMPLEXITY SCALING:**
 - **Complex environments:** Emphasize safety-focused task descriptions
 - **Simple environments:** Focus on efficiency and task completion objectives
-- **Mixed environments:** Specify adaptive task requirements based on local terrain
+- **Classified environments:** Specify task requirements based on primary scenario
 
 **Critical Requirements:**
 
@@ -348,24 +392,24 @@ Task descriptions should include:
 **CONFLICT RESOLUTION EXAMPLES:**
 
 **Example 1 - Gap Detection Conflict:**
-- **Sensor data**: "13 gaps detected (8 steppable ≤30cm, 3 jumpable 30-60cm, 2 impossible >60cm)"
-- **Visual analysis**: "No gaps visible in flat studio floor"
-- **DECISION**: ✅ TRUST SENSORS - Include gap navigation in reward function
+- **Sensor data**: "PRIMARY SCENARIO: GAP (based on sensor detection)"
+- **Visual analysis**: "No gaps visible in video"
+- **DECISION**: ✅ TRUST SENSORS - Use GAP scenario classification
 
 **Example 2 - Obstacle Detection Conflict:**
-- **Sensor data**: "50 obstacles detected, ranging 5-25cm height"
+- **Sensor data**: "PRIMARY SCENARIO: OBSTACLE (based on sensor detection)"
 - **Visual analysis**: "Clean environment with no obstacles"  
-- **DECISION**: ✅ TRUST SENSORS - Include obstacle avoidance in reward function
+- **DECISION**: ✅ TRUST SENSORS - Use OBSTACLE scenario classification
 
-**Example 3 - Terrain Roughness Conflict:**
-- **Sensor data**: "Average terrain roughness: 3.6cm variation"
+**Example 3 - Terrain Classification Conflict:**
+- **Sensor data**: "PRIMARY SCENARIO: STAIRS (based on sensor analysis)"
 - **Visual analysis**: "Smooth uniform surface"
-- **DECISION**: ✅ TRUST SENSORS - Include terrain adaptation in reward function
+- **DECISION**: ✅ TRUST SENSORS - Use STAIRS scenario classification
 
 **MANDATORY SENSOR-FIRST DECISION FRAMEWORK:**
 
 ```
-IF sensor_data.gaps > 5 OR sensor_data.obstacles > 10 OR sensor_data.roughness > 2cm:
+IF environment_analysis.classification != FLAT:
     ENVIRONMENTAL_SENSING = REQUIRED
     JUSTIFICATION = "Sensor data indicates significant terrain features requiring navigation adaptation"
     

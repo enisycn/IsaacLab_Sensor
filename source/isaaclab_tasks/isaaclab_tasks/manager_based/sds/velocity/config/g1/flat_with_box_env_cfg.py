@@ -4,13 +4,15 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """
-SDS G1 Flat Environment with Box-Shaped Height Variations Configuration.
+SDS G1 Flat Environment with Obstacle Avoidance Visualization Configuration.
 
-This configuration creates terrain with BOX-SHAPED HEIGHT PATTERNS:
-- Rectangular height platforms and depressions (box-like terrain features)
+This configuration creates terrain specifically designed for VISUALIZING OBSTACLE AVOIDANCE BEHAVIOR:
+- Discrete obstacles of varying heights (5-20cm) that force clear avoidance strategies
+- Strategic obstacle placement for demonstrating learned navigation behaviors
+- Flat corridors for baseline comparison vs obstacle avoidance
+- Multiple obstacle types: step-over, stepping stones, obstacle fields, mixed challenges
 - Complete environmental sensing suite (height scanner, lidar, IMU)
-- Perfect for learning sensor-aware locomotion with simple geometric obstacles
-- Box-shaped terrain features for testing navigation and adaptation
+- Perfect for thesis videos showing humanoid adaptive locomotion capabilities
 """
 
 import os
@@ -29,9 +31,9 @@ from isaaclab_tasks.manager_based.sds.velocity import mdp
 from .rough_env_cfg import SDSG1RoughEnvCfg, SIMPLE_LEARNING_TERRAIN_CFG  # Import the same terrain!
 
 # 🎯 TERRAIN COMPLEXITY TOGGLE: Change this ONE line to switch terrain types
-USE_COMPLEX_TERRAIN = False  # Set to False for simple terrain, True for complex height variations
+USE_COMPLEX_TERRAIN = True  # Set to False for simple terrain, True for complex height variations
 
-# 🏔️ COMPLEX TERRAIN: Box-shaped height variations for environmental sensing testing
+# 🏔️ COMPLEX TERRAIN: Obstacle avoidance visualization terrain
 COMPLEX_BOX_TERRAIN_CFG = TerrainGeneratorCfg(
     size=(8.0, 8.0),
     border_width=20.0,
@@ -43,57 +45,63 @@ COMPLEX_BOX_TERRAIN_CFG = TerrainGeneratorCfg(
     use_cache=False,
     curriculum=True,  # Enable curriculum for progressive difficulty
     sub_terrains={
-        # 20% FLAT for baseline locomotion
-        "flat": terrain_gen.MeshPlaneTerrainCfg(
-            proportion=0.2,  # 20% flat terrain for basic walking
+        # 20% FLAT CORRIDORS: Clear paths to demonstrate normal walking vs obstacle avoidance
+        "flat_corridors": terrain_gen.MeshPlaneTerrainCfg(
+            proportion=0.2,  # 20% completely flat - shows baseline walking behavior
         ),
         
-        # 25% STEP TERRAIN: Box-like stepping stones (up to 15cm heights)
-        "box_steps": terrain_gen.HfSteppingStonesTerrainCfg(
+        # 30% SMALL DISCRETE OBSTACLES: Low obstacles requiring step-over behavior (5-12cm)
+        "small_obstacles": terrain_gen.HfDiscreteObstaclesTerrainCfg(
+            proportion=0.3,
+            obstacle_height_range=(0.05, 0.12),  # 5-12cm - forces step-over behavior
+            obstacle_width_range=(0.2, 0.4),     # 20-40cm wide - clearly visible obstacles
+            num_obstacles=6,                     # 6 obstacles per terrain - spaced for clear avoidance
+            platform_width=1.5,                 # 1.5m platform - enough space for maneuvering
+        ),
+        
+        # 25% MEDIUM STEPPING OBSTACLES: Requires precise foot placement with realistic gaps (8-18cm high, 60cm deep gaps)
+        "stepping_obstacles": terrain_gen.HfSteppingStonesTerrainCfg(
             proportion=0.25,
-            stone_height_max=0.15,           # 15cm max step height
-            stone_width_range=(0.4, 0.8),   # 40-80cm wide stones (box-like)
-            stone_distance_range=(0.3, 0.6), # 30-60cm between stones
-            platform_width=1.0,             # 1m platform size
+            stone_height_max=0.18,              # 18cm max - requires high steps
+            stone_width_range=(0.3, 0.5),      # 30-50cm stones - good foot placement targets
+            stone_distance_range=(0.4, 0.7),   # 40-70cm gaps - forces strategic stepping
+            holes_depth=-0.6,                  # 60cm deep gaps (was -10.0m) - realistic and detectable
+            platform_width=1.2,                # 1.2m platform
         ),
         
-        # 25% PLATFORM TERRAIN: Elevated box platforms (10-20cm)
-        "box_platforms": terrain_gen.HfPyramidStairsTerrainCfg(
-            proportion=0.25,
-            step_height_range=(0.10, 0.20),  # 10-20cm platform heights
-            step_width=0.8,                  # 80cm wide platforms (box-shaped)
-            platform_width=1.2,             # 1.2m platform size
-        ),
-        
-        # 15% DISCRETE OBSTACLES: Box-shaped height bumps (5-12cm)
-        "box_obstacles": terrain_gen.HfDiscreteObstaclesTerrainCfg(
+        # 15% DENSE OBSTACLE FIELD: Multiple small obstacles requiring path planning (3-10cm)
+        "obstacle_field": terrain_gen.MeshRandomGridTerrainCfg(
             proportion=0.15,
-            obstacle_height_range=(0.05, 0.12),  # 5-12cm obstacles
-            obstacle_width_range=(0.3, 0.6),     # 30-60cm wide (box-like)
-            num_obstacles=8,                     # 8 box obstacles per terrain
-            platform_width=1.0,                 # 1m platform
+            grid_width=0.3,                     # 30cm grid cells - creates obstacle maze
+            grid_height_range=(0.03, 0.10),     # 3-10cm heights - low but visible obstacles
+            platform_width=1.0,                # 1m platform
         ),
         
-        # 15% GENTLE ROUGH: Small height variations (2-8cm) for fine adaptation
-        "fine_variations": terrain_gen.HfRandomUniformTerrainCfg(
-            proportion=0.15, 
-            noise_range=(0.02, 0.08),   # 2-8cm variations
-            noise_step=0.01, 
-            border_width=0.25
+        # 10% MIXED HEIGHT CHALLENGE: Combination for complex avoidance strategies (5-20cm)
+        "mixed_heights": terrain_gen.HfDiscreteObstaclesTerrainCfg(
+            proportion=0.1,
+            obstacle_height_range=(0.05, 0.20),  # 5-20cm - wide range requiring different strategies
+            obstacle_width_range=(0.15, 0.6),    # 15-60cm wide - various obstacle sizes
+            num_obstacles=8,                     # 8 obstacles - dense field for complex navigation
+            platform_width=1.0,                 # 1m platform - challenging navigation
         ),
     },
 )
 
 @configclass
 class SDSG1FlatWithBoxEnvCfg(SDSG1RoughEnvCfg):
-    """SDS Unitree G1 environment with CONFIGURABLE terrain complexity + environmental sensors.
+    """SDS Unitree G1 environment with OBSTACLE AVOIDANCE VISUALIZATION terrain + environmental sensors.
 
     TERRAIN TOGGLE SYSTEM:
-    - Set USE_COMPLEX_TERRAIN = True: Box-shaped height variations (steps, platforms, obstacles)
+    - Set USE_COMPLEX_TERRAIN = True: Discrete obstacles for visualizing avoidance behavior
+      * Small obstacles (5-12cm): Step-over behavior demonstration
+      * Stepping stones (8-18cm): Precise foot placement visualization  
+      * Obstacle fields (3-10cm): Path planning and navigation strategies
+      * Mixed challenges (5-20cm): Complex avoidance behavior combinations
     - Set USE_COMPLEX_TERRAIN = False: Simple terrain (70% flat + 30% gentle bumps)
     - Uses EXACT same physics, robot, and command settings
     - ADDS height scanner + lidar for environmental sensing capabilities
-    - Perfect for testing environmental sensing vs. basic locomotion
+    - Perfect for thesis videos demonstrating learned obstacle avoidance capabilities
     """
 
     def __post_init__(self):
@@ -114,9 +122,9 @@ class SDSG1FlatWithBoxEnvCfg(SDSG1RoughEnvCfg):
 
         # 🎯 TERRAIN SELECTION: One-line toggle between simple and complex terrain
         if USE_COMPLEX_TERRAIN:
-            # COMPLEX: Box-shaped height variations for environmental sensing testing
+            # COMPLEX: Discrete obstacles for visualizing avoidance behavior
             self.scene.terrain.terrain_generator = COMPLEX_BOX_TERRAIN_CFG
-            print("🏔️ TERRAIN MODE: COMPLEX box-shaped height variations (steps, platforms, obstacles)")
+            print("🎯 TERRAIN MODE: COMPLEX obstacle avoidance visualization (discrete obstacles, stepping stones, obstacle fields)")
         else:
             # SIMPLE: Flat terrain with gentle bumps (same as rough_env_cfg)
             self.scene.terrain.terrain_generator = SIMPLE_LEARNING_TERRAIN_CFG
@@ -124,13 +132,16 @@ class SDSG1FlatWithBoxEnvCfg(SDSG1RoughEnvCfg):
         
         # Simple arm positions for natural walking
         self.scene.robot.init_state.joint_pos.update({
-            # Arms - simple positions
-            "left_shoulder_pitch_joint": 0.0,    
-            "right_shoulder_pitch_joint": 0.0,   
-            "left_shoulder_roll_joint": 0.0,     
-            "right_shoulder_roll_joint": 0.0,    
-            ".*_elbow_pitch_joint": 0.2,         
+            # Arms - using asset defaults for consistency
+            "left_shoulder_pitch_joint": 0.35,    # Asset default (arms slightly forward)
+            "right_shoulder_pitch_joint": 0.35,   # Asset default (arms slightly forward)
+            "left_shoulder_roll_joint": 0.16,     # Asset default (slight outward angle)
+            "right_shoulder_roll_joint": -0.16,   # Asset default (slight outward angle)
+            ".*_elbow_pitch_joint": 0.87,         # Asset default (natural elbow bend)         
         })
+        
+        # Enable self-collisions for realistic arm movement
+        self.scene.robot.spawn.articulation_props.enabled_self_collisions = True
 
         # Multiple environments for parallel training
         self.scene.num_envs = 512  # 512 robots for good parallelization
@@ -206,11 +217,13 @@ class SDSG1FlatWithBoxEnvCfg(SDSG1RoughEnvCfg):
 @configclass
 class SDSG1FlatWithBoxEnvCfg_PLAY(SDSG1FlatWithBoxEnvCfg):
     
-    # High-angle overhead camera for spectacular multi-robot video footage
+    # Robot-focused tracking camera for optimal environment analysis and gameplay footage
     viewer = ViewerCfg(
-        origin_type="world",           # Fixed world position for stable overhead view
-        eye=(-35.0, 0.0, 60.0),      # Higher overhead (35m) and positioned to the left (-15m) and back (-5m)
-        lookat=(0.0, 0.0, 0.0),       # Look down at ground center
+        origin_type="asset_root",      # Follow the robot for dynamic tracking
+        asset_name="robot",            # Track the robot asset
+        env_index=0,                   # Focus on first environment
+        eye=(-6.0, 2.0, 4.0),         # 6m back, 2m right, 4m up - robot-focused view
+        lookat=(0.0, 0.0, 0.8),       # Look at robot torso height
     )
     
     def __post_init__(self):
@@ -218,7 +231,7 @@ class SDSG1FlatWithBoxEnvCfg_PLAY(SDSG1FlatWithBoxEnvCfg):
         super().__post_init__()
         
         # make a smaller scene for play
-        self.scene.num_envs = 50
+        self.scene.num_envs = 100
         self.scene.env_spacing = 2.5
         
         # ✅ ENSURE: Sensor visualization is enabled for play mode

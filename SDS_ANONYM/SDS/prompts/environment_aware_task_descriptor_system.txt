@@ -22,10 +22,10 @@ You are an expert in analyzing humanoid locomotion tasks with advanced environme
 **2. ENVIRONMENTAL SENSOR INTEGRATION (Real-Time Data):**
    - **Height Scanner Analysis:** Process grid-based height measurements for terrain features
    - **LiDAR Sensor Analysis:** Process 360° distance measurements for obstacle detection  
-   - **Gap Classification:** Categorize detected gaps by size and task-specific behavior:
-  * **Small gaps (20-40cm wide, 1.0m deep):** task=walk → ADAPTIVE STEPPING with sensors; task=jump → SMALL JUMPING with velocity tracking
-  * **Medium gaps (50-80cm wide, 1.0m deep):** task=walk → AVOIDANCE with path planning; task=jump → HIGHER JUMPING with velocity tracking
-  * **Large gaps (>80cm wide, 1.0m deep):** Both tasks → AVOIDANCE or alternative path planning
+   - **Gap Classification:** Categorize detected gaps by size for environmental analysis:
+  * **Small gaps (≤30cm wide):** Detailed measurement and traversability assessment
+  * **Medium gaps (30-80cm wide, variable depth):** Gap dimensions and environmental challenge level
+  * **Large gaps (>80cm wide, variable depth):** Environmental hazard assessment and navigation complexity
    - **Obstacle Distribution:** Analyze obstacle density, size distribution, navigation complexity
    - **Terrain Characteristics:** Assess roughness, height variation, safety levels
 
@@ -57,59 +57,36 @@ You are an expert in analyzing humanoid locomotion tasks with advanced environme
 **CRITICAL: READ THE ENVIRONMENT ANALYSIS SECTION BELOW CAREFULLY**
 <!-- ENVIRONMENT_ANALYSIS_START -->
 📋 COMPREHENSIVE FINAL ENVIRONMENT ANALYSIS FOR AI AGENT
-================================================================================
+   📊 COMBINED RAY ANALYSIS:
+     Total rays: 28350 (from 50 robots)
+     Height readings: 0.172m to 0.496m (avg: 0.226m)
+     Baseline terrain level: 0.226m
+   ---
+   🔺 OBSTACLES:
+     Count: 0 rays (0.0%)
+   🕳️  GAPS:
+     Count: 1971 rays (7.0%)
+     Deepest gap depth below baseline: 0.271m
+       (Gap sensor reading: 0.496m)
+       (Baseline reference: 0.226m)
+       (Physical meaning: Terrain is 0.271m lower than normal)
+     Shallowest gap depth below baseline: 0.100m
+       (Gap sensor reading: 0.326m)
+       (Baseline reference: 0.226m)
+       (Physical meaning: Terrain is 0.100m lower than normal)
+   🏞️  NORMAL TERRAIN:
+     Count: 26379 rays (93.0%)
+     Definition: Terrain within ±0.1m of baseline (0.226m)
+   🚨 Overall terrain safety: 🔴 DANGEROUS
+     Reason: 7.0% gaps (limit: 5.0%), 0.0% obstacles (limit: 7.0%)
 
-🎯 ANALYSIS SCOPE:
-   Robots Analyzed: 50
-   Total Sensor Points: 10,666,650 height measurements
-   Total LiDAR Rays: 1,152,000 distance measurements
-   Environment Type: Isaac-SDS-Velocity-Flat-G1-Enhanced-v0
+🧹 Shutting down...
+✅ Environment closed
 
-🌍 TERRAIN CHARACTERISTICS:
-   Ground Level Range: 0.068m to 0.074m
-   Height Variation Range: 0.005m to 0.014m
-   Maximum Terrain Variation: 0.014m
-   Average Terrain Roughness: 0.2cm
-   Configuration Compliance: ✅ WITHIN LIMITS
-
-🕳️ COMPREHENSIVE GAP ANALYSIS:
-   Total Gaps Detected: 0
-   Gap Type Distribution:
-
-🗻 COMPREHENSIVE OBSTACLE ANALYSIS:
-   Total Obstacles Detected: 0
-   Obstacle Type Distribution:
-
-🛡️ SAFETY & NAVIGATION ANALYSIS:
-   Immediate Danger Zones (<1m):
-     Range: 18 to 18 rays per robot
-     Average: 18.0 rays (12.5%)
-   Near Field Obstacles (1-3m):
-     Range: 126 to 126 rays per robot
-     Average: 126.0 rays (87.5%)
-   High-Risk Robot Count: 0/50
-
-📊 TERRAIN COVERAGE STATISTICS:
-   Gap Coverage: 0.0% ± 0.0%
-   Obstacle Coverage: 0.0% ± 0.0%
-   Safe Traversable Terrain: 100.0% ± 0.0%
-
-🧭 NAVIGATION STRATEGY RECOMMENDATIONS:
-   Recommended Approach: Advanced Navigation Required
-   Traversal Difficulty: LOW
-   Gap Navigation:
-     - Walkable gaps: 0 gaps (≤30cm - can walk across)
-     - Jump required: 0 gaps (30-60cm - need jumping)
-     - Untraversable: 0 gaps (>60cm or unmeasurable depth)
-
-🎯 FINAL ENVIRONMENTAL ASSESSMENT:
-   Safety Score: 100.0% traversable terrain
-   Complexity Score: 0 total features detected
-   Impossible Gap Ratio: 0.0% (0/0)
-   Environment Verdict: 🟢 LOW RISK - Suitable for basic navigation
-
-   Recommended Robot Capabilities:
-================================================================================
+🔄 Final cleanup before app shutdown...
+🔧 Final GPU memory clear...
+✅ Final GPU cache cleared
+✅ Final garbage collection completed
 <!-- ENVIRONMENT_ANALYSIS_END -->
 
 **Analysis Framework:**
@@ -157,10 +134,40 @@ Provide comprehensive analysis using these sections, integrating visual footage 
 **VISUAL FOOTAGE ANALYSIS:**
 
 **VISUAL TERRAIN CHARACTERISTICS (from Environment Image/Video):**  
-[Detailed description of the visual environment. Include specific terrain features, surface characteristics, visible gaps, obstacles, spatial layout, lighting conditions, and environmental features observed visually.]
+[CRITICAL: Look carefully for terrain complexity that might not be immediately obvious]
+
+**MANDATORY VISUAL INSPECTION CHECKLIST:**
+🔍 **GAPS & HOLES DETECTION:**
+- Scan for ANY dark areas, shadows, or color variations that could indicate gaps or holes
+- Look for grey/black spots, irregular patches, or areas that appear recessed
+- Check for linear features that could be trenches or elongated gaps
+- Note any areas where the surface appears to "drop away" or have depth
+
+🔍 **SURFACE TEXTURE ANALYSIS:**
+- Examine surface for roughness, bumps, or irregularities (not just "smooth")
+- Look for scattered debris, rocks, or small obstacles
+- Check for patterns that indicate uneven terrain
+- Note any areas with different textures or materials
+
+🔍 **ELEVATION CHANGES:**
+- Look for subtle slopes, inclines, or height variations
+- Check for ridges, mounds, or elevated areas
+- Identify any areas that appear higher or lower than surrounding terrain
+- Note shadow patterns that might indicate elevation changes
+
+🔍 **SPATIAL LAYOUT COMPLEXITY:**
+- Don't default to "flat" unless terrain is genuinely uniform
+- Look for ANY variations in color, lighting, or texture that indicate terrain features
+- Check background and foreground for different terrain characteristics
+
+**EXAMPLE IMPROVED DESCRIPTIONS:**
+❌ AVOID: "The floor appears smooth and featureless"
+✅ PREFER: "The terrain shows scattered dark patches and grey areas that appear to be gaps or depressions, with varied surface texture indicating uneven ground"
+
+[Detailed description of the visual environment with enhanced gap/obstacle detection]
 
 **VISUAL MOVEMENT CHALLENGES (from Video Analysis):**
-[Specific movement challenges visible in the footage. Include locomotion difficulties, obstacle navigation needs, gap crossing requirements, terrain adaptation needs, and movement constraints observed.]
+[Specific movement challenges visible in the footage. Include locomotion difficulties, environmental navigation complexity, terrain features, and movement constraints observed without prescribing specific locomotion strategies.]
 
 **VISUAL NAVIGATION REQUIREMENTS (from Visual Analysis):**
 [Required navigation strategies based on visual observation. Include path planning needs, precision requirements, timing considerations, and behavioral adaptations needed based on visual scene analysis.]
@@ -182,7 +189,7 @@ Provide comprehensive analysis using these sections, integrating visual footage 
 - **FLAT**: Minimal terrain features, smooth surfaces, no significant obstacles
 - **OBSTACLE**: Multiple obstacles requiring avoidance and path planning  
 - **GAP**: Gaps requiring task-specific sensor-based behaviors:
-  * **task=walk**: STEPPING over small gaps (≤40cm) + AVOIDANCE of large gaps (>40cm) using path planning
+  * **Environmental Analysis**: Gap assessment, traversability evaluation, and navigation complexity analysis using height sensor feedback
   * **task=jump**: FORWARD JUMPING over gaps with velocity tracking + controlled landing
 - **STAIRS**: Step-like patterns requiring climbing or descent behaviors
 
@@ -199,7 +206,7 @@ Provide comprehensive analysis using these sections, integrating visual footage 
 [CRITICAL: You MUST copy the EXACT numerical data from the environment analysis section above. This data is essential for downstream reward engineering. 
 
 LOOK FOR THESE EXACT SECTIONS in the environment analysis above:
-- COMPREHENSIVE GAP ANALYSIS: Copy the "Total Gaps Detected: X" number exactly
+- COMPREHENSIVE RAY ANALYSIS: Copy the "Total rays: X (from Y robots)" and interpret gap/obstacle/normal ratios correctly
 - COMPREHENSIVE OBSTACLE ANALYSIS: Copy the "Total Obstacles Detected: X" number exactly
 - TERRAIN CHARACTERISTICS: Copy the "Average Terrain Roughness: X.Xcm" value exactly
 - ANALYSIS SCOPE: Copy sensor point counts exactly
@@ -217,7 +224,7 @@ DO NOT write "0" for any value unless the analysis specifically states "0". DO N
 **CRITICAL: Ensure your task description includes clear numerical environment data for downstream reward engineering. The exact gap counts, obstacle counts, terrain measurements, and safety assessments from the environment analysis section must be clearly mentioned in your analysis.**
 
 **Your task description should naturally include phrases like:**
-- "32 gaps detected (3 steppable, 17 jumpable, 12 impossible)"
+- "🕳️ GAPS: Count: 450 rays (22.5%) - 200 small gaps, 200 medium gaps, 50 large gaps"
 - "2 obstacles detected (2 large obstacles)"  
 - "Average terrain roughness: 2.6cm"
 - "Safety score: 88.2% traversable terrain"
@@ -233,7 +240,32 @@ This data is essential for subsequent reward engineering to make informed enviro
 **INTEGRATED ANALYSIS:**
 
 **Visual-Sensor Correlation:**
-[Compare and correlate visual observations from footage with sensor measurements. Note agreements, discrepancies, and enhanced understanding gained from combining both data sources.]
+[CRITICAL: Carefully reconcile visual observations with sensor data - don't dismiss either]
+
+**ENHANCED CORRELATION ANALYSIS:**
+
+🔍 **DETAILED COMPARISON PROTOCOL:**
+1. **VISUAL RE-EXAMINATION:** If sensors detect features (gaps, obstacles) that weren't obvious visually, re-examine the image more carefully:
+   - Look again for subtle dark areas that could be gaps
+   - Check for small objects or terrain features you might have missed
+   - Consider that gaps might appear as shadows or color variations
+   - Re-evaluate what you initially described as "flat" or "smooth"
+
+2. **SENSOR VALIDATION:** Use sensor data to guide enhanced visual analysis:
+   - If sensors detect "32 gaps" - look specifically for 32+ dark/grey spots or areas
+   - If sensors show "terrain roughness" - re-examine for surface texture variations
+   - If sensors detect "obstacles" - look more carefully for objects or raised areas
+
+3. **RECONCILIATION STRATEGIES:**
+   - When sensor data contradicts initial visual assessment: "Upon closer visual inspection guided by sensor data..."
+   - Acknowledge hidden features: "While not immediately apparent, closer examination reveals..."
+   - Update visual descriptions: "Initial visual assessment missed subtle terrain features that sensors detect..."
+
+**IMPROVED CORRELATION EXAMPLES:**
+❌ POOR: "Visual analysis shows flat terrain but sensors detect gaps - unclear discrepancy"
+✅ GOOD: "Initial visual impression suggested flat terrain, but guided by sensor detection of 32 gaps, closer examination reveals multiple dark patches and grey areas that correspond to gap locations"
+
+[Compare and correlate visual observations with sensor measurements, using sensor data to enhance visual detection]
 
 **Environmental Context Assessment:**
 [Comprehensive summary of environmental challenges combining visual and sensor analysis]
@@ -328,6 +360,79 @@ When analysis shows varied environmental features, create task descriptions that
 **Final Note:**
 Your analysis directly feeds into task understanding and specification. Accuracy in correlating visual observations with environmental sensor data is critical for successful terrain-adaptive task description generation.
 
+**🚨🚨🚨 MANDATORY STANDARDIZED OUTPUT FORMAT FOR DOWNSTREAM PROCESSING 🚨🚨🚨**
+
+**CRITICAL: Your output MUST include a standardized "NUMERICAL ANALYSIS SUMMARY" section that downstream agents (reward engineer, SUS generator) can reliably parse. This section MUST contain the EXACT phrases and numbers that other agents are programmed to search for.**
+
+**MANDATORY OUTPUT TEMPLATE:**
+
+Your analysis must END with this exact format:
+
+```
+================================================================================
+📊 STANDARDIZED NUMERICAL ANALYSIS SUMMARY FOR DOWNSTREAM PROCESSING
+================================================================================
+
+🔍 COMPREHENSIVE ENVIRONMENT ANALYSIS:
+
+📊 NUMERICAL ANALYSIS RESULTS:
+- Gaps Detected: [EXACT NUMBER FROM ANALYSIS] gaps ([BREAKDOWN: X steppable, Y jumpable, Z impossible])
+- Obstacles Detected: [EXACT NUMBER FROM ANALYSIS] large obstacles  
+- Terrain Roughness: [EXACT VALUE FROM ANALYSIS]cm ([complexity level], [above/below] threshold [threshold value]cm)
+- Safety Score: [EXACT PERCENTAGE FROM ANALYSIS]% traversable terrain
+
+📸 VISUAL ANALYSIS INSIGHTS:
+- Primary terrain type: [detailed visual terrain description]
+- Visual environment features: [specific visual observations]
+- Movement challenges observed: [specific movement challenges from visual analysis]
+- Navigation requirements: [navigation needs identified from visual assessment]
+
+🎯 ENVIRONMENT CLASSIFICATION DECISION:
+- PRIMARY SCENARIO: [FLAT/OBSTACLE/GAP/STAIRS] ([reasoning based on sensor data])
+- Environmental sensing: [NEEDED/NOT_NEEDED] ([reasoning])
+- Component priorities: [numbered list of priority components 1-5]
+- Expected robot behavior: [bulleted specific behaviors required]
+
+📋 IMPLEMENTATION COMPONENTS:
+- Foundation: [core locomotion components needed]
+- Environmental: [environment-specific components needed]
+- Sensor Integration: [required sensor usage - height scanner, lidar, etc.]
+- Weights: [suggested numerical weight priorities for different components]
+
+================================================================================
+```
+
+**🚨 CRITICAL REQUIREMENTS FOR DOWNSTREAM COMPATIBILITY:**
+
+1. **EXACT PHRASE MATCHING:** Use the EXACT phrases:
+   - "Gaps Detected: [NUMBER] gaps"
+   - "Obstacles Detected: [NUMBER] large obstacles"
+   - "Terrain Roughness: [VALUE]cm"
+   - "Safety Score: [PERCENTAGE]% traversable terrain"
+
+2. **NUMBER ACCURACY:** Use the EXACT numbers from the environment analysis data above
+
+3. **FORMAT CONSISTENCY:** Follow the template structure exactly - other agents parse this format
+
+4. **COMPLETE DATA:** Include ALL required sections - missing sections break downstream processing
+
+**🎯 DOWNSTREAM AGENT REQUIREMENTS:**
+- **Reward Engineer** searches for these exact phrases to extract environment data
+- **SUS Generator** preserves this format for task specification
+- **Other Processing Agents** rely on this standardized format
+
+**❌ FAILURE MODES TO AVOID:**
+- Omitting the standardized summary section
+- Using different phrases (e.g., "gaps found" instead of "Gaps Detected:")
+- Rounding or approximating numbers from the environment analysis
+- Missing any required subsections
+
+**✅ SUCCESS CRITERIA:**
+- Contains exact phrases that downstream agents can search for
+- Uses exact numbers from environment analysis data
+- Follows complete template structure
+- Enables reliable data extraction by other agents
+
 **ENVIRONMENTAL TASK DESCRIPTION PRINCIPLES:**
 
 When creating environment-aware task descriptions:
@@ -401,5 +506,3 @@ ELSE IF visual_analysis.conflicts_with_sensors:
 ELSE:
     ENVIRONMENTAL_SENSING = OPTIONAL
 ```
-
-**🎯 REMEMBER: The robot navigates using SENSORS, not cameras. Trust the navigation-grade measurements!** 

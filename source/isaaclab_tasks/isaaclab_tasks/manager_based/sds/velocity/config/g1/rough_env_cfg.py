@@ -94,9 +94,9 @@ class SDSG1RoughEnvCfg(SDSVelocityRoughEnvCfg):
         }
 
         # 🚀 ENHANCED: Updated velocity ranges for forward-only movement
-        self.commands.base_velocity.ranges.lin_vel_x = (0.2, 0.6)     # Forward-only movement (no backward)
-        self.commands.base_velocity.ranges.lin_vel_y = (-0.15, 0.15)  # Increased lateral movement range
-        self.commands.base_velocity.ranges.ang_vel_z = (-0.3, 0.3)    # Increased turning range for better maneuverability
+        self.commands.base_velocity.ranges.lin_vel_x = (0.3, 0.8)     # Forward-only movement (no backward)
+        self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)  # Increased lateral movement range
+        self.commands.base_velocity.ranges.ang_vel_z = (0.0, 0.0)    # Increased turning range for better maneuverability
 
         # 🚨 CRITICAL FIX: Minimize standing commands to encourage locomotion
         self.commands.base_velocity.rel_standing_envs = 0.02  # Only 2% standing for active learning
@@ -143,9 +143,9 @@ class SDSG1RoughEnvCfg_PLAY(SDSG1RoughEnvCfg):
             self.scene.terrain.terrain_generator.curriculum = False
 
         # Commands - UPDATED: Allow backward movement but keep demo movements conservative
-        self.commands.base_velocity.ranges.lin_vel_x = (-0.1, 0.4)  # Allow backward movement + forward velocity for demos
-        self.commands.base_velocity.ranges.lin_vel_y = (-0.15, 0.15)  # Conservative lateral movement for clean demos
-        self.commands.base_velocity.ranges.ang_vel_z = (-0.3, 0.3)  # Conservative turning for stable demo walking
+        self.commands.base_velocity.ranges.lin_vel_x = (0.3, 0.8)  # Allow backward movement + forward velocity for demos
+        self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)  # Conservative lateral movement for clean demos
+        self.commands.base_velocity.ranges.ang_vel_z = (0.0, 0.0)  # Conservative turning for stable demo walking
         self.commands.base_velocity.ranges.heading = (0.0, 0.0)   # Straight forward heading
         
         # 🚨 EVEN MORE CRITICAL for PLAY: No standing still in demos!

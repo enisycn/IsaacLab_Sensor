@@ -10,12 +10,12 @@ from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, R
 
 @configclass
 class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
-    """Optimized PPO configuration for G1 robot with basic locomotion (no sensors).
+    """Enhanced PPO configuration for G1 robot with full sensor suite.
     
-    This configuration is optimized for basic locomotion learning:
-    - Robot State: ~81 dimensions (velocities, joints, commands, basic observations)
-    - No environmental sensors (height scanner, lidar disabled)
-    - Right-sized networks for efficient learning on simple observation space.
+    This configuration is optimized for gap crossing with enhanced sensors:
+    - Robot State: ~621 dimensions (velocities, joints, commands, enhanced height scanner)
+    - Enhanced height scanner: 540 rays (7.5cm resolution) for precise gap detection
+    - Expanded networks to handle rich sensor data without bottleneck.
     """
     num_steps_per_env = 24
     max_iterations = 3000
@@ -24,9 +24,9 @@ class G1RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     empirical_normalization = False
     policy = RslRlPpoActorCriticCfg(
         init_noise_std=1.0,
-        # OPTIMIZED NETWORKS: Right-sized for ~81 dimensional observation space
-        actor_hidden_dims=[256, 128, 64],      # 3-layer network (efficient for basic locomotion)
-        critic_hidden_dims=[256, 128, 64],     # Matching architecture for value estimation
+        # 🚀 EXPANDED NETWORKS: Sized for ~621 dimensional observation space with enhanced sensors
+        actor_hidden_dims=[768, 384, 192],       # Expanded from [256, 128, 64] - no input bottleneck
+        critic_hidden_dims=[768, 384, 192],      # Matching architecture for value estimation with rich sensors
         activation="elu",
     )
     algorithm = RslRlPpoAlgorithmCfg(

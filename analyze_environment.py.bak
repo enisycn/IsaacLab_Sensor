@@ -150,100 +150,90 @@ def main():
     obs, _ = env_wrapped.get_observations()
     
     # Monitoring loop
-    print("⏳ Waiting 2 seconds before starting sensor readings...")
-    time.sleep(2.0)
-    
-    start_time = time.time()
-    collection_duration = 10.0  # Collect data for 10 seconds
-    print(f"🚀 Starting {collection_duration}-second sensor data collection...")
+    last_print_time = 0
+    print_interval = 2.0  # Print every 2 seconds
     
     try:
         step_count = 0
         episode_rewards = torch.zeros(num_envs, device=env.unwrapped.device)
         
         while simulation_app.is_running():
+            start_time = time.time()
+            
+            # Run everything in inference mode (same as play.py)
+            with torch.inference_mode():
+                # Get actions from policy (same as play.py)
+                actions = policy(obs)
+                # Step environment (same as play.py)
+                obs, rewards, terminated, truncated = env_wrapped.step(actions)
+            
+            # Track rewards
+            if rewards is not None:
+                episode_rewards += rewards
+            
             current_time = time.time()
             
-            # Check if collection period is over
-            if current_time - start_time >= collection_duration:
-                print(f"✅ Data collection complete ({collection_duration} seconds)")
-                break
-            
-            # Get policy action (same as play.py)
-            with torch.inference_mode():
-                actions = policy(obs)
-            
-            # Step environment
-            obs, rew, terminated, truncated = env_wrapped.step(actions)
-            episode_rewards += rew
-            
-            # Height sensor analysis - only print once at the end
-            if current_time - start_time >= collection_duration - 0.1:  # Near the end
-                print(f"📋 COMPREHENSIVE FINAL ENVIRONMENT ANALYSIS FOR AI AGENT")
+            # Print height data every 2 seconds
+            if current_time - last_print_time >= print_interval:
+                # Get current height scanner data
+                height_scanner_data = height_scanner.data
+                sensor_pos_z = height_scanner_data.pos_w[:, 2]  # Sensor z position
+                ray_hits_z = height_scanner_data.ray_hits_w[..., 2]  # Hit points z coordinates
                 
-                # Get height scanner data
-                sensor = env.unwrapped.scene.sensors["height_scanner"]
-                sensor_pos_z = sensor.data.pos_w[:, 2]  # Sensor Z positions
-                ray_hits_z = sensor.data.ray_hits_w[..., 2]  # Ray hit Z positions
+                print(f"\n⏰ Time: {current_time:.1f}s | Step: {step_count}")
+                print(f"🎮 Episode Rewards: Mean={episode_rewards.mean():.2f}, Min={episode_rewards.min():.2f}, Max={episode_rewards.max():.2f}")
+                print(f"📋 COMPREHENSIVE FINAL ENVIRONMENT ANALYSIS FOR AI AGENT")
+                print(f"📍 TERRAIN HEIGHT DATA - ALL {num_envs} ROBOTS COMBINED:")
                 
                 # Collect ALL rays from ALL robots
                 all_sensor_heights = []
                 all_height_readings = []
-
+                
                 for env_idx in range(num_envs):
                     sensor_height = sensor_pos_z[env_idx].item()
                     hit_points = ray_hits_z[env_idx]  # All ray hits for this robot
-
+                    
                     # Calculate RL observation height readings (Isaac Lab formula)
                     offset = 0.5
                     height_readings = sensor_height - hit_points - offset
-
+                    
                     # Add all this robot's rays to the combined pool
                     all_height_readings.extend(height_readings.tolist())
                     all_sensor_heights.extend([sensor_height] * len(height_readings))
-
+                
                 # Calculate total rays
                 total_rays = len(all_height_readings)
-
+                
                 if all_height_readings:
                     # Convert to tensor for easy processing
                     all_height_readings = torch.tensor(all_height_readings)
                     valid_rays = len(all_height_readings)
-
-                    # ✅ USE ISAAC LAB STANDARD BASELINE (same as reward function)
-                    baseline_height_standard = 0.209  # Standard G1 baseline from Isaac Lab guide
                     
-                    # ✅ USE SYMMETRIC ±7CM THRESHOLDS (same as reward function)
-                    baseline_threshold = 0.07         # ±7cm threshold for balanced detection
-                    gap_threshold = baseline_threshold      # 7cm above baseline = gaps
-                    obstacle_threshold = baseline_threshold # 7cm below baseline = obstacles
+                    # Calculate average across ALL rays from ALL robots
+                    avg_height_reading = all_height_readings.mean().item()
                     
-                    print(f"   🎯 USING ISAAC LAB STANDARD DETECTION:")
-                    print(f"     Standard baseline: {baseline_height_standard:.3f}m")
-                    print(f"     Classification threshold: ±{baseline_threshold:.2f}m")
-                    print(f"     Gap threshold: >{baseline_height_standard + gap_threshold:.3f}m (terrain >{gap_threshold:.2f}m lower)")
-                    print(f"     Obstacle threshold: <{baseline_height_standard - obstacle_threshold:.3f}m (terrain >{obstacle_threshold:.2f}m higher)")
-                    print(f"     Normal range: {baseline_height_standard - obstacle_threshold:.3f}m to {baseline_height_standard + gap_threshold:.3f}m")
-
-                    # ✅ CORRECTED CLASSIFICATION (same logic as reward function)
-                    obstacles = all_height_readings < (baseline_height_standard - obstacle_threshold)
-                    gaps = all_height_readings > (baseline_height_standard + gap_threshold)  
-                    normal = ~obstacles & ~gaps
-
+                    # Simple classification using deviation from global average
+                    deviation_threshold = 0.1
+                    deviations = all_height_readings - avg_height_reading
+                    
+                    # Count rays by classification
+                    obstacles = deviations < -deviation_threshold
+                    gaps = deviations > deviation_threshold
+                    normal = (deviations >= -deviation_threshold) & (deviations <= deviation_threshold)
+                    
                     obstacle_count = obstacles.sum().item()
                     gap_count = gaps.sum().item()
                     normal_count = normal.sum().item()
-
+                    
                     # Calculate percentages of total rays
                     obstacle_pct = (obstacle_count / total_rays) * 100
                     gap_pct = (gap_count / total_rays) * 100
                     normal_pct = (normal_count / total_rays) * 100
-
+                    
                     # Find extreme values across all robots
                     min_height = all_height_readings.min().item()
                     max_height = all_height_readings.max().item()
-                    avg_height_reading = all_height_readings.mean().item()
-
+                    
                     # Find deepest gap and highest obstacle
                     deepest_gap = None
                     highest_obstacle = None
@@ -253,68 +243,61 @@ def main():
                     actual_obstacle_height = None
                     actual_gap_depth = None
                     actual_shallowest_gap_depth = None
-
+                    
                     if gap_count > 0:
-                        deepest_gap_reading = all_height_readings[gaps].max().item()  # Highest reading = deepest gap
-                        shallowest_gap_reading = all_height_readings[gaps].min().item()  # Lowest reading = shallowest gap
-                        # Gap depth: how much the reading exceeds the gap threshold
-                        actual_gap_depth = deepest_gap_reading - (baseline_height_standard + gap_threshold)
-                        actual_shallowest_gap_depth = shallowest_gap_reading - (baseline_height_standard + gap_threshold)
-
+                        gap_deviations = deviations[gaps]
+                        deepest_gap = gap_deviations.max().item()  # Most positive deviation
+                        deepest_gap_reading = all_height_readings[gaps].max().item()  # Actual height reading
+                        shallowest_gap_reading = all_height_readings[gaps].min().item()  # Shallowest gap
+                        # Convert to intuitive gap depths: how much lower the terrain is
+                        actual_gap_depth = deepest_gap_reading - avg_height_reading
+                        actual_shallowest_gap_depth = shallowest_gap_reading - avg_height_reading
+                    
                     if obstacle_count > 0:
-                        highest_obstacle_reading = all_height_readings[obstacles].min().item()  # Lowest reading = highest obstacle
-                        # Obstacle height: how much the reading falls below the obstacle threshold  
-                        actual_obstacle_height = (baseline_height_standard - obstacle_threshold) - highest_obstacle_reading
-
-                    # Simple output
-                    print(f"   📊 CORRECTED RAY ANALYSIS (Isaac Lab Standards):")
+                        obstacle_deviations = deviations[obstacles]
+                        highest_obstacle = obstacle_deviations.min().item()  # Most negative deviation
+                        highest_obstacle_reading = all_height_readings[obstacles].min().item()  # Actual height reading
+                        # Convert to intuitive obstacle height: how much higher the terrain is
+                        actual_obstacle_height = avg_height_reading - highest_obstacle_reading
+                    
+                    # Simple output with clear explanations
+                    print(f"   📊 COMBINED RAY ANALYSIS:")
                     print(f"     Total rays: {total_rays} (from {num_envs} robots)")
                     print(f"     Height readings: {min_height:.3f}m to {max_height:.3f}m (avg: {avg_height_reading:.3f}m)")
-                    print(f"     Isaac Lab baseline: {baseline_height_standard:.3f}m (standard)")
-                    print(f"     Measured baseline: {avg_height_reading:.3f}m (actual terrain average)")
+                    print(f"     📋 Note: Negative readings = Obstacles | Positive readings = Gaps")
                     print(f"   ---")
-                    print(f"   🔺 OBSTACLES:")
+                    print(f"   🔺 OBSTACLES (terrain higher than expected):")
                     print(f"     Count: {obstacle_count} rays ({obstacle_pct:.1f}%)")
                     if actual_obstacle_height is not None:
-                        print(f"     Tallest obstacle height above baseline: {actual_obstacle_height:.3f}m")
-                        print(f"       (Obstacle sensor reading: {highest_obstacle_reading:.3f}m)")
-                        print(f"       (Isaac Lab baseline: {baseline_height_standard:.3f}m)")
-                        print(f"       (Threshold: <{baseline_height_standard - obstacle_threshold:.3f}m)")
-                        print(f"       (Physical meaning: Terrain is {actual_obstacle_height:.3f}m higher than expected)")
+                        print(f"     Highest obstacle: {actual_obstacle_height:.3f}m above normal terrain")
+                        print(f"       (Height reading: {highest_obstacle_reading:.3f}m, Expected: {avg_height_reading:.3f}m)")
                     
-                    print(f"   🕳️  GAPS:")
+                    print(f"   🕳️  GAPS (terrain lower than expected):")
                     print(f"     Count: {gap_count} rays ({gap_pct:.1f}%)")
                     if actual_gap_depth is not None:
-                        print(f"     Deepest gap depth below baseline: {actual_gap_depth:.3f}m")
-                        print(f"       (Gap sensor reading: {deepest_gap_reading:.3f}m)")
-                        print(f"       (Isaac Lab baseline: {baseline_height_standard:.3f}m)")
-                        print(f"       (Threshold: >{baseline_height_standard + gap_threshold:.3f}m)")
-                        print(f"       (Physical meaning: Terrain is {actual_gap_depth + gap_threshold:.3f}m lower than expected)")
-                        if actual_shallowest_gap_depth >= 0:
-                            print(f"     Shallowest gap depth below baseline: {actual_shallowest_gap_depth:.3f}m")
-                            print(f"       (Gap sensor reading: {shallowest_gap_reading:.3f}m)")
-                            print(f"       (Physical meaning: Terrain is {actual_shallowest_gap_depth + gap_threshold:.3f}m lower than expected)")
+                        print(f"     Deepest gap: {actual_gap_depth:.3f}m below normal terrain")
+                        print(f"       (Height reading: {deepest_gap_reading:.3f}m, Expected: {avg_height_reading:.3f}m)")
+                        print(f"     Shallowest gap: {actual_shallowest_gap_depth:.3f}m below normal terrain")
+                        print(f"       (Height reading: {shallowest_gap_reading:.3f}m, Expected: {avg_height_reading:.3f}m)")
                     
-                    print(f"   🏞️  NORMAL TERRAIN:")
-                    print(f"     Count: {normal_count} rays ({normal_pct:.1f}%)")
-                    print(f"     Definition: Terrain between {baseline_height_standard - obstacle_threshold:.3f}m and {baseline_height_standard + gap_threshold:.3f}m")
-                    print(f"     Range: ±{baseline_threshold:.2f}m tolerance zone around {baseline_height_standard:.3f}m baseline")
+                    print(f"   🏞️  NORMAL TERRAIN: {normal_count} rays ({normal_pct:.1f}%)")
                     
-                    # Safety assessment with corrected thresholds
-                    if gap_pct > 10.0 or obstacle_pct > 30.0:
-                        safety = "🔴 DANGEROUS"
-                    elif gap_pct > 5.0 or obstacle_pct > 20.0:
+                    # Updated safety assessment: dangerous if gap ratio > 1%
+                    if gap_pct > 1.0 or obstacle_pct > 20:
+                        safety = "🔴 DANGEROUS TERRAIN"
+                    elif obstacle_pct > 10:
                         safety = "🟡 CAUTION"
                     else:
-                        safety = "🟢 SAFE"
-                    print(f"   🚨 Overall terrain safety: {safety}")
-                    print(f"     Reason: {gap_pct:.1f}% gaps (limit: 10.0%), {obstacle_pct:.1f}% obstacles (limit: 30.0%)")
+                        safety = "🟢 SAFE TERRAIN"
+                    print(f"   🚨 Overall: {safety}")
                 else:
-                    print(f"   ❌ No terrain data available")
+                    print(f"   ❌ No valid terrain data!")
                 
-                break  # Exit after printing analysis
+                last_print_time = current_time
             
             step_count += 1
+            
+            # Note: Reset logic removed due to different return formats
             
     except KeyboardInterrupt:
         print(f"\n\n🛑 Monitoring stopped by user")
@@ -324,9 +307,7 @@ def main():
         traceback.print_exc()
     finally:
         # Clean shutdown
-        print(f"\n🧹 Shutting down...")
-        
-        # Environment cleanup only
+        print(f"\n�� Shutting down...")
         try:
             env.close()
             print(f"✅ Environment closed")
@@ -334,35 +315,6 @@ def main():
             print(f"⚠️ Environment close warning: {e}")
 
 if __name__ == "__main__":
-    try:
-        main()
-    finally:
-        # Final GPU memory clearing before simulation app close
-        print(f"\n🔄 Final cleanup before app shutdown...")
-        try:
-            import torch
-            import gc
-            import time
-            
-            if torch.cuda.is_available():
-                print("🔧 Final GPU memory clear...")
-                time.sleep(1)
-                device = torch.cuda.current_device()
-                torch.cuda.synchronize(device)
-                torch.cuda.empty_cache()
-                print("✅ Final GPU cache cleared")
-            
-            gc.collect()
-            print("✅ Final garbage collection completed")
-            
-        except Exception as final_gpu_e:
-            print(f"⚠️ Final GPU cleanup warning: {final_gpu_e}")
-        
-        # Close sim app (same as play.py)  
-        try:
-            simulation_app.close()
-            print("✅ Simulation app closed successfully")
-        except Exception as app_e:
-            print(f"⚠️ Simulation app close warning: {app_e}")
-        
-        print("🏁 analyze_environment.py completed") 
+    main()
+    # Close sim app (same as play.py)
+    simulation_app.close() 

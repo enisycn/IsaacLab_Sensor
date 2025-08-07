@@ -113,9 +113,9 @@ class CommandsCfg:
         heading_control_stiffness=0.5,
         debug_vis=True,   # Enable BLUE velocity arrows
         ranges=mdp.UniformVelocityCommandCfg.Ranges(
-            lin_vel_x=(0.2, 0.6),        # Forward-only movement (no backward)
-            lin_vel_y=(-0.15, 0.15),     # Increased lateral movement range
-            ang_vel_z=(-0.3, 0.3),       # Increased turning range for better maneuverability
+            lin_vel_x=(0.3, 0.8),        # Forward-only movement (no backward)
+            lin_vel_y=(0.0, 0.0),     # Increased lateral movement range
+            ang_vel_z=(0.0, 0.0),       # Increased turning range for better maneuverability
             heading=(-math.pi, math.pi)
         ),
     )
@@ -301,6 +301,21 @@ class RewardsCfg:
     sds_custom = RewTerm(func=mdp.sds_custom_reward, weight=1.0)
 
 
+# ✅ NEW: ENVIRONMENTAL SENSING & STABILITY METRICS
+@configclass 
+class MetricsCfg:
+    """Metrics configuration for environmental sensing and robot stability tracking."""
+    
+    # Terrain Analysis Metrics
+    terrain_stability = ObsTerm(func=mdp.terrain_height_stability)
+    terrain_complexity = ObsTerm(func=mdp.terrain_complexity_analysis)
+    
+    # Robot State Metrics  
+    robot_height_stability = ObsTerm(func=mdp.robot_height_stability)
+    body_orientation_stability = ObsTerm(func=mdp.body_orientation_stability)
+    height_tracking_accuracy = ObsTerm(func=mdp.height_tracking_accuracy)
+
+
 @configclass
 class TerminationsCfg:
     """Termination terms for the MDP."""
@@ -339,6 +354,8 @@ class SDSVelocityRoughEnvCfg(ManagerBasedRLEnvCfg):
     terminations: TerminationsCfg = TerminationsCfg()
     events: EventCfg = EventCfg()
     curriculum: CurriculumCfg = CurriculumCfg()
+    # ✅ NEW: Environmental sensing and stability metrics
+    metrics: MetricsCfg = MetricsCfg()
 
     def __post_init__(self):
         """Post initialization."""

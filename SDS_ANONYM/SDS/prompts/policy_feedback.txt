@@ -1,1 +1,20 @@
-We trained a RL policy using the provided reward function code and tracked the values of the individual components in the reward function as well as global policy metrics such as episode lengths after every {epoch_freq} epochs and the maximum, mean, minimum values encountered:
+We trained a RL policy using the provided reward function code and tracked comprehensive training metrics including individual reward components, task performance indicators, training stability measures, and system diagnostics after every {epoch_freq} epochs. The following detailed metrics show training progression with maximum, mean, and minimum values encountered:
+
+**📊 ENHANCED TRAINING ANALYSIS:**
+The comprehensive metrics below include:
+• Core Performance: Total reward, episode length, reward components
+• Task Metrics: Velocity tracking errors, termination analysis
+• Training Stability: Loss values, action noise, computation performance
+• Safety Indicators: Contact failures, timeout rates
+• System Health: Steps per second, collection/learning times
+• ✅ NEW: Environmental Sensing: Terrain variance, robot stability, orientation tracking
+• ✅ NEW: Robot Stability: Height consistency, body posture, tracking accuracy
+
+**🌍 ENVIRONMENTAL SENSING METRICS:**
+• `terrain_height_variance`: Terrain roughness under robot (lower = smoother terrain)
+• `terrain_complexity_score`: Terrain challenge level (obstacles/gaps/cliffs percentage)
+• `robot_height_baseline`: Robot's median height above terrain (stability indicator)
+• `body_orientation_deviation`: Roll/pitch deviation from upright (lower = more stable)
+• `height_tracking_error`: Accuracy of maintaining target height
+
+This detailed analysis enables precise identification of training issues, reward component effectiveness, performance bottlenecks, environmental challenges, and robot stability issues for targeted improvements.

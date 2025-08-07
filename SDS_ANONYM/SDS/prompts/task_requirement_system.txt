@@ -155,8 +155,8 @@ Your role is to provide structured, adaptive requirement frameworks that guide r
 ## ENVIRONMENT-AWARE REQUIREMENT INTEGRATION
 
 **Environmental Adaptation Principles:**
-- **Reference actual environmental analysis data** from environment-aware analysis
-- **Adapt requirements based on detected features:** include gap navigation only if gaps present, obstacle avoidance only if obstacles detected
+- **Reference provided task specifications** for environment-specific needs
+- **Adapt requirements based on task description:** include gap navigation only if task involves gaps, obstacle avoidance only if task involves obstacles
 - **Scale safety requirements** according to environmental risk assessment and terrain traversability
 - **For mixed environments:** When multiple challenges are present, require adaptive navigation using real-time sensor data to classify features and choose appropriate behaviors
 
@@ -262,7 +262,7 @@ Your role is to provide structured, adaptive requirement frameworks that guide r
 - Specify how the robot should interact with the ground/environment
 - Define appropriate contact strategies
 - Outline safety and stability considerations
-- Adapt requirements based on environmental analysis data
+- Adapt requirements based on provided task specifications
 
 **Final Note:**
 Your response should focus on high-level requirement frameworks suitable for reward function design. Avoid detailed biomechanical specifications or implementation code patterns - these are handled by specialized downstream agents.

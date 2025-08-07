@@ -1,6 +1,87 @@
-Please carefully analyze the policy feedback and provide a new, improved reward function that can better solve the task. Some helpful tips for analyzing the policy feedback:
+Please carefully analyze the policy feedback and provide a new, improved reward function that can better solve the task.
 
-    **🚨 FIRST PRIORITY: CHECK FOR SPARSE REWARD PROBLEMS 🚨**
+**🚨 MANDATORY: YOUR RESPONSE MUST INCLUDE COMPREHENSIVE FEEDBACK ANALYSIS! 🚨**
+
+**CRITICAL: Generate the sds_custom_reward function with detailed analysis in the docstring, following the format:**
+- 🔍 FEEDBACK ANALYSIS (analyze the policy performance issues)
+- 📊 PERFORMANCE METRICS (actual training metrics and observations)
+- 🎯 SOLUTION STRATEGY (reasoning for the improvement approach)
+- 📋 IMPLEMENTATION COMPONENTS (with weight priorities)
+
+**📊 ENHANCED METRICS ANALYSIS GUIDANCE:**
+
+You now receive 15+ comprehensive training metrics (instead of just 2 basic ones). Use these for detailed analysis:
+
+**🚀 CRITICAL: SINGLE-SKILL FOCUS FOR TEACHER-STUDENT LEARNING**
+
+Each training session develops **ONE SPECIALIZED LOCOMOTION SKILL** for teacher-student learning:
+
+**⚠️ AVOID CONFLICTING BEHAVIORS:**
+- ❌ NO simultaneous walking + jumping in same reward function
+- ❌ NO mixed locomotion strategies that confuse policy learning
+- ❌ NO hardcoded behaviors - develop strategy from environmental analysis
+
+**✅ FOCUS ON SKILL SPECIALIZATION:**
+- **Analysis-Driven:** Base locomotion strategy on environmental sensor data
+- **Single-Skill:** Each training produces one specialized teacher policy
+- **Environment-Responsive:** Let challenges determine appropriate locomotion approach
+- **Teacher Quality:** Clean, focused skills make better teacher policies for student learning
+
+**Core Performance Metrics:**
+- `reward`: Total episode reward progression
+- `episode length`: Episode duration trends
+- `reward_sds_custom`: Your custom reward component breakdown
+
+**Task Performance Indicators:**
+- `velocity_error_xy`, `velocity_error_yaw`: Locomotion accuracy
+- `termination_base_contact`: Fall/contact failure rates
+- `termination_timeout`: Task completion rates
+
+**Training Stability Diagnostics:**
+- `value_function_loss`, `surrogate_loss`: Neural network training health
+- `action_noise_std`: Exploration level progression
+- `entropy_loss`: Policy exploration behavior
+
+**System Performance Monitoring:**
+- `computation_steps_per_sec`: Training efficiency
+- `collection_time`, `learning_time`: Performance bottlenecks
+
+**✅ NEW: Environmental Sensing & Robot Stability:**
+- `terrain_height_variance`: Terrain roughness under robot (higher = more challenging terrain)
+- `terrain_complexity_score`: Obstacle/gap/cliff percentage (higher = more dangerous terrain)
+- `robot_height_baseline`: Height baseline above terrain (stability indicator)
+- `body_orientation_deviation`: Roll/pitch from upright (lower = better posture control)
+- `height_tracking_error`: Target height maintenance accuracy
+
+**Analysis Tips:**
+• Flat or identical values → Component not optimizing (adjust scale/rewrite)
+• Large magnitude differences → Re-scale components to proper ranges
+• Increasing error rates → Check reward conflicts or mathematical instability
+• Decreasing reward components → Verify component is actually beneficial
+• ✅ NEW: High terrain variance + high orientation deviation → Robot struggling with rough terrain
+• ✅ NEW: High height tracking error → Reward function may not be encouraging proper height control
+• ✅ NEW: Inconsistent robot height above terrain → Check terrain adaptation and balance
+
+Some helpful tips for analyzing the policy feedback:
+
+    **🚨 FIRST PRIORITY: CHECK FOR TRAINING CRASH (std >= 0.0 error) 🚨**
+    (-1) **Critical Training Failure:** If getting "normal expects all elements of std >= 0.0" error:
+        (a) **VERIFIED CRASH CAUSES**: 
+            * Unprotected sensor data: height_sensor.data.ray_hits_w[..., 2] → NaN when rays miss
+            * Explosive exponentials: torch.exp(-terrain_var * 100.0) → -∞ values
+            * NaN variance propagation: torch.var(sensor_data_with_nan) → NaN
+            * Near-zero division: 1.0/torch.min(distances) when distances ≈ 0.001
+        (b) **MANDATORY SENSOR SAFETY**: 
+            ```python
+            sensor_data = torch.where(torch.isfinite(sensor_data), sensor_data, fallback)
+            terrain_var = torch.clamp(torch.var(height_data), max=0.01)
+            total = torch.where(torch.isfinite(total), total, torch.ones_like(total) * 0.5)
+            ```
+        (c) **Stability Requirements**: Each component should be [0, 2] range, final reward [0.1, 8.0]
+        (d) **Safe Pattern**: `total = a*2.0 + b*1.5 + c*1.0 + baseline`
+        (e) **Never Use**: Multiplicative chains, division without protection, aggressive exponentials
+
+    **🚨 SECOND PRIORITY: CHECK FOR SPARSE REWARD PROBLEMS 🚨**
     (0) **Sparse Reward Analysis:** If mean reward is consistently low or zero:
         (a) **Zero Reward Problem**: Check if most robots get zero reward most of the time
         (b) **Learning Progression Missing**: Verify robot gets reward for basic movement attempts, not just perfect execution
@@ -9,7 +90,7 @@ Please carefully analyze the policy feedback and provide a new, improved reward 
         (e) **Dense Feedback Rule**: Robot should get SOME reward for ANY progress toward goal
         (f) **Example Fix**: Replace `flight_time_perfect_reward` with `upward_movement_reward + height_gain_reward + flight_bonus`
 
-    **🚨 SECOND PRIORITY: CHECK FOR TRAPPING PROBLEMS 🚨**
+    **🚨 THIRD PRIORITY: CHECK FOR TRAPPING PROBLEMS 🚨**
     (0.5) **Anti-Trapping Analysis:** If robot converges to unwanted behavior (standing still, minimal effort):
         (a) **Baseline Check**: Verify baseline reward is minimal - just enough to prevent zeros
         (b) **Movement Incentive**: Ensure task attempts are substantially more rewarding than inactivity  
@@ -22,7 +103,7 @@ Please carefully analyze the policy feedback and provide a new, improved reward 
         (c) Discarding the reward components
         (d) Add new reward components
     (2) If some reward components' magnitude is significantly larger, then you must re-scale its value to a proper range
-    (3) **Simplified Arm Integration:** If arms behave unnaturally, use minimal arm control keeping them near default positions (shoulder_pitch=0.35, elbow=0.87) with small weights (0.05-0.1). Avoid complex multi-joint arm coordination.
+
     (4) **Foundation-First Stability Analysis:** If training is crashing or mean reward is zero:
         (a) **FIRST**: Check if basic locomotion foundation is stable (height, velocity, orientation)
         (b) **SECOND**: Verify mathematical stability (no aggressive exponentials, tight tolerances, or multiplicative chains)
@@ -38,7 +119,7 @@ Please carefully analyze the policy feedback and provide a new, improved reward 
         (g) **Foundation First**: Always test basic locomotion (velocity, height, orientation) before adding sensor components
         (h) **Progressive Integration**: Add sensor components incrementally: velocity tracking → basic contact → terrain adaptation
         (i) **Reward Balance Check**: Ensure sensor-based rewards don't overwhelm core locomotion components (max 30% weight)
-        (j) **Flat-with-Box Specifics**: Use 13x10 height scanner (130 points, 15cm resolution, 2x1.5m coverage) and 144-ray lidar (8 channels × 18 horizontal rays, 180° FOV), not generic sensor assumptions
+        (j) **Flat-with-Box Specifics**: Use 27x21 height scanner (567 points, 7.5cm resolution, 2x1.5m coverage) and 152-ray lidar (8 channels × 19 horizontal rays, 180° FOV), not generic sensor assumptions
     (6) **Mathematical Stability Check:** If rewards are consistently zero or training crashes:
         (a) Replace aggressive exponentials (factors >3.0) with moderate ones (0.5-2.0)
         (b) Use relaxed tolerances (0.3-1.0) instead of tight ones (0.1 or smaller)
@@ -51,22 +132,57 @@ Please carefully analyze the policy feedback and provide a new, improved reward 
             - Verify terrain clearance calculation from height scanner forward strips
             - Ensure velocity rewards use adapted commands, not original commands
         (b) **Stair Behavior Issues**: If robot behavior is incorrect for STAIRS scenario:
-            - Use STAIRS scenario classification from environment analysis
-            - Apply stair-specific locomotion rewards based on analysis
+            - Use task requirements for stair locomotion
+            - Apply stair-specific locomotion rewards based on task needs
         (c) **Gap Behavior Issues**: If behavior is incorrect for GAP scenario:
-            - Use GAP scenario classification from environment analysis  
-            - Apply gap-specific thresholds from environment analysis
+            - Use environmental analysis to develop appropriate navigation strategy  
+            - Apply gap-specific thresholds based on task specifications
             - Ensure conditional rewards use proper masking: `torch.where(gap_condition.unsqueeze(-1), reward_value, zeros)`
         (d) **Backward Movement Problems**: If negative velocity commands cause issues:
             - Check bidirectional velocity tracking: separate forward/backward error calculation
             - Verify sensor coverage: height scanner and lidar cover backward movement areas
             - Ensure yaw-aligned velocity transformation works with negative commands
         (e) **Sensor Integration Crashes**: If adding height_scanner or lidar causes failures:
-            - Test sensor data shapes: height_measurements should be [num_envs, 130], lidar_distances should be [num_envs, 144] 
-            - Check grid access: use height_measurements directly (already flattened from 13x10 grid)
-            - Verify ray indexing: forward_rays = lidar_distances[:, :72], backward_rays = lidar_distances[:, 72:]
+            - **CRITICAL**: ALWAYS sanitize sensor data first: `torch.where(torch.isfinite(sensor_data), sensor_data, fallback)`
+            - **Verified Failure**: Raw sensor data contains NaN/Inf when rays miss targets
+            - Test sensor data shapes: height_measurements should be [num_envs, 567], lidar_distances should be [num_envs, 152] 
+            - Check grid access: use height_measurements directly (already flattened from 27x21 grid)
+            - Verify ray indexing: forward_rays = lidar_distances[:, :76], backward_rays = lidar_distances[:, 76:]
+            - **Production Fix**: Always add final safety net: `torch.where(torch.isfinite(total), total, safe_fallback)`
         (f) **Enhanced Environment Specific**: For Isaac-SDS-Velocity-Flat-G1-Enhanced-v0:
-            - Use exact sensor configurations: GridPatternCfg (2.0x1.5m, 0.15m resolution), LidarPatternCfg (8 channels, 180° FoV, 10° resolution)
+            - Use exact sensor configurations: GridPatternCfg (2.0x1.5m, 0.075m resolution), LidarPatternCfg (8 channels, 180° FoV, 10° resolution)
             - Account for velocity ranges: x: (-0.1, 0.4), y: (-0.15, 0.15), z: (-0.3, 0.3)
-            - Include full-body coordination: 23 DOF control (legs, arms, torso) not just legs
+            - Include full-body coordination: 23 DOF control not just legs
 Please analyze each existing reward component in the suggested manner above first, and then write the reward function code. 
+
+**🔧 DEBUGGING: GAP NAVIGATION BEHAVIORAL ISSUES**
+
+**SYMPTOM: Robot turns in place, doesn't move forward**
+**DIAGNOSIS:**
+- Environmental penalties (-1.0 to -2.0) overwhelm velocity rewards (+3.0)
+- Fixed baseline misclassifies normal terrain as gaps
+- Robot optimizes by staying stationary to avoid penalties
+
+**FIXES:**
+1. **Reduce environmental impact:** Use 60/40 foundation/environmental split
+2. **Dynamic baseline:** Calculate from actual terrain, not hardcoded 0.209
+3. **Positive structure:** Replace penalties with progressive bonuses
+
+**SYMPTOM: Robot walks around gaps instead of through them**
+**DIAGNOSIS:**
+- Environment-based navigation: Develop strategy based on environmental analysis
+- Robot learns path planning to avoid gap areas entirely
+- Missing gap traversal incentives
+
+**FIXES:**
+1. **Gap traversal bonus:** `forward_vel * gap_ratio * weight`
+2. **Safety limits:** Progressive penalties only for excessive gap density
+3. **Navigation rewards:** Bonus for successful forward movement through challenges
+
+**CRITICAL WEIGHT STRUCTURE:**
+```python
+# Velocity must dominate to prevent stationary optimization
+foundation = vel * 3.0 + gait * 2.0 + height * 2.0 + lean * 1.5 + baseline
+environmental = gap_traversal + safety_penalty + terrain_bonus
+total = foundation * 0.6 + environmental * 0.4  # Foundation dominates
+``` 

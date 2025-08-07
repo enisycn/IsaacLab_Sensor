@@ -15,7 +15,7 @@ Enable comparison studies demonstrating:
 - **WITH SENSORS:** Adaptive, context-aware behavior that responds to environmental challenges
 
 **🧠 DESIGN METHODOLOGY:**
-1. **ANALYZE:** Understand the environment (gaps, obstacles, terrain complexity)
+1. **EXTRACT:** Get the pre-analyzed environment data from input (gaps, obstacles, terrain complexity)
 2. **THINK:** Determine which sensors are needed and how they should influence behavior
 3. **DECIDE:** Implement context-aware behavioral switching (NOT simultaneous conflicting rewards)
 4. **IMPACT:** Ensure sensors create observable behavioral differences for scientific comparison
@@ -51,7 +51,7 @@ import isaaclab_tasks.manager_based.locomotion.velocity.mdp as mdp
 **✅ IMPLEMENT ALL PATTERNS INLINE - DON'T IMPORT MDP FUNCTIONS**
 
 🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯
-🎯🎯🎯 SENSOR-DRIVEN BEHAVIORAL ADAPTATION: MANDATORY PROJECT REQUIREMENT 🎯🎯🎯
+🎯🎯🎯 SENSOR-DRIVEN BEHAVIORAL ADAPTATION 🎯🎯🎯
 🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯
 
 **🚨 CRITICAL: SENSORS MUST CREATE MEASURABLE BEHAVIORAL DIFFERENCES! 🚨**
@@ -66,10 +66,10 @@ jumping_air_time = 0.8  # Want long air time for jumping
 total = walking_reward + jumping_reward  # CONFLICTING OBJECTIVES!
 ```
 
-**✅ REQUIRED: Context-aware behavioral switching:**
+**Context-aware behavioral switching:**
 ```python
 # GOOD - Robot adapts behavior based on sensor input
-gap_ahead = height_measurements[:, front_indices] < -0.2  # Look ahead for gaps
+gap_ahead = height_measurements[:, front_indices] > 0.2   # Look ahead for gaps (CORRECTED: positive = gaps)
 obstacle_ahead = lidar_distances[:, front_rays] < 2.0     # Look ahead for obstacles
 
 # Behavioral switching based on sensor input
@@ -88,7 +88,8 @@ else:
 
 **1. HEIGHT SCANNER BEHAVIORAL IMPACT:**
 - **Flat terrain**: Robot walks normally (sensor unused)
-- **Gap terrain**: Robot modifies gait BEFORE reaching gaps (predictive adaptation)
+- **Small gap terrain (10-20cm)**: Robot modifies gait 1-2 steps BEFORE reaching gaps (predictive stepping adaptation)
+- **Large gap terrain (25cm+)**: Robot prepares for jumping 2-3 steps BEFORE reaching gaps (predictive jump preparation)
 - **Stair terrain**: Robot adjusts height expectations (terrain following)
 
 **2. LIDAR BEHAVIORAL IMPACT:**
@@ -101,125 +102,16 @@ else:
 - **With sensors**: Adaptive behavior → succeeds on challenging terrain
 - **Measurable improvement**: Success rate, stability, efficiency gains
 
-**🎯 IMPLEMENTATION PATTERNS FOR BEHAVIORAL ADAPTATION:**
 
-**PATTERN A: Gap Detection → Gait Modification:**
-```python
-# Use height sensor to detect gaps ahead and modify gait accordingly
-forward_height = height_measurements[:, front_sector_indices]  # Look ahead
-gap_ahead = torch.any(forward_height < -0.15, dim=1)  # 15cm gap threshold
-
-# Modify gait timing when gaps detected
-normal_air_time = 0.3   # Regular walking
-gap_air_time = 0.5      # Extended air time for gap crossing
-
-# Context-aware air time selection
-target_air_time = torch.where(gap_ahead, gap_air_time, normal_air_time)
-adaptive_gait = implement_air_time_reward(target_air_time)
-```
-
-**PATTERN B: Obstacle Detection → Path Planning:**
-```python
-# Use LiDAR to detect obstacles ahead and plan safe navigation
-forward_lidar = lidar_distances[:, front_ray_indices]  # Look ahead
-obstacle_ahead = torch.any(forward_lidar < 1.5, dim=1)  # 1.5m safety threshold
-
-# Modify velocity when obstacles detected
-normal_velocity = 1.0     # Regular walking speed
-careful_velocity = 0.6    # Reduced speed near obstacles
-
-# Context-aware velocity selection
-target_velocity = torch.where(obstacle_ahead, careful_velocity, normal_velocity)
-adaptive_navigation = implement_velocity_tracking(target_velocity)
-```
-
-**PATTERN C: Environmental Context → Behavior Selection:**
-```python
-# Analyze environment to select appropriate behavior mode
-terrain_context = analyze_environment(height_sensor, lidar_sensor)
-
-# Different reward strategies for different contexts
-if terrain_context == "flat_open":
-    behavior = efficient_walking_mode()
-elif terrain_context == "gaps_present":
-    behavior = gap_crossing_mode()
-elif terrain_context == "obstacles_present":
-    behavior = obstacle_navigation_mode()
-elif terrain_context == "complex_mixed":
-    behavior = adaptive_mixed_terrain_mode()
-```
-
-✅ ISAAC LAB STANDARD RAW SENSOR ACCESS:
-```python
-# Raw sensor access - physically meaningful measurements in meters
-height_sensor = env.scene.sensors["height_scanner"]
-lidar_sensor = env.scene.sensors["lidar"]
-
-# Height measurements: terrain height relative to sensor position (in meters)
-height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
-
-# Distance measurements: actual distances to obstacles (in meters)
-lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
-
-# Physical thresholds with clear meaning:
-significant_gaps = height_measurements < -0.2    # 20cm below sensor = gap
-close_obstacles = lidar_distances < 2.0          # 2m distance = close obstacle
-```
-
-**Isaac Lab RayCaster sensors ONLY have these attributes:**
-- `data.pos_w` - Sensor position [num_envs, 3]
-- `data.quat_w` - Sensor orientation [num_envs, 4]  
-- `data.ray_hits_w` - Ray hit positions [num_envs, num_rays, 3]
-
-**✅ TERRAIN-ANALYSIS-BASED HEIGHT TRACKING:**
-
-**ABSOLUTE HEIGHT - For consistent body clearance:**
-```python
-# Use when: Flat terrain OR gap crossing (large stepping) OR consistent platform heights
-height_err = torch.abs(robot.data.root_pos_w[:, 2] - 0.74)  # Target height above world origin
-height_reward = torch.exp(-height_err / 0.3)
-```
-
-**TERRAIN-RELATIVE HEIGHT - For adaptive surface following:**
-```python
-# Use when: Variable terrain heights OR climbing stairs OR navigating slopes
-height_sensor = env.scene.sensors["height_scanner"]
-height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
-avg_terrain_height = height_measurements.mean(dim=-1)  # Average terrain height in meters
-# Robot height above terrain surface (corrected calculation)
-robot_terrain_relative_height = robot.data.root_pos_w[:, 2] - avg_terrain_height
-height_err = torch.abs(robot_terrain_relative_height - 0.74)  # Maintain 0.74m above terrain
 ```
 
 **CHOOSE BASED ON ENVIRONMENT ANALYSIS:**
-- Large gaps requiring stepping → Absolute height maintains clearance
+- Small gaps requiring stepping (15-25cm) → Absolute height maintains clearance
+- Large gaps requiring jumping (25cm+) → Absolute height with increased clearance targets
 - Variable surface heights → Terrain-relative adapts to surface
 - Consistent platform levels → Absolute height for smooth transitions
 - Climbing/descending behavior needed → Terrain-relative for adaptation
-
-**❌ ARM BILATERAL SYNCHRONY ERROR - CAUSES UNNATURAL ARM CROSSING:**
-```python
-# WRONG - Forces both arms to same angle (bilateral synchrony):
-mean_sh = torch.mean(torch.abs(sh_angles), dim=1)  # Both arms same angle!
-arm_err = (mean_sh - 0.3)**2  # Forces both to 17° - UNNATURAL!
-```
-
-**✅ NATURAL ARM MOVEMENT - THREE PROVEN OPTIONS:**
-```python
-# OPTION 1: NO ARM REWARDS (let physics/gravity handle naturally)
-# - Often produces better results than forced constraints
-# - Arms naturally swing as passive pendulums
-
-# OPTION 2: Reciprocal arm-leg coordination (if needed):
-left_arm = sh_angles[:, 0]   # Left shoulder angle
-right_arm = sh_angles[:, 1]  # Right shoulder angle
-reciprocal_reward = -torch.abs(left_arm + right_arm)  # Reward opposite directions
-
-# OPTION 3: Keep arms near default positions (RECOMMENDED for stable walking):
-target_shoulder_pos = 0.35  # G1 asset default (arms slightly forward)
-arm_deviation = torch.mean(torch.abs(sh_angles - target_shoulder_pos), dim=1)
-arm_reward = torch.exp(-arm_deviation / 0.2) * 0.1  # Gaussian reward for staying near defaults
-```
+- Jump tasks → Absolute height with dynamic targets (crouch: 0.64m, jump: 0.94m, normal: 0.74m)
 
 These patterns are battle-tested and known to work for humanoid locomotion. Use them as a foundation:
 
@@ -247,9 +139,12 @@ in_mode_time = torch.where(in_contact, contact_time, air_time)
 gait_reward = torch.min(torch.where(single_stance.unsqueeze(-1), in_mode_time, 0.0), dim=1)[0]
 
 # ⚡ PROPER AIR TIME MANAGEMENT: 
-# - Threshold prevents excessive foot lifting (unnatural high knees)
+# - Threshold prevents excessive foot lifting for normal walking (unnatural high knees)
 # - Rewards natural step timing for smooth walking rhythm
-gait_reward = torch.clamp(gait_reward, max=0.5)  # Cap at 0.5s for natural step timing
+# - EXCEPTION: Jump tasks require extended air time (0.8s+) - do not clamp for jumping behaviors
+commands = env.command_manager.get_command("base_velocity")
+is_moving = torch.norm(commands[:, :2], dim=1) > 0.1
+gait_reward = torch.where(is_moving, torch.clamp(gait_reward, max=0.5), gait_reward)  # Cap only for walking, not jumping
 
 # 🎯 COMMAND DEPENDENCY: No reward for zero command (prevents stationary exploitation)
 commands = env.command_manager.get_command("base_velocity")
@@ -266,7 +161,7 @@ gait_reward *= (command_magnitude > 0.1).float()  # Only reward when actually mo
 
 **2. YAW-ALIGNED VELOCITY TRACKING (PROVEN SUPERIOR TO BODY FRAME):**
 
-**🚨 JUMP TASK REQUIREMENT: Always include forward velocity tracking for jump tasks, regardless of terrain type!**
+**🚨 JUMP TASK REQUIREMENT: Always include forward velocity tracking for jump tasks, regardless of terrain type! Gap jumping requires maintained forward momentum for successful crossing - velocity tracking ensures robot doesn't stop before gaps.**
 ```python
 # 🎯 PROVEN: Isaac Lab's yaw-frame tracking - VASTLY superior to basic body frame
 # CRITICAL: Decouples velocity control from robot tilt/lean (prevents control coupling)
@@ -388,6 +283,34 @@ running_pattern = single_stance.float() * 0.6 + flight_phase.float() * 0.4
 # Marching = extended single support phases for precision
 extended_single = single_stance & (in_mode_time.max(dim=1)[0] > 0.3)
 marching_pattern = extended_single.float()
+```
+
+**🚀 JUMPING GAIT PATTERNS (For Gap Crossing):**
+
+**JUMP PREPARATION (Crouch Phase):**
+```python
+# Pre-jump crouch: both feet down, lowered center of mass
+prep_height = robot.data.root_pos_w[:, 2] < (baseline_height - 0.1)  # 10cm crouch
+jump_prep = double_stance & prep_height
+prep_reward = jump_prep.float() * 2.0  # Reward preparation phase
+```
+
+**SYNCHRONIZED TAKEOFF (Launch Phase):**
+```python
+# Jump takeoff: both feet leave ground simultaneously for gaps
+both_airborne = torch.sum(in_contact.int(), dim=1) == 0  # Flight phase
+sufficient_height = robot.data.root_pos_w[:, 2] > (baseline_height + 0.2)  # 20cm clearance
+jump_takeoff = both_airborne & sufficient_height
+takeoff_reward = jump_takeoff.float() * 3.0  # High reward for successful takeoff
+```
+
+**COORDINATED LANDING (Absorption Phase):**
+```python
+# Jump landing: controlled impact absorption, both feet contact
+simultaneous_landing = double_stance & (air_time.min(dim=1)[0] > 0.6)  # Both feet landed after flight
+controlled_impact = torch.norm(robot.data.root_lin_vel_w[:, 2], dim=0) < 2.0  # Controlled vertical velocity
+jump_landing = simultaneous_landing & controlled_impact
+landing_reward = jump_landing.float() * 2.0  # Reward safe landing
 ```
 
 **🚨 PRIORITY: Use these proven Isaac Lab functions as your foundation, then add task-specific enhancements!**
@@ -536,19 +459,46 @@ reward = 1.0 / distance_to_obstacle  # Zero distance = Inf reward = PPO crash
 **PPO-SAFE ENVIRONMENTAL PATTERNS (WHEN USING ENVIRONMENTAL SENSORS):**
 
 ```python
-# IF using environmental sensor data, ALWAYS sanitize:
+# CRITICAL: ALWAYS sanitize sensor data FIRST - sensors can return NaN/Inf when rays miss!
+height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
 height_measurements = torch.where(torch.isfinite(height_measurements), height_measurements, torch.zeros_like(height_measurements))
-lidar_distances = torch.where(torch.isfinite(lidar_distances), lidar_distances, torch.ones_like(lidar_distances) * 10.0)
 
-# IF using environmental calculations, ALWAYS clamp:
-obstacle_distance = torch.clamp(min_obstacle_distance, min=0.1, max=15.0)
-terrain_roughness = torch.clamp(torch.var(height_measurements, dim=1), max=0.01)
+lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
+lidar_distances = torch.where(torch.isfinite(lidar_distances), lidar_distances, torch.ones_like(lidar_distances) * 5.0)
 
-# ALWAYS use safe division:
-reward = torch.exp(-error / torch.clamp(tolerance, min=1e-6))
+# DEADLY BUG PREVENTION: Explosive exponentials crash PPO!
+terrain_variance = torch.var(height_measurements, dim=1)
+terrain_variance = torch.clamp(terrain_variance, max=0.01)  # CRITICAL: Prevent explosion
+safe_terrain_reward = torch.exp(-terrain_variance * 10.0)  # NOT 100.0! Causes NaN!
 
-# ALWAYS bound final reward for PPO stability:
-return torch.clamp(reward, min=0.0, max=10.0)
+# DIVISION SAFETY: Prevent near-zero denominators
+min_distance = torch.min(lidar_distances, dim=1)[0]
+min_distance = torch.clamp(min_distance, min=0.05, max=10.0)  # Prevent division by ~0
+safety_reward = (min_distance - 0.2) / 0.3  # Now safe from division issues
+
+# FINAL SAFETY NET: Last chance to prevent PPO crash
+total_reward = foundation_reward + environmental_reward
+total_reward = torch.where(torch.isfinite(total_reward), total_reward, torch.ones_like(total_reward) * 0.5)
+return torch.clamp(total_reward, min=0.1, max=8.0)
+```
+
+**🚨 VERIFIED PPO CRASH PATTERNS - NEVER DO THESE:**
+
+```python
+# ❌ GUARANTEED CRASH: Unprotected sensor data
+height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
+reward += torch.mean(height_measurements)  # NaN propagates → PPO crash
+
+# ❌ GUARANTEED CRASH: Explosive exponentials  
+terrain_var = torch.var(height_measurements, dim=1)
+reward = torch.exp(-terrain_var * 100.0)  # Creates -∞ → exp(-∞) = 0, but if terrain_var is negative...
+
+# ❌ GUARANTEED CRASH: Division by near-zero
+min_dist = torch.min(lidar_distances, dim=1)[0]  # Can be 0.001
+reward = 1.0 / min_dist  # = 1000 → explodes gradient → PPO crash
+
+# ❌ GUARANTEED CRASH: No final bounds checking
+return reward  # If reward contains NaN/Inf → immediate PPO crash
 ```
 
 Isaac Lab Reward Function Format:
@@ -577,17 +527,18 @@ Isaac Lab SDS Environment - G1 Humanoid Locomotion
 ## Robot Configuration (VERIFIED & UPDATED FOR FULL BODY CONTROL)
 - **Robot**: Unitree G1 EDU U4 Humanoid (37 DOF total)
 - **Action Space**: 23 DOF controlled for complete humanoid locomotion (all joints except hand fingers)
-- **Height**: 0.74m (Isaac Lab verified)
+- **Height**: Relative to terrain baseline using height sensor (adaptive)
 - **Mass**: ~35kg humanoid
 
 ## Action Configuration (FULL BODY HUMANOID CONTROL)
 **Controlled Joints (23 DOF for complete humanoid locomotion):**
 - Legs: 12 DOF (6 per leg: hip_yaw, hip_roll, hip_pitch, knee, ankle_pitch, ankle_roll)
-- Arms: 10 DOF (5 per arm: shoulder_pitch, shoulder_roll, shoulder_yaw, elbow_pitch, elbow_roll)
+
 - Torso: 1 DOF (torso_joint)
 
-**Fixed Joints (14 DOF):**
+**Fixed Joints (24 DOF):**
 - Hand Fingers: 14 DOF maintain default poses (zero, one, two, three, four, five, six_joint per hand)
+- Arms: 10 DOF maintain default poses
 
 ## Contact Detection (VERIFIED WORKING)
 **Foot Bodies**: `left_ankle_roll_link`, `right_ankle_roll_link`
@@ -610,7 +561,7 @@ ang_error = robot.data.root_ang_vel_b[:, 2] - commands[:, 2]
 
 # Height maintenance  
 height = robot.data.root_pos_w[:, 2]
-height_error = (height - 0.74).abs()
+height_error = (height - (terrain_baseline + 0.74)).abs()  # Relative to terrain
 
 # Bipedal gait patterns
 left_contact = foot_contacts[:, 0]
@@ -692,10 +643,10 @@ double_support = (left_contact > 0.5) & (right_contact > 0.5)
     # HUMANOID-SPECIFIC CONSIDERATIONS:
     # - Bipedal stability is critical: balance and contact pattern rewards
     # - Height maintenance: G1 initial height is 0.74m in Isaac Lab (VERIFIED)
-    # - Upper body stability: minimize arm swing, maintain upright torso
+    # - Upper body stability: maintain upright torso
     # - Gait patterns: Walk (alternating with double support), Jump (synchronized takeoff/landing), March (controlled single support), Sprint (extended flight), Pace (lateral movement)
     # - Isaac Lab G1 joint structure: 37 DOF total (23 controlled + 14 fixed)
-    # - CONTROLLED joint naming: left/right_hip_[yaw/roll/pitch]_joint, left/right_knee_joint, left/right_ankle_[pitch/roll]_joint, torso_joint, left/right_shoulder_[pitch/roll/yaw]_joint, left/right_elbow_[pitch/roll]_joint
+    # - CONTROLLED joint naming: left/right_hip_[yaw/roll/pitch]_joint, left/right_knee_joint, left/right_ankle_[pitch/roll]_joint, torso_joint
     # - FIXED joint naming: left/right_[zero/one/two/three/four/five/six]_joint (hand fingers only)
     
     # HUMAN-LIKE LOCOMOTION DESIGN PRINCIPLES:
@@ -707,7 +658,7 @@ double_support = (left_contact > 0.5) & (right_contact > 0.5)
     #    Consider command-dependent weighting based on intended movement direction
     # 4. Temporal Coordination: Natural gaits involve timing and rhythm
     #    Consider phase relationships between limbs, contact duration, and step timing
-    # 5. Upper Body Integration: Arms and torso contribute to locomotion stability
+    # 5. Upper Body Integration: Torso contributes to locomotion stability
     #    Consider how upper body motion supports or disrupts locomotion goals
     # 6. Adaptive Contact Patterns: Different gaits require different contact strategies
     #    Analyze video to determine appropriate contact timing and patterns for the demonstrated behavior
@@ -730,131 +681,463 @@ double_support = (left_contact > 0.5) & (right_contact > 0.5)
     flight_phase = ~left_contact & ~right_contact        # Both feet up (Jump/Sprint)
     
     # Key differences from quadruped robots:
-    # - G1 height: 0.74m in Isaac Lab configuration - CRITICAL for height-based rewards
+    # - G1 height: Relative to terrain baseline (0.74m offset) - CRITICAL for adaptive height rewards
     # - Only 2 contact points (not 4)
     # - Bipedal gait patterns (alternating support, not complex quadruped gaits)
     # - Higher contact forces due to full body weight on fewer feet
     # - Dynamic balance required (not static stability like quadrupeds)
     # - Dexterous hands: 37 total DOF with advanced manipulation capabilities
-    
-## Sensor Access Patterns
 
-**🚨 CRITICAL: CORRECT SENSOR DATA ACCESS PATTERNS**
-
-**❌ COMMON ERRORS THAT CAUSE AttributeError:**
-```python
-# WRONG - These attributes do not exist in Isaac Lab:
-height_measurements = height_sensor.data.height_measurements  # AttributeError!
-lidar_distances = lidar_sensor.data.distances                 # AttributeError!
-lidar_range = lidar_sensor.data.ray_distances                 # AttributeError!
-```
-
-**✅ CORRECT PATTERNS - USE THESE:**
-```python
-# Height Scanner - Isaac Lab standard access for terrain heights:
-height_sensor = env.scene.sensors["height_scanner"]
-height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5  # Meters relative to sensor
-
-# LiDAR - Isaac Lab standard access for obstacle distances:
-lidar_sensor = env.scene.sensors["lidar"]
-lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)  # Distances in meters
-```
-
-**🚨 Isaac Lab RayCaster sensors only have these data attributes:**
-- `data.pos_w`: Sensor position in world frame [num_envs, 3]
-- `data.quat_w`: Sensor orientation [num_envs, 4]  
-- `data.ray_hits_w`: Ray hit positions [num_envs, num_rays, 3]
-
-**No other attributes exist! Always calculate distances from ray_hits_w!**
-
-# OPTIONAL: HEIGHT SCANNER ("height_scanner") INTEGRATION:
-# Provides detailed terrain elevation mapping around the robot (130 measurements per robot)
-# Use only if terrain shows significant variation - Isaac Lab standard usage:
-height_sensor = env.scene.sensors["height_scanner"]
-height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5  # [num_envs, 130] - terrain relative to sensor
-# Raw sensor access for advanced processing:
-terrain_heights = height_sensor.data.ray_hits_w[..., 2]  # [num_envs, scan_points] World Z coordinates
-robot_height = height_sensor.data.pos_w[:, 2]  # [num_envs] Scanner position height
-
-# HEIGHT MEASUREMENTS INTERPRETATION:
-# - Shape: [num_envs, 130] (13 x 10 grid pattern at 0.15m resolution, 2m x 1.5m coverage)
-# - Values: Height relative to sensor position in meters (negative = below sensor, positive = above)
-# - Range: -0.5m to +3.0m for practical terrain mapping
-# - Usage: local_terrain = torch.mean(height_measurements.view(num_envs, -1), dim=1)
-
-# LIDAR SCANNER ("lidar") - REQUIRED:
-# Provides 180-degree forward obstacle detection and distance measurements  
-lidar_sensor = env.scene.sensors["lidar"]
-# ❌ INCORRECT: lidar_distances = env.scene.sensors["lidar"].data.ray_hits_w[..., 2]  # This gets Z coordinate, not distance!
-# ✅ CORRECT: Isaac Lab standard distance calculation:
-lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)  # [num_envs, 144] distances in meters
-forward_rays = lidar_distances[:, :72]   # Forward-facing rays
-lateral_rays = lidar_distances[:, 72:144] # Side and rear-facing rays
-
-# LIDAR INTERPRETATION:
-# - Shape: [num_envs, 144] (8 channels x 18 horizontal rays at 10° resolution)
-# - Values: Distance to nearest obstacle along each ray in meters
-# - Range: 0.1m (closest detection) to 5.0m max_range (no obstacle detected)
-# - Usage: forward_obstacles = torch.min(lidar_distances[:, :72], dim=1)[0]
-
-## Enhanced Environment Sensor Integration for Rewards (FLAT-WITH-BOX CONFIG)
-
-# ENHANCED SENSOR DATA PROCESSING FOR REWARD COMPUTATION:
-# Current environment: Isaac-SDS-Velocity-Flat-G1-Enhanced-v0
-# Sensors: height_scanner (GridPatternCfg: 13x10 grid, 130 points, 15cm resolution, 2x1.5m coverage, 3.0m range), lidar (144 rays: 8 channels × 18 horizontal, 180° FOV, 5.0m range)
-
-# 1. Height Scanner Processing (13x10 grid, 130 effective points):
-height_sensor = env.scene.sensors["height_scanner"]
-height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
-height_grid = height_measurements.view(env.num_envs, 13, 10)  # Actual grid size
-
-# Forward terrain analysis (covers backward movement with negative velocity ranges)
-forward_terrain = height_grid[:, :4, 3:7]  # Forward section (13x10 grid)
-backward_terrain = height_grid[:, 9:, 3:7]  # Backward section
-lateral_terrain = height_grid[:, 4:9, :]    # Lateral sections
-
-# 2. LiDAR Processing (144 rays, 5.0m range):
-lidar_sensor = env.scene.sensors["lidar"]
-# ❌ INCORRECT: lidar_distances = env.scene.sensors["lidar"].data.ray_hits_w[..., 2]  # This gets Z coordinate, not distance!
-# ✅ CORRECT: Isaac Lab standard distance calculation:
-lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)  # [num_envs, 144] distances in meters
-forward_rays = lidar_distances[:, :72]    # Forward-facing rays
-lateral_rays = lidar_distances[:, 72:]    # Side and rear-facing rays
-
-# 3. Adaptive Terrain Classification for Reward Scaling:
-terrain_variance = torch.var(height_measurements.view(env.num_envs, -1), dim=1)
-obstacle_density = (lidar_distances < 2.0).float().mean(dim=1)
-terrain_complexity = torch.clamp(terrain_variance + obstacle_density, min=0.0, max=2.0)
-
-# 4. Direction-Aware Obstacle Processing (for backward velocity support):
-forward_obstacles = torch.min(forward_rays, dim=1)[0]
-backward_obstacles = torch.min(backward_rays, dim=1)[0]
-movement_clearance = torch.where(commands[:, 0] >= 0.0, forward_obstacles, backward_obstacles)
-
-STABLE MATHEMATICAL PATTERNS (Use these for numerical stability):
-Pattern 1 - Exponential Decay (for tracking targets):
-# error = (robot.data.root_lin_vel_b[:, 0] - target_value).abs()
-# reward_component = torch.exp(-scale_factor * error)  # scale_factor: 0.5 to 10.0
-
-Pattern 2 - Bounded Linear (for contact rewards):
-# num_contacts = foot_contacts.sum(dim=-1).float()
-# contact_reward = (1.0 - (num_contacts - target_count).abs() / tolerance).clamp(min=0.0, max=1.0)
-
-Pattern 3 - Boolean Masks (for gait patterns):
-# gait_reward = ((num_contacts >= min_contacts) & (num_contacts <= max_contacts)).float()
-
-Pattern 4 - Final Bounds (CRITICAL for PPO stability):
-# return reward.clamp(min=0.0, max=10.0)  # Prevents training crashes
-
-Pattern 5 - Division Safety (CRITICAL to prevent crashes):
-# For literal numbers: safe_ratio = numerator / max(denominator_value, 1e-6)  # denominator_value is literal
-# For tensor variables: safe_ratio = numerator / torch.clamp(tensor_var, min=1e-6)  # tensor_var computed from robot data
-
-TIP: Normalize reward components to similar scales (0-1 range) for balanced learning.
-TIP: Analyze video frames to understand the specific locomotion pattern before setting thresholds.
 
 **FORMATTING REQUIREMENTS:**
 - Use EXACTLY 4 spaces for each indentation level
 - NEVER use 8 spaces, tabs, or inconsistent spacing
 - Always add safety checks before any division operations
 - Specify dtype=torch.float32 for all tensor creations
+
+# Height Sensor Guide for Isaac Lab RL Rewards
+
+> **⚠️ IMPORTANT**: These are technical explanations. for reward generation you shoul come up correct reward terms suitable for analyzed environment.
+
+## 📐 **Isaac Lab Formula**
+```python
+# Official height scan observation
+height_reading = sensor.data.pos_w[:, 2].unsqueeze(1) - sensor.data.ray_hits_w[..., 2] - offset
+# Default offset = 0.5m (NOT 0.05!)
+```
+
+## 🎯 **Core Rules**
+- **OBSTACLES** = Lower readings (< baseline - threshold) = Terrain HIGHER than expected
+- **GAPS** = Higher readings (> baseline + threshold) = Terrain LOWER than expected  
+- **BASELINE** = Dynamic terrain calculation (0.209m fallback) = torch.median(valid_heights)
+- **THRESHOLDS** = ±0.07m (7cm) for balanced detection
+
+## ⚡ **Correct Implementation**
+```python
+def terrain_classification(height_readings, baseline=0.209):
+    obstacle_threshold = 0.07  # 7cm
+    gap_threshold = 0.07       # 7cm
+    
+    obstacles = height_readings < (baseline - obstacle_threshold)    # < 0.139m
+    gaps = height_readings > (baseline + gap_threshold)              # > 0.279m  
+    normal = ~obstacles & ~gaps                                      # 0.139-0.279m
+    extreme_gaps = height_readings == float('inf')                   # No terrain detected
+    
+    return obstacles, gaps, normal, extreme_gaps
+```
+
+## 📊 **Optimized Thresholds**
+- **Standard**: 0.07m (7cm) - balanced for most robots
+- **Sensitive**: 0.05m (5cm) - careful navigation
+- **Relaxed**: 0.10m (10cm) - rough terrain
+- **Range**: 0.05-0.15m acceptable, 0.07m optimal
+
+## 🔬 **Height Scanner Specifications**
+
+### **G1 Robot Configuration (Enhanced)**
+```python
+# Enhanced sensor configuration from flat_with_box_env_cfg.py
+height_scanner = RayCasterCfg(
+    prim_path="/World/envs/env_0/Robot/torso_link",
+    offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 0.6)),  # 60cm above torso
+    attach_yaw_only=True,  # Only yaw rotation (not pitch/roll)
+    pattern_cfg=patterns.GridPatternCfg(
+        resolution=0.075,  # 7.5cm spacing between rays
+        size=[2.0, 1.5],   # 2m forward × 1.5m lateral coverage
+    ),
+    max_distance=3.0,      # 3m maximum ray distance
+    update_period=0.02,    # 50Hz update rate
+    mesh_prim_paths=["/World/ground"],
+)
+```
+
+### **Ray Pattern Analysis**
+```python
+# Enhanced configuration calculations:
+forward_coverage = 2.0m  # Total forward scan distance
+lateral_coverage = 1.5m  # Total lateral scan distance  
+ray_resolution = 0.075m  # 7.5cm between rays
+rays_forward = int(2.0 / 0.075) + 1 = 27 rays  # Forward direction
+rays_lateral = int(1.5 / 0.075) + 1 = 21 rays  # Lateral direction
+total_rays = 27 × 21 = 567 rays  # Total ray count
+
+# Standard configuration calculations:
+standard_forward = 1.6m
+standard_lateral = 1.0m
+standard_resolution = 0.1m
+standard_rays_forward = int(1.6 / 0.1) + 1 = 17 rays
+standard_rays_lateral = int(1.0 / 0.1) + 1 = 11 rays
+standard_total = 17 × 11 = 187 rays
+```
+
+## 🎯 **Relative Height Tracking Rewards**
+
+### **1. ONLY Relative Terrain Navigation**
+```python
+def relative_terrain_reward(env, sensor_cfg=SceneEntityCfg("height_scanner")):
+    """Pure relative height tracking - NO absolute positioning."""
+    
+    sensor = env.scene.sensors[sensor_cfg.name]
+    
+    # Isaac Lab formula (RELATIVE measurements only)
+    height_readings = sensor.data.pos_w[:, 2].unsqueeze(1) - sensor.data.ray_hits_w[..., 2] - 0.5
+    baseline = 0.209  # G1 robot baseline
+    
+    # Classification using ONLY sensor readings
+    obstacles = height_readings < (baseline - 0.07)
+    gaps = height_readings > (baseline + 0.07)
+    normal_terrain = ~obstacles & ~gaps & (height_readings != float('inf'))
+    
+    # Count features
+    total_rays = height_readings.shape[-1]
+    obstacle_count = obstacles.sum(dim=-1)
+    gap_count = gaps.sum(dim=-1)
+    normal_count = normal_terrain.sum(dim=-1)
+    
+    # Reward ONLY based on terrain sensing (not absolute height)
+    terrain_safety = (normal_count / total_rays) * 0.5
+    obstacle_penalty = -(obstacle_count / total_rays) * 2.0
+    gap_penalty = -(gap_count / total_rays) * 1.5
+    
+    return terrain_safety + obstacle_penalty + gap_penalty
+```
+
+### **2. Look-Ahead Terrain Preview**
+```python
+def lookahead_terrain_reward(env, sensor_cfg=SceneEntityCfg("height_scanner")):
+    """Forward-looking terrain analysis for proactive navigation."""
+    
+    sensor = env.scene.sensors[sensor_cfg.name]
+    height_readings = sensor.data.pos_w[:, 2].unsqueeze(1) - sensor.data.ray_hits_w[..., 2] - 0.5
+    baseline = 0.209
+    
+    # Reshape to grid pattern for spatial analysis
+    # For 567 rays (27×21 grid): rays_forward=27, rays_lateral=21
+    rays_forward, rays_lateral = 27, 21
+    height_grid = height_readings.view(-1, rays_forward, rays_lateral)
+    
+    # Split into zones: near (0-0.7m), mid (0.7-1.3m), far (1.3-2.0m)
+    near_zone = height_grid[:, :9, :]    # First 9 rays = 0-0.675m
+    mid_zone = height_grid[:, 9:18, :]   # Next 9 rays = 0.675-1.35m  
+    far_zone = height_grid[:, 18:, :]    # Last 9 rays = 1.35-2.0m
+    
+    # Analyze each zone for upcoming terrain
+    def analyze_zone(zone_data, zone_weight):
+        obstacles = (zone_data < (baseline - 0.07)).float().mean(dim=(-1, -2))
+        gaps = (zone_data > (baseline + 0.07)).float().mean(dim=(-1, -2))
+        return -(obstacles * 2.0 + gaps * 1.5) * zone_weight
+    
+    # Weight zones: near=highest, far=planning
+    near_reward = analyze_zone(near_zone, 1.0)    # Immediate danger
+    mid_reward = analyze_zone(mid_zone, 0.5)      # Tactical planning
+    far_reward = analyze_zone(far_zone, 0.2)     # Strategic planning
+    
+    return near_reward + mid_reward + far_reward
+```
+
+### **3. Adaptive Baseline Calculation**
+```python
+def adaptive_baseline_terrain_reward(env, sensor_cfg=SceneEntityCfg("height_scanner")):
+    """Dynamic baseline adaptation for varying terrain conditions."""
+    
+    sensor = env.scene.sensors[sensor_cfg.name]
+    height_readings = sensor.data.pos_w[:, 2].unsqueeze(1) - sensor.data.ray_hits_w[..., 2] - 0.5
+    
+    # Filter out infinite readings for baseline calculation
+    finite_mask = height_readings != float('inf')
+    finite_readings = height_readings[finite_mask]
+    
+    if finite_readings.numel() > 0:
+        # Dynamic baseline: use median of current readings
+        # More robust than mean for terrain with obstacles/gaps
+        dynamic_baseline = torch.median(finite_readings.view(-1, -1), dim=-1)[0]
+        
+        # Adaptive thresholds based on terrain variation
+        terrain_std = torch.std(finite_readings.view(-1, -1), dim=-1)
+        adaptive_threshold = torch.clamp(terrain_std * 2.0, 0.05, 0.15)  # 2σ rule
+        
+        # Classification using adaptive parameters
+        obstacles = height_readings < (dynamic_baseline.unsqueeze(-1) - adaptive_threshold.unsqueeze(-1))
+        gaps = height_readings > (dynamic_baseline.unsqueeze(-1) + adaptive_threshold.unsqueeze(-1))
+        
+        # Reward based on terrain complexity
+        total_rays = height_readings.shape[-1]
+        obstacle_ratio = obstacles.sum(dim=-1).float() / total_rays
+        gap_ratio = gaps.sum(dim=-1).float() / total_rays
+        
+        # Penalty scales with terrain difficulty
+        complexity_factor = torch.clamp(terrain_std, 0.5, 2.0)
+        obstacle_penalty = -obstacle_ratio * 2.0 * complexity_factor
+        gap_penalty = -gap_ratio * 1.5 * complexity_factor
+        
+        return obstacle_penalty + gap_penalty
+    else:
+        # Fallback for all-infinite readings
+        return torch.zeros(env.num_envs, device=env.device)
+```
+
+## 🎯 **Complete Reward Example**
+```python
+def comprehensive_terrain_reward(env, sensor_cfg=SceneEntityCfg("height_scanner")):
+    sensor = env.scene.sensors[sensor_cfg.name]
+    robot = env.scene["robot"]
+    
+    # Isaac Lab formula
+    height_readings = sensor.data.pos_w[:, 2].unsqueeze(1) - sensor.data.ray_hits_w[..., 2] - 0.5
+    baseline = 0.209  # G1 robot baseline
+    
+    # Classification
+    obstacles = height_readings < (baseline - 0.07)
+    gaps = height_readings > (baseline + 0.07)
+    normal_terrain = ~obstacles & ~gaps & (height_readings != float('inf'))
+    infinite_gaps = height_readings == float('inf')
+    
+    # Count features
+    total_rays = height_readings.shape[-1]
+    obstacle_count = obstacles.sum(dim=-1)
+    gap_count = gaps.sum(dim=-1)
+    normal_count = normal_terrain.sum(dim=-1)
+    infinite_count = infinite_gaps.sum(dim=-1)
+    
+    # Percentage-based rewards
+    obstacle_penalty = -(obstacle_count / total_rays) * 2.0
+    gap_penalty = -(gap_count / total_rays) * 1.5
+    stability_reward = (normal_count / total_rays) * 0.5
+    cliff_penalty = -(infinite_count / total_rays) * 10.0
+    
+    return obstacle_penalty + gap_penalty + stability_reward + cliff_penalty
+```
+
+### 3. Dynamic Gap Crossing Reward
+```python
+def dynamic_gap_crossing(env, sensor_cfg=SceneEntityCfg("height_scanner")):
+    """Reward function that encourages crossing appropriate gaps."""
+    
+    sensor = env.scene.sensors[sensor_cfg.name]
+    robot = env.scene["robot"]
+    
+    height_readings = sensor.data.pos_w[:, 2].unsqueeze(1) - sensor.data.ray_hits_w[..., 2] - 0.5
+    baseline = 0.209
+    
+    # Gap classification
+    small_gaps = (height_readings > (baseline + 0.05)) & (height_readings < (baseline + 0.15))
+    medium_gaps = (height_readings > (baseline + 0.15)) & (height_readings < (baseline + 0.25))
+    large_gaps = height_readings > (baseline + 0.25)
+    extreme_gaps = height_readings == float('inf')
+    
+    # Robot capabilities (based on leg length and body size)
+    robot_velocity = torch.norm(robot.data.root_lin_vel_w[:, :2], dim=-1)
+    can_jump = robot_velocity > 0.3  # Moving fast enough to jump
+    
+    # Dynamic gap rewards based on robot state
+    small_gap_reward = torch.where(
+        can_jump & torch.any(small_gaps, dim=-1),
+        0.2,  # Small reward for crossing small gaps when able
+        torch.where(torch.any(small_gaps, dim=-1), -0.5, 0.0)  # Penalty if not able
+    )
+    
+    medium_gap_penalty = torch.sum(medium_gaps, dim=-1) * -1.0
+    large_gap_penalty = torch.sum(large_gaps, dim=-1) * -3.0
+    extreme_gap_penalty = torch.sum(extreme_gaps, dim=-1) * -10.0
+    
+    return small_gap_reward + medium_gap_penalty + large_gap_penalty + extreme_gap_penalty
+```
+
+---
+
+## ✅ **Validation Checklist**
+
+### 1. **FORMULA COMPLIANCE**
+✅ **CORRECT**: `sensor.data.pos_w[:, 2].unsqueeze(1) - sensor.data.ray_hits_w[..., 2] - 0.5`
+❌ **REJECT**: Direct use of `ray_hits_w[..., 2]` without sensor position/offset
+
+### 2. **BASELINE UNDERSTANDING** 
+✅ **FLAT TERRAIN BASELINE:** ~0.209m
+- Calculation: sensor_height(0.709) - terrain_z(0.000) - offset(0.5) = 0.209m
+- All thresholds should be RELATIVE to this baseline, not absolute
+
+❌ **REJECT these approaches:**
+- Using 0.209m as absolute threshold
+- Hardcoded terrain Z values
+- Ignoring sensor mounting height variations
+
+### 3. **OBSTACLE vs GAP INTERPRETATION**
+✅ **CORRECT INTERPRETATION:**
+```python
+# OBSTACLES: Negative height readings (terrain higher than expected)
+obstacles = height_readings < (baseline - 0.07)  # < 0.139m for 0.209 baseline
+obstacle_penalty = torch.where(obstacles, -penalty_value, 0.0)
+
+# GAPS: Positive height readings (terrain lower than expected)  
+gaps = height_readings > (baseline + 0.07)  # > 0.279m for 0.209 baseline
+gap_penalty = torch.where(gaps, -penalty_value, 0.0)
+```
+
+❌ **REJECT these patterns:**
+- Treating positive values as obstacles
+- Using absolute thresholds without baseline consideration
+- Confusing height readings with terrain coordinates
+
+### 4. **THRESHOLD VALIDATION**
+✅ **OPTIMIZED THRESHOLDS:**
+- **Standard obstacles:** 0.07m above baseline (baseline - 0.07)
+- **Standard gaps:** 0.07m below baseline (baseline + 0.07)
+- **Acceptable range:** 0.05-0.15m for balanced sensitivity
+- **Research validation:** 5-25cm proven successful in academic studies
+
+❌ **REJECT these ranges:**
+- Thresholds > 0.30m (too large for most robots)
+- Thresholds < 0.03m (too sensitive to noise)
+- Same threshold for obstacles and gaps (should be different)
+
+### 5. **INFINITE READING HANDLING**
+✅ **PROPER INFINITE HANDLING:**
+```python
+# Handle max range exceeded
+valid_readings = height_readings[height_readings != float('inf')]
+infinite_penalty = torch.sum(height_readings == float('inf')) * extreme_gap_penalty
+```
+
+❌ **REJECT these approaches:**
+- Ignoring infinite readings completely
+- Treating infinite as zero
+- Not penalizing extreme gaps (cliffs)
+
+### 6. **SENSOR CONFIGURATION VALIDATION**
+✅ **CORRECT SENSOR ACCESS:**
+```python
+sensor: RayCaster = env.scene.sensors["height_scanner"]
+sensor_cfg = SceneEntityCfg("height_scanner")
+```
+
+❌ **REJECT these patterns:**
+- Hardcoded sensor names not matching environment
+- Missing sensor existence checks
+- Wrong sensor type assumptions
+
+### 7. **CLIPPING & NORMALIZATION VALIDATION**
+
+#### **Observation Clipping**
+✅ **CHECK CLIPPING COMPATIBILITY:**
+```python
+
+clip=(-0.5, 3.0)      # Custom extended range
+
+### 4. **THRESHOLD VALUES**
+✅ **CORRECT**: 0.05-0.15m range, 0.07m optimal
+❌ **REJECT**: >0.30m (too large), <0.03m (too sensitive)
+
+### 5. **INFINITE HANDLING**
+✅ **CORRECT**: `cliff_penalty = torch.sum(height_readings == float('inf')) * penalty`
+❌ **REJECT**: Ignoring infinite readings
+
+### 6. **CLIPPING COMPATIBILITY**
+✅ **CHECK**: Thresholds work with clip ranges:
+- `clip=(-1.0, 1.0)` or `clip=(-0.5, 3.0)`
+- 0.07m thresholds → 0.139m, 0.279m ✅ Within range
+
+### 7. **RELATIVE TRACKING VALIDATION**
+✅ **CORRECT RELATIVE TRACKING:**
+- Use ONLY height sensor readings for terrain navigation
+- NO absolute robot height tracking in rewards
+- Dynamic baseline adaptation for varying terrain
+- Look-ahead zones for proactive navigation
+
+❌ **REJECT ABSOLUTE TRACKING:**
+- Direct use of `robot.data.root_pos_w[:, 2]` in terrain rewards
+- Fixed absolute height targets
+- Mixing absolute positioning with relative terrain sensing
+
+## ❌ **Common Mistakes**
+```python
+# ❌ WRONG - Missing sensor position/offset
+height = sensor.data.ray_hits_w[..., 2] - 0.5
+
+# ❌ WRONG - Backwards logic
+obstacles = height_readings > 0.2  # Positive is gaps!
+
+# ❌ WRONG - Absolute thresholds
+obstacles = height_readings < 0.1  # Ignores baseline
+
+# ❌ WRONG - Absolute height tracking in terrain rewards
+target_height = 0.7  # Fixed absolute height
+height_reward = -torch.square(robot.data.root_pos_w[:, 2] - target_height)
+
+# ✅ CORRECT - Isaac Lab formula + relative thresholds
+height = sensor.data.pos_w[:, 2].unsqueeze(1) - sensor.data.ray_hits_w[..., 2] - 0.5
+obstacles = height_readings < (baseline - 0.07)
+gaps = height_readings > (baseline + 0.07)
+# ✅ CORRECT - Only relative terrain navigation
+terrain_reward = analyze_terrain_features(height_readings, baseline)
+```
+
+## 🔧 **Quick Troubleshooting**
+- **All negative readings**: Check sensor height, adjust baseline
+- **All classified as obstacles**: Baseline too high, use dynamic calculation
+- **Robot avoiding terrain**: Thresholds too sensitive, use 0.07m
+- **Infinite crashes**: Always filter with `height_readings != float('inf')`
+- **Poor look-ahead**: Check ray pattern grid dimensions (27×21 for enhanced config)
+- **Baseline drift**: Use median instead of mean for adaptive baseline
+
+## 📊 **Visual Scale**
+```
+0.139m ← OBSTACLE THRESHOLD (baseline - 0.07)
+0.209m ← BASELINE (G1 flat terrain) 
+0.279m ← GAP THRESHOLD (baseline + 0.07)
+
+Examples:
+0.120m = 7cm obstacle (terrain higher)
+0.209m = flat terrain (normal)
+0.300m = 9cm gap (terrain lower)
+inf    = extreme gap (cliff/void)
+```
+
+## 🎯 **Key Points**
+- **Default offset = 0.5m** (half meter, NOT 5cm!)
+- **Lower readings = obstacles** (terrain closer to sensor)
+- **Higher readings = gaps** (terrain farther from sensor)
+- **0.209m baseline** for G1 robot specifically
+- **±0.07m thresholds** for balanced detection
+- **Always handle infinite** readings as dangerous cliffs
+- **Use relative thresholds**, never absolute values
+- **567 rays total** (27×21 grid) for enhanced configuration
+- **3m sensor range** with 7.5cm resolution for detailed scanning
+- **Look-ahead zones** enable proactive navigation planning
+- **NO absolute height** tracking in terrain-based rewards
+
+**The key insight: smaller height readings mean obstacles, larger height readings mean gaps!** 🎯 
+
+**🚨 GAP NAVIGATION DEBUGGING GUIDE**
+
+**TURNING IN PLACE ISSUE:**
+- **Cause:** Environmental penalties overwhelm velocity tracking
+- **Fix:** Foundation-dominant weight structure (60/40 split)
+- **Pattern:** `total = foundation * 0.6 + environmental * 0.4`
+
+**GAP AVOIDANCE ISSUE:**
+- **Cause:** Rewarding `(1.0 - gap_ratio)` encourages gap-free areas
+- **Fix:** Gap traversal bonuses for forward movement through gaps
+- **Pattern:** `forward_vel * gap_ratio * weight`
+
+**BASELINE MISCLASSIFICATION:**
+- **Cause:** Fixed 0.209 baseline on varying terrain
+- **Fix:** Dynamic baseline per environment
+- **Pattern:** `baseline[i] = torch.median(valid_heights[i])`
+
+**PROVEN SUCCESSFUL WEIGHT STRUCTURE:**
+```python
+# Foundation components (must dominate)
+vel_reward * 3.0        # Strongest component
+gait_reward * 2.0       # Secondary
+height_reward * 2.0     # Secondary  
+lean_reward * 1.5       # Supporting
+baseline + 0.3          # Stability
+
+# Environmental components (supporting role)
+gap_traversal_bonus     # Positive reinforcement
+safety_penalty         # Minimal progressive
+terrain_bonus          # Small positive
+
+# Final composition (critical for stability)
+total = foundation * 0.6 + environmental * 0.4
+``` 

@@ -195,27 +195,109 @@ def construct_run_log(stdout_str):
                 key = "episode length"
             run_log[key] = run_log.get(key, []) + [float(val)]
         
-        # New Isaac Lab format
-        elif "Mean episode length:" in line:
+        # ✅ ENHANCED: Extract ALL Isaac Lab training metrics
+        else:
             try:
+                # Core training metrics (existing)
+                if "Mean episode length:" in line:
                 val = float(line.split("Mean episode length:")[-1].strip())
                 run_log["episode length"] = run_log.get("episode length", []) + [val]
-            except ValueError:
-                pass
         elif "Mean reward:" in line:
-            try:
                 val = float(line.split("Mean reward:")[-1].strip())
                 run_log["reward"] = run_log.get("reward", []) + [val]
-            except ValueError:
-                pass
         elif "Learning iteration" in line and "/" in line:
-            try:
-                # Extract iteration number from "Learning iteration X/Y"
                 iteration_part = line.split("Learning iteration")[-1].split("/")[0].strip()
                 val = float(iteration_part)
                 run_log["iterations/"] = run_log.get("iterations/", []) + [val]
-            except ValueError:
-                pass
+                
+                # ✅ NEW: Training performance metrics
+                elif "Mean action noise std:" in line:
+                    val = float(line.split("Mean action noise std:")[-1].strip())
+                    run_log["action_noise_std"] = run_log.get("action_noise_std", []) + [val]
+                elif "Mean value_function loss:" in line:
+                    val = float(line.split("Mean value_function loss:")[-1].strip())
+                    run_log["value_function_loss"] = run_log.get("value_function_loss", []) + [val]
+                elif "Mean surrogate loss:" in line:
+                    val = float(line.split("Mean surrogate loss:")[-1].strip())
+                    run_log["surrogate_loss"] = run_log.get("surrogate_loss", []) + [val]
+                elif "Mean entropy loss:" in line:
+                    val = float(line.split("Mean entropy loss:")[-1].strip())
+                    run_log["entropy_loss"] = run_log.get("entropy_loss", []) + [val]
+                
+                # ✅ NEW: Reward component breakdown
+                elif "Episode_Reward/sds_custom:" in line:
+                    val = float(line.split("Episode_Reward/sds_custom:")[-1].strip())
+                    run_log["reward_sds_custom"] = run_log.get("reward_sds_custom", []) + [val]
+                
+                # ✅ NEW: Curriculum progression
+                elif "Curriculum/terrain_levels:" in line:
+                    val = float(line.split("Curriculum/terrain_levels:")[-1].strip())
+                    run_log["curriculum_terrain_levels"] = run_log.get("curriculum_terrain_levels", []) + [val]
+                
+                # ✅ NEW: Task performance metrics
+                elif "Metrics/base_velocity/error_vel_xy:" in line:
+                    val = float(line.split("Metrics/base_velocity/error_vel_xy:")[-1].strip())
+                    run_log["velocity_error_xy"] = run_log.get("velocity_error_xy", []) + [val]
+                elif "Metrics/base_velocity/error_vel_yaw:" in line:
+                    val = float(line.split("Metrics/base_velocity/error_vel_yaw:")[-1].strip())
+                    run_log["velocity_error_yaw"] = run_log.get("velocity_error_yaw", []) + [val]
+                
+                # ✅ NEW: Episode termination analysis
+                elif "Episode_Termination/time_out:" in line:
+                    val = float(line.split("Episode_Termination/time_out:")[-1].strip())
+                    run_log["termination_timeout"] = run_log.get("termination_timeout", []) + [val]
+                elif "Episode_Termination/base_contact:" in line:
+                    val = float(line.split("Episode_Termination/base_contact:")[-1].strip())
+                    run_log["termination_base_contact"] = run_log.get("termination_base_contact", []) + [val]
+                
+                # ✅ NEW: Computation performance metrics
+                elif "Computation:" in line and "steps/s" in line:
+                    # Extract "27297 steps/s" from "Computation: 27297 steps/s (collection: 2.369s, learning 0.268s)"
+                    parts = line.split("steps/s")[0].split(":")[-1].strip()
+                    val = float(parts)
+                    run_log["computation_steps_per_sec"] = run_log.get("computation_steps_per_sec", []) + [val]
+                    
+                    # Extract collection and learning times if present
+                    if "collection:" in line and "learning" in line:
+                        collection_part = line.split("collection:")[-1].split("s")[0].strip()
+                        learning_part = line.split("learning")[-1].split("s")[0].strip()
+                        run_log["collection_time"] = run_log.get("collection_time", []) + [float(collection_part)]
+                        run_log["learning_time"] = run_log.get("learning_time", []) + [float(learning_part)]
+                
+                # ✅ NEW: Additional reward components (dynamic extraction)
+                elif line.startswith("Episode_Reward/") and ":" in line:
+                    # Extract any Episode_Reward/* metrics dynamically
+                    metric_name = line.split(":")[0].strip().replace("Episode_Reward/", "reward_")
+                    val = float(line.split(":")[-1].strip())
+                    run_log[metric_name] = run_log.get(metric_name, []) + [val]
+                
+                # ✅ NEW: Additional metrics (dynamic extraction)
+                elif line.startswith("Metrics/") and ":" in line:
+                    # Extract any Metrics/* dynamically
+                    metric_name = line.split(":")[0].strip().replace("Metrics/", "metric_").replace("/", "_")
+                    val = float(line.split(":")[-1].strip())
+                    run_log[metric_name] = run_log.get(metric_name, []) + [val]
+                
+                # ✅ NEW: Environmental sensing and stability metrics (specific extraction)
+                elif "Metrics/terrain_stability:" in line:
+                    val = float(line.split("Metrics/terrain_stability:")[-1].strip())
+                    run_log["terrain_height_variance"] = run_log.get("terrain_height_variance", []) + [val]
+                elif "Metrics/terrain_complexity:" in line:
+                    val = float(line.split("Metrics/terrain_complexity:")[-1].strip())
+                    run_log["terrain_complexity_score"] = run_log.get("terrain_complexity_score", []) + [val]
+                elif "Metrics/robot_height_stability:" in line:
+                    val = float(line.split("Metrics/robot_height_stability:")[-1].strip())
+                    run_log["robot_height_baseline"] = run_log.get("robot_height_baseline", []) + [val]
+                elif "Metrics/body_orientation_stability:" in line:
+                    val = float(line.split("Metrics/body_orientation_stability:")[-1].strip())
+                    run_log["body_orientation_deviation"] = run_log.get("body_orientation_deviation", []) + [val]
+                elif "Metrics/height_tracking_accuracy:" in line:
+                    val = float(line.split("Metrics/height_tracking_accuracy:")[-1].strip())
+                    run_log["height_tracking_error"] = run_log.get("height_tracking_error", []) + [val]
+                
+            except (ValueError, IndexError):
+                # Skip lines that can't be parsed as metrics
+                continue
     
     # Ensure we have some episode length data for backward compatibility
     if "episode length" not in run_log and "reward" in run_log:

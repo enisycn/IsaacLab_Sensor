@@ -15,7 +15,7 @@ Enable comparison studies demonstrating:
 - **WITH SENSORS:** Adaptive, context-aware behavior that responds to environmental challenges
 
 **🧠 DESIGN METHODOLOGY:**
-1. **ANALYZE:** Understand the environment (gaps, obstacles, terrain complexity)
+1. **UNDERSTAND:** Use provided task requirements and sensor capabilities
 2. **THINK:** Determine which sensors are needed and how they should influence behavior
 3. **DECIDE:** Implement context-aware behavioral switching (NOT simultaneous conflicting rewards)
 4. **IMPACT:** Ensure sensors create observable behavioral differences for scientific comparison
@@ -33,19 +33,63 @@ Enable comparison studies demonstrating:
 
 ---
 
-🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨��🚨🚨🚨🚨🚨🚨🚨🚨🚨
-🚨🚨🚨 #1 TRAINING CRASH: SENSOR ATTRIBUTEERROR - READ THIS FIRST 🚨🚨🚨
+**🚨 EXECUTION ERROR DETAILS:**
+
+{traceback_msg}
+
+---
+
+🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
+🚨🚨🚨 #1 TRAINING CRASH: STD >= 0.0 RUNTIME ERROR - READ THIS FIRST 🚨🚨🚨
+🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
+
+**CRITICAL PPO TRAINING FAILURE:**
+
+**RUNTIMEERROR: normal expects all elements of std >= 0.0**
+- CAUSE: Complex reward functions create unstable gradients that make policy distribution invalid
+- CRASH: Policy network outputs negative standard deviation for action sampling
+- SOLUTION: Simplify reward function with stable patterns
+
+**✅ IMMEDIATE FIX PATTERN:**
+```python
+def sds_custom_reward(env) -> torch.Tensor:
+    # Use simple, stable components only
+    velocity = torch.clamp(velocity_component, 0.0, 2.0)
+    height = torch.clamp(height_component, 0.0, 2.0)
+    stability = torch.clamp(stability_component, 0.0, 2.0)
+    
+    # ADDITIVE combination with baseline
+    total = velocity * 2.0 + height * 1.5 + stability * 1.0 + 0.3
+    
+    # MANDATORY: Final bounds
+    return total.clamp(min=0.1, max=8.0)
+```
+
+🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
+🚨🚨🚨 #2 TRAINING CRASH: SENSOR ATTRIBUTEERROR - READ THIS SECOND 🚨🚨🚨
 🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
 
 **MOST COMMON ERROR PATTERN:**
 
 **ATTRIBUTEERROR: 'RayCasterData' object has no attribute 'distances'**
-- CAUSE: Using non-existent sensor attributes (.distances, .height_measurements)
+- CAUSE: Using non-existent sensor attributes (.distances, .height_measurements, .range_data)
 - CRASH LINE EXAMPLES:
 ```python
 lidar_range = lidar_sensor.data.distances  # AttributeError!
 height_data = height_sensor.data.height_measurements  # AttributeError!
 dist = lidar_sensor.data.distances  # INSTANT CRASH!
+terrain_data = height_sensor.data.range_data  # AttributeError!
+```
+
+**HEIGHT SENSOR COMMON ERRORS:**
+```python
+# ❌ WRONG: Non-existent attributes that cause crashes
+height_scan = height_sensor.data.height_scan  # AttributeError!
+terrain_map = height_sensor.data.terrain_data  # AttributeError! 
+elevation = height_sensor.data.elevation  # AttributeError!
+
+# ✅ CORRECT: Isaac Lab standard formula only
+height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
 ```
 ✅ CORRECT SENSOR ACCESS PATTERN (Isaac Lab standard for reward functions):
 ```python
@@ -53,14 +97,37 @@ dist = lidar_sensor.data.distances  # INSTANT CRASH!
 height_sensor = env.scene.sensors["height_scanner"]
 lidar_sensor = env.scene.sensors["lidar"]
 
+# Height sensor: 567 rays (27×21 grid), 2.0×1.5m coverage, 7.5cm resolution, 3m range
 height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
+# CRITICAL: Sanitize sensor data - rays can return NaN/Inf when missing terrain
+height_measurements = torch.where(torch.isfinite(height_measurements), height_measurements, torch.zeros_like(height_measurements))
+
+# LiDAR sensor: 152 rays, 180° FOV, 5m range  
 lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
+lidar_distances = torch.where(torch.isfinite(lidar_distances), lidar_distances, torch.ones_like(lidar_distances) * 5.0)
 ```
 
 ❌ WRONG PATTERNS THAT CAUSE CRASHES:
 ```python
 height_scan = height_sensor.data.distances  # AttributeError: no such attribute
 lidar_range = lidar_sensor.data.range_measurements  # AttributeError: no such attribute
+terrain_info = height_sensor.data.height_scan  # AttributeError: no such attribute
+
+# ❌ WRONG: Trying to access processed data that doesn't exist
+gap_data = height_sensor.data.gaps  # AttributeError!
+obstacle_data = height_sensor.data.obstacles  # AttributeError!
+```
+
+**CRITICAL HEIGHT SENSOR BASELINE ERRORS:**
+```python
+# ❌ WRONG: Using hardcoded values without understanding baseline
+obstacles = height_readings < 0.1  # Ignores G1 robot baseline!
+gaps = height_readings > 0.3       # Wrong threshold reference!
+
+# ✅ CORRECT: Use G1 robot baseline (0.209m) with relative thresholds  
+baseline = 0.209  # G1 robot on flat terrain
+obstacles = height_readings < (baseline - 0.07)  # < 0.139m = obstacles
+gaps = height_readings > (baseline + 0.07)       # > 0.279m = gaps
 ```
 
 🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
@@ -72,7 +139,7 @@ Isaac Lab reward functions can encounter various runtime errors. Here's how to d
 **HEIGHT HARDCODING ERROR (robots stand still on stairs/platforms):**
 - SYMPTOM: Robots learned to stand still on elevated terrain or go downstairs
 - CAUSE: Using inappropriate height tracking method for the terrain characteristics
-- FIX: Choose height tracking method based on environment analysis:
+- FIX: Choose height tracking method based on task requirements:
 
 **ABSOLUTE HEIGHT - For consistent body clearance:**
 ```python
@@ -86,36 +153,33 @@ height_reward = torch.exp(-height_err / 0.3)
 # Use when: Variable terrain heights OR climbing stairs OR navigating slopes
 height_sensor = env.scene.sensors["height_scanner"]
 height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
-avg_terrain_height = height_measurements.mean(dim=-1)  # Average terrain height in meters
-# Terrain-relative height tracking with physical measurements
-# Robot height above terrain surface (corrected calculation)
-robot_terrain_relative_height = robot.data.root_pos_w[:, 2] - avg_terrain_height
-height_err = torch.abs(robot_terrain_relative_height - 0.74)  # Maintain 0.74m above terrain
+
+# CRITICAL: Always sanitize height sensor data first
+height_measurements = torch.where(torch.isfinite(height_measurements), height_measurements, torch.zeros_like(height_measurements))
+
+# G1 robot baseline: 0.209m on flat terrain (sensor_height - terrain_z - offset)
+# Terrain classification using relative thresholds
+baseline = 0.209  # G1 robot baseline
+obstacle_threshold = 0.07  # 7cm threshold for obstacles  
+gap_threshold = 0.07       # 7cm threshold for gaps
+
+obstacles = height_measurements < (baseline - obstacle_threshold)  # < 0.139m
+gaps = height_measurements > (baseline + gap_threshold)            # > 0.279m
+normal_terrain = ~obstacles & ~gaps                               # 0.139-0.279m
+
+# Count terrain features for terrain-adaptive behavior
+total_rays = height_measurements.shape[-1]  # 567 rays
+obstacle_ratio = obstacles.sum(dim=-1).float() / total_rays
+gap_ratio = gaps.sum(dim=-1).float() / total_rays
 ```
 
-**DECISION GUIDE - Let environment analysis guide your choice:**
+**DECISION GUIDE - Let task requirements guide your choice:**
 - Large gaps requiring stepping → Absolute height maintains clearance
 - Variable surface heights → Terrain-relative adapts to surface
 - Consistent platform levels → Absolute height for smooth transitions
 - Climbing/descending behavior needed → Terrain-relative for adaptation
 
-**ARM CONTROL ISSUES (weird arm behavior):**
-- SYMPTOM: Arms moving unnaturally, crossing body, or excessive movement
-- CAUSE: Complex arm control or forcing unnatural positions
-- FIX: Use simplified approach keeping arms near defaults:
-```python
-# ✅ SIMPLE & EFFECTIVE: Keep arms near defaults (0.35)
-robot = env.scene["robot"]
-shoulder_joints = ["left_shoulder_pitch_joint", "right_shoulder_pitch_joint"]
-shoulder_indices, _ = robot.find_joints(shoulder_joints)
-shoulder_indices = torch.tensor(shoulder_indices, dtype=torch.long, device=env.device)
-shoulder_angles = robot.data.joint_pos[:, shoulder_indices]  # [N, 2]
 
-# Reward staying near default positions (shoulder_pitch = 0.35)
-target_shoulder_pos = 0.35  # Asset default position
-arm_deviation = torch.mean(torch.abs(shoulder_angles - target_shoulder_pos), dim=1)
-arm_reward = torch.exp(-arm_deviation / 0.2) * 0.1  # Simple and stable
-```
 
 **TECHNICAL ERROR PATTERNS:**
 
@@ -125,9 +189,19 @@ TENSOR BROADCASTING ERRORS (e.g., "output with shape [N] doesn't match broadcast
 - Example: desired_value.unsqueeze(1).expand(-1, num_feet) instead of desired_value.unsqueeze(1)
 
 NEGATIVE STANDARD DEVIATION ERRORS ("normal expects all elements of std >= 0.0"):
-- Caused by negative values propagating to actor network
-- FIX: Apply torch.clamp(reward_component, min=0.0) to ALL reward terms
-- Check contact sensor times which can be negative during initialization
+- Caused by NaN/Inf values propagating to policy network
+- VERIFIED CRASH CAUSES: 
+  * Unprotected sensor data: height_sensor/lidar rays return NaN when missing
+  * Explosive exponentials: torch.exp(-terrain_var * 100.0) creates -∞
+  * NaN variance: torch.var() on NaN data returns NaN
+  * Near-zero division: 1.0/torch.min(distances) when distances ≈ 0
+- FIX: MANDATORY sensor sanitization:
+  ```python
+  sensor_data = torch.where(torch.isfinite(sensor_data), sensor_data, fallback_value)
+  terrain_var = torch.clamp(torch.var(height_data), max=0.01)
+  min_dist = torch.clamp(torch.min(lidar_data), min=0.05)
+  total = torch.where(torch.isfinite(total), total, torch.ones_like(total) * 0.5)
+  ```
 
 RUNTIME TENSOR SHAPE ERRORS:
 - Caused by sensor data dimensions not matching expected robot batch size
@@ -141,7 +215,7 @@ ENVIRONMENTAL SENSING DECISION ERRORS:
 - Caused by dismissing sensor data in favor of visual analysis  
 - SYMPTOMS: "sensors detect gaps/obstacles but visual shows flat terrain"
 - FIX: Always prioritize quantitative sensor measurements over visual interpretation
-- RULE: Use environment analysis classification to determine if environmental components are needed
+- RULE: Use provided task requirements to determine if environmental components are needed
 
 COMMON ERRORS AND FIXES:
 
@@ -151,6 +225,8 @@ SENSOR ACCESS ERRORS:
 - FIX: Use Isaac Lab standard raw sensor access:
   height_sensor = env.scene.sensors["height_scanner"]
   height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
+  # MANDATORY: Sanitize immediately after calculation
+  height_measurements = torch.where(torch.isfinite(height_measurements), height_measurements, torch.zeros_like(height_measurements))
 
 TENSOR OPERATION ERRORS:
 - SYMPTOMS: RuntimeError during math operations (division by zero, NaN values)
@@ -161,7 +237,7 @@ ENVIRONMENTAL SENSING DECISION ERRORS:
 - Caused by dismissing sensor data in favor of visual analysis  
 - SYMPTOMS: "sensors detect gaps/obstacles but visual shows flat terrain"
 - FIX: Always prioritize quantitative sensor measurements over visual interpretation
-- RULE: Use environment analysis classification to determine if environmental components are needed
+- RULE: Use provided task requirements to determine if environmental components are needed
 
 SENSOR BEHAVIORAL ADAPTATION ERRORS:
 - SYMPTOMS: Robot behaves identically with/without sensors (no measurable difference)

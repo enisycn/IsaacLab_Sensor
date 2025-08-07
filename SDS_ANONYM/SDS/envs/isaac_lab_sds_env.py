@@ -15,19 +15,20 @@ Isaac Lab RayCaster sensors (height_scanner, lidar) ONLY have these attributes:
 ✅ USE ISAAC LAB STANDARD: Direct sensor access for reward functions with raw measurements
 
 Environment Configuration:
-- Robot: Unitree G1 Humanoid (23-DOF full-body control)
+- Robot: Unitree G1 Humanoid (23-DOF full-body control, arms fixed at default poses)
 - Physics: Fully simulated rigid body dynamics with friction
 - Control: Joint position targets with PD control
 - Observations: Proprioception + height scanning + LiDAR + contact sensing  
 - Action Space: Continuous joint position targets [num_envs, 23]
-- Observation Space: Mixed proprioception + environmental sensing [num_envs, 253]
+- Observation Space: Mixed proprioception + environmental sensing [num_envs, 719]
 - Command Space: 2D velocity + angular velocity [num_envs, 3]
 
-Sensor Integration:
+Enhanced Sensor Integration (Updated Specifications):
 - Contact Forces: Body contact detection for gait analysis
-- Height Scanner: 130-point grid for gap/stair detection - raw measurements in meters
-- LiDAR Range: 144-ray array for obstacle detection - raw distances in meters  
-- Environmental Analysis: Real-time terrain feature classification using raw sensor data
+- Height Scanner: 567-ray grid (27×21) for terrain detection - 2.0×1.5m coverage, 7.5cm resolution, 3m range
+- LiDAR Range: 152-ray array (8 channels × 19 horizontal) for obstacle detection - 180° FOV, 5m range  
+- Environmental Analysis: Real-time terrain feature classification with G1 baseline (0.209m)
+- Terrain Features: Mixed gap sizes (15-25cm depth), no infinite readings, controlled difficulty
 
 This environment implements environmental sensing for adaptive locomotion behaviors.
 """
@@ -55,25 +56,29 @@ class SDSIsaacLabEnvironment:
     - Framework: Isaac Lab ManagerBasedRLEnv
     - Control: 50Hz (20ms timestep, 4x decimation from 200Hz physics)
     
-    Enhanced Environmental Sensing:
-    - Height Scanner: Grid-based terrain analysis (gaps, stairs, height variations)
-    - LiDAR Sensor: 360° obstacle detection and avoidance
-    - Environmental Observations: Processed sensor data for adaptive reward functions
+    Enhanced Environmental Sensing (Updated):
+    - Height Scanner: 567-ray grid (27×21) terrain analysis - 2.0×1.5m coverage, 7.5cm resolution, 3m range
+    - LiDAR Sensor: 152-ray array (8×19) obstacle detection - 180° FOV, 5m range
+    - G1 Baseline: 0.209m on flat terrain (sensor_height - terrain_z - 0.5m offset)
+    - Terrain Classification: ±0.07m thresholds for obstacles/gaps detection
+    - Environmental Observations: Sanitized sensor data for adaptive reward functions
     - Real-time Integration: Sensor data available for terrain-aware locomotion rewards
     
-    Controlled Joints for Full Body Locomotion (23 DOF):
+    Controlled Joints for Locomotion (23 DOF):
     - Legs: 12 DOF (hip yaw/roll/pitch, knee, ankle pitch/roll per leg)
-    - Arms: 10 DOF (shoulder pitch/roll/yaw, elbow pitch/roll per arm)
     - Torso: 1 DOF (torso_joint)
+    - Arms: 10 DOF (shoulder pitch/roll/yaw, elbow pitch/roll per arm) - FIXED at default poses
     
-    Fixed Joints (14 DOF):
+    Fixed Joints (24 DOF total):
     - Hand Fingers: 14 DOF maintained at default poses (zero/one/two/three/four/five/six_joint per hand)
+    - Arm Joints: 10 DOF fixed for locomotion focus (arms do not contribute to movement)
     
-    Sensor Integration:
+    Sensor Integration (Updated):
     - Contact Forces: Body contact detection for gait analysis
-    - Height Scanner: 130-point grid for gap/stair detection - raw measurements in meters
-    - LiDAR Range: 144-ray array for obstacle detection - raw distances in meters
-    - Environmental Analysis: Real-time terrain feature classification using raw sensor data
+    - Height Scanner: 567-ray grid (27×21) for terrain detection - 2.0×1.5m coverage, 7.5cm resolution, 3m range
+    - LiDAR Range: 152-ray array (8×19) for obstacle detection - 180° FOV, 5m range
+    - Environmental Analysis: Real-time terrain feature classification with G1 baseline (0.209m)
+    - Data Sanitization: Mandatory filtering of NaN/Inf values for sensor reliability
     """
     
     def __init__(self):
@@ -218,7 +223,7 @@ class SDSIsaacLabEnvironment:
                         """Height scanner data for gap and terrain detection."""
                         class HeightScannerData:
                             # ✅ CORRECT Isaac Lab RayCaster attributes (ONLY THESE EXIST!)
-                            ray_hits_w = None             # [num_envs, 130, 3] Hit points in world frame
+                            ray_hits_w = None             # [num_envs, 567, 3] Hit points in world frame (27×21 grid)
                             pos_w = None                  # [num_envs, 3] Scanner position in world frame
                             quat_w = None                 # [num_envs, 4] Scanner orientation in world frame
                             
@@ -226,8 +231,10 @@ class SDSIsaacLabEnvironment:
                             # distances = None              # AttributeError: 'RayCasterData' object has no attribute 'distances'
                             # height_measurements = None    # AttributeError: 'RayCasterData' object has no attribute 'height_measurements'
                             
-                            # ✅ CORRECT ACCESS METHOD: Use raw sensor data for reward functions
+                            # ✅ CORRECT ACCESS METHOD: Isaac Lab standard formula with G1 baseline
                             # height_measurements = sensor.data.pos_w[:, 2].unsqueeze(1) - sensor.data.ray_hits_w[..., 2] - 0.5
+                            # G1 baseline: 0.209m on flat terrain | Obstacles: < 0.139m | Gaps: > 0.279m
+                            # MANDATORY: Sanitize with torch.where(torch.isfinite(height_measurements), height_measurements, torch.zeros_like(height_measurements))
                         
                         return HeightScannerData()
                 
@@ -243,7 +250,7 @@ class SDSIsaacLabEnvironment:
                         """LiDAR data for obstacle detection and navigation."""
                         class LiDARData:
                             # ✅ CORRECT Isaac Lab RayCaster attributes (ONLY THESE EXIST!)
-                            ray_hits_w = None             # [num_envs, 144, 3] Hit points in world frame
+                            ray_hits_w = None             # [num_envs, 152, 3] Hit points in world frame (8×19 channels)
                             pos_w = None                  # [num_envs, 3] LiDAR position in world frame
                             quat_w = None                 # [num_envs, 4] LiDAR orientation in world frame
                             
@@ -251,8 +258,10 @@ class SDSIsaacLabEnvironment:
                             # distances = None              # AttributeError: 'RayCasterData' object has no attribute 'distances'
                             # range_measurements = None     # AttributeError: 'RayCasterData' object has no attribute 'range_measurements'
                             
-                            # ✅ CORRECT ACCESS METHOD: Use raw sensor data for reward functions
+                            # ✅ CORRECT ACCESS METHOD: Isaac Lab standard with 180° FOV, 5m range
                             # lidar_distances = torch.norm(sensor.data.ray_hits_w - sensor.data.pos_w.unsqueeze(1), dim=-1)
+                            # Range: 0.1-5.0m | Close obstacles: < 2.0m | Clear path: > 3.0m
+                            # MANDATORY: Sanitize with torch.where(torch.isfinite(lidar_distances), lidar_distances, torch.ones_like(lidar_distances) * 5.0)
                         
                         return LiDARData()
                 
@@ -363,14 +372,15 @@ G1_JOINT_NAMES = [
 # Robot specifications based on Isaac Lab implementation and official specs
 G1_SPECS = {
     "total_joints": 37,             # VERIFIED: Isaac Lab G1 EDU U4 with dexterous hands (full robot)
-    "action_space": 23,             # FULL BODY: Controlled joints for complete humanoid control (12 legs + 1 torso + 10 arms)
+    "action_space": 23,             # LOCOMOTION FOCUSED: Controlled joints for locomotion (12 legs + 1 torso) + 10 arms fixed
     "controlled_joints": {
         "legs": 12,                 # Controlled: All leg joints for locomotion
         "torso": 1,                 # Controlled: Torso joint for posture
-        "arms": 10,                 # Controlled: All arm joints for balance and natural movement
+        "arms": 0,                  # Arms: 10 DOF FIXED at default poses (not controlled)
     },
     "fixed_joints": {
         "hand_fingers": 14,         # Fixed: Hand finger joints at default poses
+        "arms": 10,                 # Fixed: All arm joints at default poses for locomotion focus
     },
     "nominal_height": 0.74,         # VERIFIED: Isaac Lab init position z=0.74m
     "contact_threshold": 50.0,      # CORRECTED: Appropriate for 35kg humanoid robot
@@ -484,15 +494,15 @@ def extract_foot_contacts(env, contact_threshold=50.0):
 
 def get_height_scan_data(self, env):
     """
-    Get height scanner data for terrain analysis.
+    Get height scanner data for terrain analysis with G1 baseline.
     
     ✅ ISAAC LAB STANDARD: Raw sensor access for reward functions
-    Height measurements in METERS - physically meaningful thresholds!
+    Height measurements in METERS with G1 robot baseline (0.209m on flat terrain)!
         
     Returns:
-        torch.Tensor: Height measurements relative to sensor [num_envs, 130]
-                         Negative = below sensor, Positive = above sensor
-                         Physical range: [-0.5m to +3.0m] relative to sensor
+        torch.Tensor: Height measurements relative to sensor [num_envs, 567]
+                         G1 baseline: 0.209m | Obstacles: < 0.139m | Gaps: > 0.279m
+                         Physical range: [-0.5m to +3.0m] relative to sensor (clipped)
     """
     # ✅ CORRECT: Isaac Lab standard raw sensor access
     height_sensor = env.scene.sensors["height_scanner"]
@@ -501,19 +511,22 @@ def get_height_scan_data(self, env):
     # This gives terrain height relative to sensor position in METERS
     height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
     
-    return height_measurements  # [num_envs, 130] in meters
+    # ✅ MANDATORY: Sanitize sensor data to prevent NaN/Inf crashes
+    height_measurements = torch.where(torch.isfinite(height_measurements), height_measurements, torch.zeros_like(height_measurements))
+    
+    return height_measurements  # [num_envs, 567] in meters
 
 
 def get_lidar_range_data(self, env):
     """
-    Get LiDAR range data for obstacle detection.
+    Get LiDAR range data for obstacle detection with updated specifications.
     
     ✅ ISAAC LAB STANDARD: Raw sensor access for reward functions  
-    Distance measurements in METERS - physically meaningful thresholds!
+    Distance measurements in METERS - 180° FOV, 5m range!
         
     Returns:
-        torch.Tensor: Distance measurements [num_envs, 144]
-                         Physical range: [0.1m to 15.0m] actual distances
+        torch.Tensor: Distance measurements [num_envs, 152]
+                         Physical range: [0.1m to 5.0m] actual distances (clipped)
     """
     # ✅ CORRECT: Isaac Lab standard raw sensor access
     lidar_sensor = env.scene.sensors["lidar"]
@@ -525,22 +538,25 @@ def get_lidar_range_data(self, env):
         dim=-1
     )
     
-    return lidar_distances  # [num_envs, 144] in meters
-
-def analyze_terrain_features(env, gap_threshold=0.1, obstacle_threshold=0.8):
-    """
-    Analyze terrain features using raw sensor data for environmental rewards.
+    # ✅ MANDATORY: Sanitize sensor data to prevent NaN/Inf crashes
+    lidar_distances = torch.where(torch.isfinite(lidar_distances), lidar_distances, torch.ones_like(lidar_distances) * 5.0)
     
-    ✅ ISAAC LAB STANDARD: Uses raw sensor measurements in meters
-    Physical thresholds with clear meaning!
+    return lidar_distances  # [num_envs, 152] in meters
+
+def analyze_terrain_features(env, baseline=0.209, threshold=0.07):
+    """
+    Analyze terrain features using G1 baseline and relative thresholds.
+    
+    ✅ ISAAC LAB STANDARD: Uses raw sensor measurements with G1 robot baseline
+    G1 baseline: 0.209m on flat terrain | ±0.07m thresholds for classification!
     
     Args:
         env: Isaac Lab environment instance
-        gap_threshold: Depth threshold for gap detection in meters (default: 0.1m below sensor)
-        obstacle_threshold: Height threshold for obstacle detection in meters (default: 0.8m above sensor)
+        baseline: G1 robot baseline height on flat terrain (default: 0.209m)
+        threshold: Relative threshold for obstacle/gap detection (default: 0.07m)
         
     Returns:
-        dict: Comprehensive terrain analysis with raw measurements
+        dict: Comprehensive terrain analysis with G1-specific measurements
     """
     # ✅ CORRECT: Isaac Lab standard raw sensor access
     height_sensor = env.scene.sensors["height_scanner"]
@@ -549,31 +565,39 @@ def analyze_terrain_features(env, gap_threshold=0.1, obstacle_threshold=0.8):
     # Raw height measurements: sensor_height - hit_point_height - offset (in meters)
     height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
     
+    # ✅ MANDATORY: Sanitize sensor data to prevent NaN/Inf crashes
+    height_measurements = torch.where(torch.isfinite(height_measurements), height_measurements, torch.zeros_like(height_measurements))
+    
     # Raw distance measurements: actual distances to obstacles (in meters)
     lidar_distances = torch.norm(
         lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), 
         dim=-1
     )
     
-    # === GAP DETECTION (using physical measurements) ===
-    # Negative heights = terrain below sensor level
-    gap_mask = height_measurements < -gap_threshold  # [num_envs, 130] - gaps deeper than threshold
+    # ✅ MANDATORY: Sanitize sensor data to prevent NaN/Inf crashes
+    lidar_distances = torch.where(torch.isfinite(lidar_distances), lidar_distances, torch.ones_like(lidar_distances) * 5.0)
+    
+    # === GAP DETECTION (using G1 baseline + threshold) ===
+    # Gaps: readings higher than baseline + threshold
+    gap_threshold_value = baseline + threshold  # 0.209 + 0.07 = 0.279m
+    gap_mask = height_measurements > gap_threshold_value  # [num_envs, 567] - gaps deeper than threshold
     gap_count = gap_mask.sum(dim=-1)  # [num_envs] - total gap points per environment
     gap_density = gap_count.float() / height_measurements.shape[1]  # [num_envs] - fraction of gaps
     
-    # === OBSTACLE DETECTION (using physical measurements) ===  
-    # Positive heights = terrain above sensor level
-    obstacle_mask = height_measurements > obstacle_threshold  # [num_envs, 130] - obstacles above threshold
+    # === OBSTACLE DETECTION (using G1 baseline - threshold) ===  
+    # Obstacles: readings lower than baseline - threshold
+    obstacle_threshold_value = baseline - threshold  # 0.209 - 0.07 = 0.139m
+    obstacle_mask = height_measurements < obstacle_threshold_value  # [num_envs, 567] - obstacles above threshold
     obstacle_count = obstacle_mask.sum(dim=-1)  # [num_envs] - total obstacle points per environment
     obstacle_density = obstacle_count.float() / height_measurements.shape[1]  # [num_envs] - fraction of obstacles
     
     # === FORWARD SAFETY ANALYSIS ===
-    # Height scanner: front center section (assuming grid layout)
-    forward_height_indices = slice(50, 80)  # Center-front area of 130-point grid
+    # Height scanner: front center section (27×21 = 567 rays grid layout)
+    forward_height_indices = slice(200, 350)  # Center-front area of 567-ray grid
     forward_gaps = gap_mask[:, forward_height_indices].any(dim=-1)  # [num_envs] - gaps ahead
     
-    # LiDAR: front-facing rays for obstacle proximity (in meters)
-    forward_lidar_indices = slice(60, 84)   # Center 24 rays of 144-ray array  
+    # LiDAR: front-facing rays for obstacle proximity (8×19 = 152 rays)
+    forward_lidar_indices = slice(60, 92)   # Center 32 rays of 152-ray array  
     close_obstacle_threshold = 2.0  # 2 meters - close obstacle distance
     forward_close_obstacles = (lidar_distances[:, forward_lidar_indices] < close_obstacle_threshold).any(dim=-1)
     
@@ -581,8 +605,8 @@ def analyze_terrain_features(env, gap_threshold=0.1, obstacle_threshold=0.8):
     safe_forward_path = ~forward_gaps & ~forward_close_obstacles  # [num_envs] - clear forward path
     
     return {
-        "height_measurements": height_measurements,  # [num_envs, 130] in meters
-        "lidar_distances": lidar_distances,  # [num_envs, 144] in meters
+        "height_measurements": height_measurements,  # [num_envs, 567] in meters
+        "lidar_distances": lidar_distances,  # [num_envs, 152] in meters
         "gap_detection": {
             "gap_mask": gap_mask,
             "gap_count": gap_count, 
@@ -603,16 +627,16 @@ def analyze_terrain_features(env, gap_threshold=0.1, obstacle_threshold=0.8):
 
 def get_environmental_reward_components(env):
     """
-    Generate environmental reward components using Isaac Lab standard raw sensor access.
+    Generate environmental reward components using G1 baseline and updated sensor specs.
     
-    ✅ ISAAC LAB STANDARD: Uses raw sensor measurements in meters
-    Physical thresholds with clear meaning for reward design!
+    ✅ ISAAC LAB STANDARD: Uses raw sensor measurements with G1 robot baseline
+    G1 baseline: 0.209m on flat terrain | ±0.07m thresholds for classification!
     
     Args:
         env: Isaac Lab environment instance
         
     Returns:
-        dict: Environmental reward components for adaptive locomotion
+        dict: Environmental reward components for adaptive locomotion with G1 baseline
     """
     # ✅ CORRECT: Isaac Lab standard raw sensor access
     height_sensor = env.scene.sensors["height_scanner"]
@@ -621,16 +645,24 @@ def get_environmental_reward_components(env):
     # Raw height measurements: sensor_height - hit_point_height - offset (in meters)
     height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
     
+    # ✅ MANDATORY: Sanitize sensor data to prevent NaN/Inf crashes
+    height_measurements = torch.where(torch.isfinite(height_measurements), height_measurements, torch.zeros_like(height_measurements))
+    
     # Raw distance measurements: actual distances to obstacles (in meters)
     lidar_distances = torch.norm(
         lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), 
         dim=-1
     )
     
-    # === GAP AVOIDANCE (using physical measurements) ===
-    # Detect significant gaps: terrain more than 20cm below sensor level
-    gap_threshold = 0.2  # 20cm below sensor = significant gap
-    gap_detected = torch.any(height_measurements < -gap_threshold, dim=1)  # [num_envs] bool
+    # ✅ MANDATORY: Sanitize sensor data to prevent NaN/Inf crashes
+    lidar_distances = torch.where(torch.isfinite(lidar_distances), lidar_distances, torch.ones_like(lidar_distances) * 5.0)
+    
+    # === GAP AVOIDANCE (using G1 baseline + threshold) ===
+    # Detect gaps using G1 baseline: readings above baseline + threshold indicate gaps
+    baseline = 0.209  # G1 robot baseline on flat terrain
+    threshold = 0.07  # Standard threshold for gap/obstacle classification
+    gap_threshold_value = baseline + threshold  # 0.279m = gap detection threshold
+    gap_detected = torch.any(height_measurements > gap_threshold_value, dim=1)  # [num_envs] bool
     gap_avoidance_reward = torch.where(gap_detected, -1.0, 0.1)  # Penalty for gaps, bonus for clear
     
     # === OBSTACLE AVOIDANCE (using physical measurements) ===
@@ -640,20 +672,20 @@ def get_environmental_reward_components(env):
     obstacle_avoidance_reward = torch.where(close_obstacles, -0.5, 0.05)  # Penalty for close obstacles
     
     # === FORWARD PATH CLEAR BONUS ===
-    # Check front sector for clear path: front 25% of rays should be >5m clear
-    front_ray_count = lidar_distances.shape[1] // 4  # Front 25% of 144 rays = 36 rays
+    # Check front sector for clear path: front 25% of rays should be >3m clear (updated for 5m max range)
+    front_ray_count = lidar_distances.shape[1] // 4  # Front 25% of 152 rays = 38 rays
     front_rays = lidar_distances[:, :front_ray_count]  # Front sector
-    clear_path_threshold = 5.0  # 5 meters = clear forward path
+    clear_path_threshold = 3.0  # 3 meters = clear forward path (adjusted for 5m max range)
     clear_front_path = torch.all(front_rays > clear_path_threshold, dim=1)  # [num_envs] bool
     navigation_bonus = torch.where(clear_front_path, 0.2, 0.0)  # Bonus for clear path ahead
     
     # === TERRAIN ADAPTATION BONUS ===
-    # Reward maintaining appropriate height above variable terrain
+    # Reward maintaining appropriate height near G1 baseline
     avg_terrain_height = height_measurements.mean(dim=-1)  # [num_envs] - average terrain level
-    terrain_clearance = torch.abs(avg_terrain_height)  # Distance from sensor level
-    # Reward staying close to sensor level (flat terrain navigation)
-    clearance_threshold = 0.15  # 15cm tolerance from sensor level
-    terrain_adaptation_reward = torch.exp(-terrain_clearance / clearance_threshold) * 0.1
+    baseline_deviation = torch.abs(avg_terrain_height - baseline)  # Distance from G1 baseline
+    # Reward staying close to G1 baseline (0.209m on flat terrain)
+    clearance_threshold = 0.15  # 15cm tolerance from G1 baseline
+    terrain_adaptation_reward = torch.exp(-baseline_deviation / clearance_threshold) * 0.1
     
     return {
         "gap_avoidance": gap_avoidance_reward,           # Penalty for gaps
@@ -840,22 +872,29 @@ Isaac Lab reward functions access sensors directly for physically meaningful mea
    quat_yaw = yaw_quat(robot.data.root_quat_w)
    transformed = quat_apply_inverse(quat, vector)
 
-⚠️ RAW SENSOR RANGES (Isaac Lab Standard):
+⚠️ UPDATED SENSOR RANGES (Isaac Lab Standard with G1 Baseline):
 
-HEIGHT SCANNER: Physical measurements in meters
-- Negative values = terrain below sensor level (gaps)
-- Positive values = terrain above sensor level (obstacles)  
-- Range: [-0.5m to +3.0m] relative to sensor position
+HEIGHT SCANNER: Physical measurements in meters with G1 baseline
+- G1 Baseline: 0.209m on flat terrain (sensor_height - terrain_z - 0.5m offset)
+- Obstacles: < 0.139m (baseline - 0.07m threshold)
+- Gaps: > 0.279m (baseline + 0.07m threshold)
+- Range: [-0.5m to +3.0m] relative to sensor position (clipped)
+- Rays: 567 total (27×21 grid), 2.0×1.5m coverage, 7.5cm resolution, 3m max distance
 
-LIDAR RANGE: Physical distances in meters
-- Range: [0.1m to 15.0m] actual distances to obstacles
-- Use meaningful thresholds: 1.5m = close, 5.0m = clear path
+LIDAR RANGE: Physical distances in meters  
+- Range: [0.1m to 5.0m] actual distances to obstacles (updated from 15m)
+- Rays: 152 total (8×19 channels), 180° FOV
+- Use meaningful thresholds: 2.0m = close, 3.0m = clear path
 
-🎯 REWARD FUNCTION THRESHOLDS (Physical Units):
-height_measurements < -0.15  # 15cm gap = significant
-height_measurements > 0.8    # 80cm obstacle = tall
-lidar_distances < 2.0        # 2m = close obstacle
-lidar_distances > 5.0        # 5m = clear path
+🎯 G1 REWARD FUNCTION THRESHOLDS (Physical Units with Baseline):
+height_measurements < 0.139   # G1 baseline - 0.07m = obstacles
+height_measurements > 0.279   # G1 baseline + 0.07m = gaps  
+lidar_distances < 2.0         # 2m = close obstacle
+lidar_distances > 3.0         # 3m = clear path (adjusted for 5m max range)
+
+🚨 MANDATORY SENSOR DATA SANITIZATION:
+height_measurements = torch.where(torch.isfinite(height_measurements), height_measurements, torch.zeros_like(height_measurements))
+lidar_distances = torch.where(torch.isfinite(lidar_distances), lidar_distances, torch.ones_like(lidar_distances) * 5.0)
 
 ✅ This approach follows Isaac Lab conventions and provides physically meaningful reward functions!
 """ 

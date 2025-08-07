@@ -120,7 +120,79 @@ class Agent():
         assistant_content = responses[0]["message"]["content"]
         self.conversation.add_assistant_content(assistant_content)
         self.last_assistant_content = assistant_content
+        
+        # 🔧 AUTO-SAVE CONVERSATION AFTER EACH AGENT QUERY
+        self.save_conversation()
+        
         return assistant_content
+    
+    def save_conversation(self):
+        """Save agent conversation to JSON file for debugging"""
+        try:
+            import json
+            import os
+            from utils.misc import file_to_string
+            
+            # Create filename based on agent class name
+            agent_name = self.__class__.__name__.lower()
+            conversation_file = f'{agent_name}_conversation.json'
+            
+            # Save raw conversation
+            with open(conversation_file, 'w') as f:
+                json.dump(self.conversation.get_message(), f, indent=4)
+            
+            # Create readable version
+            self.create_readable_conversation(conversation_file)
+            
+            self.logger.info(f"🔧 Saved conversation: {conversation_file}")
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to save conversation for {self.__class__.__name__}: {e}")
+    
+    def create_readable_conversation(self, json_file_path):
+        """Create a readable version of the conversation"""
+        try:
+            import json
+            
+            with open(json_file_path, 'r') as f:
+                data = json.load(f)
+            
+            readable_data = []
+            for msg in data:
+                clean_msg = {'role': msg.get('role', 'unknown')}
+                content = msg.get('content', '')
+                
+                if isinstance(content, list):
+                    clean_content = []
+                    for item in content:
+                        if item.get('type') == 'text':
+                            clean_content.append({
+                                'type': 'text',
+                                'text': item.get('text', '')
+                            })
+                        elif item.get('type') == 'image_url':
+                            clean_content.append({
+                                'type': 'image_url',
+                                'image_url': {
+                                    'url': '[BASE64_IMAGE_DATA_REMOVED_FOR_READABILITY]',
+                                    'detail': item.get('image_url', {}).get('detail', 'high')
+                                }
+                            })
+                        else:
+                            clean_content.append(item)
+                    clean_msg['content'] = clean_content
+                else:
+                    clean_msg['content'] = content
+                
+                readable_data.append(clean_msg)
+            
+            # Save readable version
+            readable_path = json_file_path.replace('.json', '_READABLE.json')
+            with open(readable_path, 'w') as f:
+                json.dump(readable_data, f, indent=2, ensure_ascii=False)
+                
+        except Exception as e:
+            self.logger.warning(f"Failed to create readable conversation: {e}")
     
     def obtain_results(self):
         return self.last_assistant_content
@@ -233,18 +305,23 @@ class EnvironmentAwareTaskDescriptor(Agent):
             # Log agent activation for consistency with other agents
             self.logger.info("Activated Agent EnvironmentAnalyzer")
             
+            # Predefined RL policy checkpoint (hardcoded for reliable analysis)
+            default_checkpoint = "logs/rsl_rl/g1_enhanced/2025-08-03_23-45-47/model_200.pt"
+            
             # Change to IsaacLab directory and run analysis
             isaac_lab_path = "/home/enis/IsaacLab"
             analysis_script = f"{isaac_lab_path}/analyze_environment.py"
             
-            # Run the analysis script with SDS_ANALYSIS_MODE=true
+            # Run the analysis script with gravity enabled and predefined RL policy
             # Use direct Python call instead of isaaclab.sh wrapper to avoid subprocess issues
             cmd = [
                 "bash", "-c", 
-                f"source /home/enis/miniconda3/etc/profile.d/conda.sh && conda activate sam2 && cd {isaac_lab_path} && SDS_ANALYSIS_MODE=true python -u analyze_environment.py --task=Isaac-SDS-Velocity-Flat-G1-Enhanced-v0 --headless --num_envs {num_envs}"
+                f"source /home/enis/miniconda3/etc/profile.d/conda.sh && conda activate sam2 && cd {isaac_lab_path} && python -u analyze_environment.py --task=Isaac-SDS-Velocity-Flat-G1-Enhanced-v0 --checkpoint {default_checkpoint} --headless --num_envs {num_envs}"
             ]
             
             self.logger.info(f"Running environment analysis with {num_envs} robots...")
+            self.logger.info(f"Using RL policy checkpoint: {default_checkpoint}")
+            self.logger.info("Gravity enabled (SDS_ANALYSIS_MODE not set)")
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
             
             if result.returncode == 0:
@@ -366,7 +443,8 @@ class EnhancedSUSGenerator(Agent):
         gait_response = gait_analyser.analyse(encoded_gt_frame_grid, contact_pattern)
         
         task_requirement_analyser = TaskRequirementAnalyser(self.cfg, self.prompt_dir)
-        task_requirement_response = task_requirement_analyser.analyse(encoded_gt_frame_grid, task_description_hint)
+        # 🔧 FIX: Pass full environment-aware task description, not just hint
+        task_requirement_response = task_requirement_analyser.analyse(encoded_gt_frame_grid, task_description)
         
         self.prepare_user_content([
             {"type":"text","data":task_description},

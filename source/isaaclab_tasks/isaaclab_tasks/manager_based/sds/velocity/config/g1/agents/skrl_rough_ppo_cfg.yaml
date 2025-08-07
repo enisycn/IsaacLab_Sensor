@@ -15,7 +15,7 @@ models:
     network:
       - name: net
         input: STATES
-        layers: [512, 256, 128]
+        layers: [768, 384, 192]  # 🚀 EXPANDED: From [512, 256, 128] - handles 621-dim input without bottleneck
         activations: elu
     output: ACTIONS
   value:  # see deterministic_model parameters
@@ -24,7 +24,7 @@ models:
     network:
       - name: net
         input: STATES
-        layers: [512, 256, 128]
+        layers: [768, 384, 192]  # 🚀 EXPANDED: Matching policy architecture for enhanced sensor processing
         activations: elu
     output: ONE
 

@@ -18,6 +18,7 @@ from utils.easy_vit_pose import vitpose_inference
 import cv2
 import os
 from agents import SUSGenerator, EnhancedSUSGenerator
+from utils.plotting import create_sds_training_plots
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -256,6 +257,12 @@ def main(cfg):
             encoded_environment_image=encoded_environment_image if has_environment_image else None
         )
     
+    # 🔧 COPY ALL AGENT CONVERSATIONS TO OUTPUT DIRECTORY
+    copy_agent_conversations_to_output(workspace_dir)
+    
+    # 🔧 CREATE DATA FLOW SUMMARY
+    create_data_flow_summary(workspace_dir, SUS_prompt)
+
     initial_reward_engineer_system = initial_reward_engineer_system.format(task_reward_signature_string=reward_signature,task_obs_code_string=task_obs_code_string) + code_output_tip
 
     initial_reward_engineer_user = initial_reward_engineer_user.format(sus_string=SUS_prompt,task_obs_code_string=task_obs_code_string)
@@ -856,9 +863,9 @@ def main(cfg):
                 run_log = construct_run_log(stdout_str)
                 
                 train_iterations = np.array(run_log['iterations/']).shape[0]
-                epoch_freq = max(int(train_iterations // 10), 1)
+                epoch_freq = max(int(train_iterations // 5), 1)
                 
-                epochs_per_log = 10
+                epochs_per_log = 5
                 content += policy_feedback.format(epoch_freq=epochs_per_log*epoch_freq)
                 
                 # Compute Correlation between Human-Engineered and GPT Rewards
@@ -879,6 +886,21 @@ def main(cfg):
                         if metric != "gt_reward" and metric != "gpt_reward":
                             metric_name = metric 
                             content += f"{metric_name}: {metric_cur}, Max: {metric_cur_max:.2f}, Mean: {metric_cur_mean:.2f}, Min: {metric_cur_min:.2f} \n"                    
+               
+                # ✅ CREATE PLOTS: Generate and save training plots after successful completion
+                try:
+                    logging.info("🎨 Generating training plots...")
+                    # Use current SDS workspace directory (managed by Hydra)
+                    current_sds_workspace = os.getcwd()
+                    plot_success = create_sds_training_plots(run_log, current_sds_workspace)
+                    if plot_success:
+                        logging.info("✅ Training plots created successfully!")
+                        logging.info(f"📁 Plots saved to: {os.path.join(current_sds_workspace, 'plots')}")
+                    else:
+                        logging.warning("⚠️ Plot creation failed, but training analysis continues")
+                except Exception as e:
+                    logging.error(f"❌ Error creating plots: {e}")
+                    logging.warning("⚠️ Plot creation failed, but training analysis continues")
                
                 code_feedbacks.append(code_feedback)
                 content += code_feedback
@@ -1114,6 +1136,97 @@ def main(cfg):
             run_dir = line.split(": ")[1].strip()
             run_dir = run_dir.replace("http://app.dash.ml/", f"{ROOT_DIR}/{env_name}/runs/")
             logging.info("Best policy run directory: " + run_dir)
+
+def copy_agent_conversations_to_output(workspace_dir):
+    """Copy all agent conversation files to the output directory"""
+    try:
+        import glob
+        import shutil
+        
+        # Find all agent conversation files in current directory
+        conversation_files = glob.glob("*_conversation*.json")
+        
+        if conversation_files:
+            logging.info(f"🔧 Copying {len(conversation_files)} agent conversation files to output directory")
+            
+            for conv_file in conversation_files:
+                dest_path = os.path.join(workspace_dir, conv_file)
+                shutil.copy2(conv_file, dest_path)
+                logging.info(f"🔧 Copied: {conv_file} -> {dest_path}")
+                
+                # Also copy to Isaac Lab root for easy access
+                try:
+                    root_dest = os.path.join("/home/enis/IsaacLab", conv_file)
+                    shutil.copy2(conv_file, root_dest)
+                except:
+                    pass  # Don't fail if can't copy to root
+        else:
+            logging.warning("🔧 No agent conversation files found to copy")
+            
+    except Exception as e:
+        logging.error(f"Failed to copy agent conversations: {e}")
+
+def create_data_flow_summary(workspace_dir, sus_prompt):
+    """Create a summary of the data flow for debugging"""
+    try:
+        summary_file = os.path.join(workspace_dir, "data_flow_summary.txt")
+        
+        with open(summary_file, 'w') as f:
+            f.write("🔍 DATA FLOW SUMMARY FOR ENVIRONMENT ANALYSIS DEBUGGING\n")
+            f.write("=" * 70 + "\n\n")
+            
+            # Check if SUS prompt contains environment analysis data
+            f.write("📊 ENVIRONMENT ANALYSIS DATA IN SUS PROMPT:\n")
+            f.write("-" * 50 + "\n")
+            
+            env_data_indicators = [
+                "Total Gaps Detected:",
+                "Gaps Detected:",
+                "Total Obstacles Detected:",
+                "Obstacles Detected:",
+                "Average Terrain Roughness:",
+                "Terrain Roughness:",
+                "Safety Score:"
+            ]
+            
+            found_env_data = False
+            for indicator in env_data_indicators:
+                if indicator in sus_prompt:
+                    # Extract the line containing this indicator
+                    lines = sus_prompt.split('\n')
+                    for line in lines:
+                        if indicator in line:
+                            f.write(f"✅ FOUND: {line.strip()}\n")
+                            found_env_data = True
+                            break
+            
+            if not found_env_data:
+                f.write("❌ NO ENVIRONMENT ANALYSIS DATA FOUND IN SUS PROMPT!\n")
+                f.write("This indicates the environment analysis data was lost somewhere in the pipeline.\n")
+            
+            f.write("\n📂 AGENT CONVERSATION FILES GENERATED:\n")
+            f.write("-" * 50 + "\n")
+            
+            # List available conversation files
+            import glob
+            conv_files = glob.glob(os.path.join(workspace_dir, "*_conversation*.json"))
+            if conv_files:
+                for conv_file in conv_files:
+                    f.write(f"📄 {os.path.basename(conv_file)}\n")
+            else:
+                f.write("❌ No conversation files found!\n")
+            
+            f.write(f"\n🔍 HOW TO DEBUG:\n")
+            f.write("-" * 50 + "\n")
+            f.write("1. Check environmentawaretaskdescriptor_conversation_READABLE.json\n")
+            f.write("2. Check enhancedssusgenerator_conversation_READABLE.json\n")
+            f.write("3. Compare environment analysis data between files\n")
+            f.write("4. Look for the exact numbers: gaps, obstacles, terrain roughness\n")
+            
+        logging.info(f"🔧 Created data flow summary: {summary_file}")
+        
+    except Exception as e:
+        logging.error(f"Failed to create data flow summary: {e}")
 
 if __name__ == "__main__":
     main()

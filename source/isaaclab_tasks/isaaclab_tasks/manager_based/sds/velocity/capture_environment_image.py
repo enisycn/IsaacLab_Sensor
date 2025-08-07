@@ -159,8 +159,8 @@ class SDSCaptureSceneCfg(InteractiveSceneCfg):
     capture_camera: CameraCfg = CameraCfg(
         prim_path="{ENV_REGEX_NS}/CaptureCamera",
         update_period=0,  # Update every step for immediate capture
-        height=1200,      # Enhanced HD+ resolution for good detail/performance balance
-        width=2048,       # Enhanced HD+ resolution for good detail/performance balance
+        height=1080,      # Full HD resolution - good balance of quality and performance
+        width=1920,       # Full HD resolution - good balance of quality and performance
         data_types=["rgb"],
         spawn=sim_utils.PinholeCameraCfg(
             focal_length=24.0,
@@ -349,6 +349,37 @@ def capture_sds_environment_image(checkpoint_dir: Path) -> bool:
             # 🆕 PROPER CLEANUP: Following build_simulation_context pattern
             print("\n🧹 Cleaning up simulation context...")
             
+            # GPU memory cleanup
+            try:
+                import gc
+                
+                print("🔧 Clearing GPU memory...")
+                time.sleep(1)  # Give Isaac Lab time to finish any background operations
+                
+                if torch.cuda.is_available():
+                    device = torch.cuda.current_device()
+                    torch.cuda.synchronize(device)  # Ensure all CUDA operations complete first
+                    torch.cuda.empty_cache()
+                    print("✅ GPU cache cleared")
+                    
+                    # Log GPU memory usage after cleanup
+                    try:
+                        import subprocess
+                        result = subprocess.run(['nvidia-smi', '--query-gpu=memory.used', '--format=csv,noheader,nounits'], 
+                                              capture_output=True, text=True, timeout=5)
+                        if result.returncode == 0:
+                            vram_used = result.stdout.strip()
+                            print(f"📊 GPU VRAM after cleanup: {vram_used}MB")
+                    except Exception as nvidia_e:
+                        print(f"⚠️ Could not query GPU usage: {nvidia_e}")
+                
+                # Force garbage collection
+                gc.collect()
+                print("✅ Python garbage collection completed")
+                
+            except Exception as gpu_e:
+                print(f"⚠️ GPU cleanup warning: {gpu_e}")
+            
             # 🚨 ADD 10-SECOND TIMEOUT TO PREVENT HANGING
             def force_exit():
                 print("⏰ 10-second timeout reached - forcing exit!")
@@ -385,6 +416,39 @@ def capture_sds_environment_image(checkpoint_dir: Path) -> bool:
         print(f"❌ Failed to save environment image: {e}")
         
         # Clean up even on failure - ADD TIMEOUT HERE TOO
+        print("🧹 Cleaning up after failure...")
+        
+        # GPU memory cleanup on failure
+        try:
+            import gc
+            
+            print("🔧 Clearing GPU memory after failure...")
+            time.sleep(1)  # Give time for any operations to finish
+            
+            if torch.cuda.is_available():
+                device = torch.cuda.current_device()
+                torch.cuda.synchronize(device)
+                torch.cuda.empty_cache()
+                print("✅ GPU cache cleared after failure")
+                
+                # Log GPU memory usage after failure cleanup
+                try:
+                    import subprocess
+                    result = subprocess.run(['nvidia-smi', '--query-gpu=memory.used', '--format=csv,noheader,nounits'], 
+                                          capture_output=True, text=True, timeout=5)
+                    if result.returncode == 0:
+                        vram_used = result.stdout.strip()
+                        print(f"📊 GPU VRAM after failure cleanup: {vram_used}MB")
+                except Exception as nvidia_e:
+                    print(f"⚠️ Could not query GPU usage: {nvidia_e}")
+            
+            # Force garbage collection
+            gc.collect()
+            print("✅ Python garbage collection completed after failure")
+            
+        except Exception as gpu_e:
+            print(f"⚠️ GPU cleanup warning: {gpu_e}")
+        
         def force_exit_on_failure():
             print("⏰ Cleanup timeout on failure - forcing exit!")
             import os
@@ -455,6 +519,37 @@ if __name__ == "__main__":
     finally:
         # Clean shutdown of simulation app with timeout
         print(f"\n🔄 SHUTTING DOWN SIMULATION APP...")
+        
+        # Final GPU memory cleanup
+        try:
+            import gc
+            
+            print("🔧 Final GPU memory cleanup...")
+            time.sleep(2)  # Give simulation app time to finish
+            
+            if torch.cuda.is_available():
+                device = torch.cuda.current_device()
+                torch.cuda.synchronize(device)
+                torch.cuda.empty_cache()
+                print("✅ Final GPU cache cleared")
+                
+                # Log final GPU memory usage
+                try:
+                    import subprocess
+                    result = subprocess.run(['nvidia-smi', '--query-gpu=memory.used', '--format=csv,noheader,nounits'], 
+                                          capture_output=True, text=True, timeout=5)
+                    if result.returncode == 0:
+                        vram_used = result.stdout.strip()
+                        print(f"📊 Final GPU VRAM usage: {vram_used}MB")
+                except Exception as nvidia_e:
+                    print(f"⚠️ Could not query final GPU usage: {nvidia_e}")
+            
+            # Force garbage collection
+            gc.collect()
+            print("✅ Final Python garbage collection completed")
+            
+        except Exception as final_gpu_e:
+            print(f"⚠️ Final GPU cleanup warning: {final_gpu_e}")
         
         # 🚨 ADD FINAL 10-SECOND TIMEOUT FOR APP SHUTDOWN
         def force_exit_final():

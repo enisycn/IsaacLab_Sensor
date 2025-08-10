@@ -78,7 +78,7 @@ ENVIRONMENTAL CONTEXT: Gaps Detected: 33 gaps (1 steppable, 20 jumpable, 12 impo
 
 4. **Gait Description:**
    - A brief description of the gait pattern's characteristics including full-body coordination.
-   - Example: "alternating single-support phases with coordinated arm swing, featuring double-support phases during weight transfer between feet while arms provide natural counter-rotation for balance and momentum."
+   - Example: "alternating single-support phases with stable torso control, featuring double-support phases during weight transfer between feet."
 
 **MANDATORY: ENVIRONMENTAL DATA EXTRACTION AND PRESERVATION**
 
@@ -120,6 +120,11 @@ Provide comprehensive task specification that includes:
 
 **Performance Metrics:** [Expected task performance criteria]
 
+**Terrain Classification (Mandatory - derive from image + sensors):**
+- Add a single line at the end: `TERRAIN_CLASS: [0|1|2|3]`
+  - 0 = SIMPLE (flat/clear), 1 = GAP, 2 = OBSTACLES, 3 = STAIRS
+- Under it, include 1–2 sentences of IMAGE-BASED reasoning that justify the class (visual cues). If sensor data is available and contradicts visuals, note the discrepancy but keep the class consistent with sensor priority downstream.
+
 **🚨🚨🚨 MANDATORY STANDARDIZED FORMAT PRESERVATION 🚨🚨🚨**
 
 **IF the Task Description input contains a "STANDARDIZED NUMERICAL ANALYSIS SUMMARY" section, you MUST copy it EXACTLY into your output.**
@@ -159,7 +164,7 @@ THEN YOUR OUTPUT MUST END WITH:
 - **Comprehensive Integration:** All input elements must be included and logically connected within the paragraph.
 - **MANDATORY EXACT PRESERVATION:** If environmental analysis data is present in inputs, ALL numerical values MUST be preserved character-for-character in output.
 - **NO SUMMARIZING ALLOWED:** Environmental data must be copied EXACTLY, not paraphrased or approximated.
-- **Full-Body Emphasis:** Ensure descriptions include coordinated movement of legs, arms, and torso for natural humanoid locomotion.
+- **Locomotion Emphasis:** Ensure descriptions include coordinated movement of legs and torso for natural humanoid locomotion (exclude arm-specific requirements).
 - **Format Adherence:** Follow the specified paragraph structure without deviations.
 - **Exclusivity:** Only return the **Task Requirement Paragraph** and environmental context (if present) without any additional commentary or metadata.
 - **Accuracy:** Ensure that ALL numerical information from environmental analysis is accurately reflected in the paragraph.

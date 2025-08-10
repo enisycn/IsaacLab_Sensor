@@ -8,7 +8,7 @@ You are an expert in analyzing contact sequences of humanoids. Your task is to a
 2. **Visual Cues:**
    - **Blue Lines:** The input image is marked with blue lines highlighting the humanoid's joints and body structure.
      - **Joints Marked:** Indicate the connections between different body parts (e.g., hips, knees, ankles).
-     - **Body Structure:** Outline the torso, head, arms, and other significant body parts.
+     - **Body Structure:** Outline the torso, head, and other significant body parts (exclude arms).
    - **Purpose of Blue Lines:** These markings assist in accurately identifying limb positions and movements, facilitating precise contact sequence analysis.
 
 3. **Foot Indicators:**

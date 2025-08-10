@@ -243,7 +243,7 @@ def lidar_forward_path_reward(distances):
 def lidar_exploration_reward(distances):
     """Encourage exploration of open spaces."""
     # Count open space rays (>3m or infinite)
-    open_space_mask = (distances > 3.0) | (distances == float('inf'))
+    open_space_mask = (distances > 3.0) | (~torch.isfinite(distances))
     open_space_count = open_space_mask.sum(dim=-1).float()
     
     # Normalize by total rays and scale
@@ -323,9 +323,9 @@ close_obstacles = distances < 1.0  # Simple distance threshold
 distances = distances[distances != float('inf')]  # Loses information
 
 # ✅ CORRECT: Proper infinite handling
-infinite_mask = distances == float('inf')
+infinite_mask = ~torch.isfinite(distances)
 open_space_bonus = infinite_mask.sum(dim=-1) * 0.1
-distances_clipped = torch.clamp(distances, max=5.0)
+distances_clipped = torch.clamp(distances, min=0.0, max=5.0)
 ```
 
 ### 3. **Incorrect Distance Scaling**

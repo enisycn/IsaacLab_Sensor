@@ -20,7 +20,7 @@ Environment Configuration:
 - Control: Joint position targets with PD control
 - Observations: Proprioception + height scanning + LiDAR + contact sensing  
 - Action Space: Continuous joint position targets [num_envs, 23]
-- Observation Space: Mixed proprioception + environmental sensing [num_envs, 719]
+- Observation Space: Mixed proprioception + environmental sensing (≈800 dims, depends on config)
 - Command Space: 2D velocity + angular velocity [num_envs, 3]
 
 Enhanced Sensor Integration (Updated Specifications):
@@ -241,7 +241,7 @@ class SDSIsaacLabEnvironment:
                 return HeightScanner()
             
             def _lidar_sensor(self):
-                """LiDAR sensor for 360° environmental awareness."""
+                """LiDAR sensor for front-hemisphere (~180°) environmental awareness."""
                 class LiDARSensor:
                     def __init__(self):
                         self.data = self._lidar_data()

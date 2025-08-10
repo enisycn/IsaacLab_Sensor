@@ -21,7 +21,7 @@ You are an expert in analyzing humanoid locomotion tasks with advanced environme
 
 **2. ENVIRONMENTAL SENSOR INTEGRATION (Real-Time Data):**
    - **Height Scanner Analysis:** Process grid-based height measurements for terrain features
-   - **LiDAR Sensor Analysis:** Process 360° distance measurements for obstacle detection  
+   - **LiDAR Sensor Analysis:** Process ~180° front hemisphere distance measurements for obstacle detection  
    - **Gap Classification:** Categorize detected gaps by size for environmental analysis:
   * **Small gaps (≤30cm wide):** Detailed measurement and traversability assessment
   * **Medium gaps (30-80cm wide, variable depth):** Gap dimensions and environmental challenge level
@@ -192,6 +192,22 @@ Provide comprehensive analysis using these sections, integrating visual footage 
   * **Environmental Analysis**: Gap assessment, traversability evaluation, and navigation complexity analysis using height sensor feedback
   * **task=jump**: FORWARD JUMPING over gaps with velocity tracking + controlled landing
 - **STAIRS**: Step-like patterns requiring climbing or descent behaviors
+
+**PROJECT TERRAIN CLASS (MANDATORY - Derive from image + sensors):**
+- Output a single line identifying the terrain class for downstream processing:
+- `TERRAIN_CLASS: [0|1|2|3]`  
+  - 0 = SIMPLE (flat/clear)
+  - 1 = GAP
+  - 2 = OBSTACLES
+  - 3 = STAIRS
+
+**CLASSIFICATION REASONING (IMAGE-BASED):**
+- Provide a brief 1–3 sentence justification based on visual cues in the environment image:
+  - 0 SIMPLE: Broad uniform surface; no recurring depressions/protrusions; clean paths
+  - 1 GAP: Repeated dark/depressed regions or linear trenches indicating holes/gaps
+  - 2 OBSTACLES: Multiple protruding objects blocking paths; occlusions or clutter
+  - 3 STAIRS: Regular, periodic step edges; consistent riser/tread patterns
+- If sensor data is available and contradicts visuals, note the discrepancy but still include the visual justification (sensors take priority downstream).
 
 **MIXED TERRAIN CLASSIFICATION:**
 - **When multiple features detected**: Choose PRIMARY based on most prominent feature (highest count or coverage)

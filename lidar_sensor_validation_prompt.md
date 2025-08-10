@@ -16,7 +16,7 @@ distances = torch.norm(
     sensor.data.ray_hits_w - sensor.data.pos_w.unsqueeze(1), 
     dim=-1
 )
-# Result: Always positive distances (≥0) in meters
+# Result: Always non-negative distances (≥0) or inf (beyond range) in meters
 ```
 
 ❌ **AVOID: Incorrect implementations:**
@@ -50,15 +50,15 @@ obstacles = distances < 0  # LiDAR distances are NEVER negative!
 ```python
 # OBSTACLES: Small distances (close objects)
 close_obstacles = distances < 1.0  # Objects within 1m
-obstacle_penalty = torch.where(close_obstacles, 1.0 - distances, 0.0)
+obstacle_penalty = torch.clamp(1.0 - distances, min=0.0, max=1.0) * close_obstacles.float()
 
 # CLEAR PATHS: Large distances (open space)
 clear_paths = distances > 3.0  # Open space beyond 3m  
 clearance_reward = torch.where(clear_paths, 0.1, 0.0)
 
-# INFINITE HANDLING: Max range exceeded
-infinite_mask = distances == float('inf')
-distances_safe = torch.where(infinite_mask, 5.0, distances)  # Treat as max range
+# INFINITE/NON-FINITE HANDLING: Max range or invalid
+finite_mask = torch.isfinite(distances)
+distances_safe = torch.where(finite_mask, distances, torch.tensor(5.0, device=distances.device))  # Treat non-finite as max range
 ```
 
 ### 4. **THRESHOLD VALIDATION**
@@ -72,8 +72,9 @@ distances_safe = torch.where(infinite_mask, 5.0, distances)  # Treat as max rang
 ✅ **CORRECT Directional Logic:**
 ```python
 # G1 LiDAR Configuration: 8 channels × 19 horizontal angles = 152 rays
-# Front rays (forward motion): typically indices [60-90] (center 30° arc)
-# Side rays (lateral awareness): indices [0-30] and [120-152]
+# Use reshape-based sectors instead of fixed flattened indices to avoid hardcoding
+# Forward motion: use center front sector (e.g., columns 8:12 across channels)
+# Lateral awareness: use side sectors (e.g., columns 0:6 and 13:19)
 
 def directional_lidar_analysis(distances):
     # Reshape to (num_envs, 8_channels, 19_horizontal)

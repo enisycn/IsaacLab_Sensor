@@ -217,13 +217,13 @@ def main(cfg):
     
     eval_script_dir = os.path.join(ROOT_DIR,"forward_locomotion_sds/scripts/play.py")
     
-    encoded_gt_frame_grid = encode_image(f'{workspace_dir}/gt_demo.png')
+    encoded_gt_frame_grid = encode_image(f'{workspace_dir}/gt_demo.png', max_size=(768, 768), quality=80)
     
     # Check for environment image captured by the image capture script
     environment_image_path = f'{workspace_dir}/environment_image.png'
     has_environment_image = os.path.exists(environment_image_path)
     if has_environment_image:
-        encoded_environment_image = encode_image(environment_image_path)
+        encoded_environment_image = encode_image(environment_image_path, max_size=(768, 768), quality=80)
         logging.info(f"✅ Found environment image for SUS generation: {environment_image_path}")
     else:
         encoded_environment_image = None

@@ -1,5 +1,9 @@
 We trained a RL policy using the provided reward function code and tracked comprehensive training metrics including individual reward components, task performance indicators, training stability measures, and system diagnostics after every {epoch_freq} epochs. The following detailed metrics show training progression with maximum, mean, and minimum values encountered:
 
+Terrain context (if available):
+- Include `TERRAIN_CLASS: [0|1|2|3]` from the SUS and a brief 1–2 sentence image-based rationale.
+- Use this solely to contextualize feedback; avoid prescribing reward components.
+
 **📊 ENHANCED TRAINING ANALYSIS:**
 The comprehensive metrics below include:
 • Core Performance: Total reward, episode length, reward components

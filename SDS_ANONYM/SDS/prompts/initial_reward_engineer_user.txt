@@ -221,7 +221,7 @@ total = (basic_movement * 2.0 + progress * 1.0 + coordination_bonus + baseline).
 - Primary: Movement attempts (torch.clamp)
 - Secondary: Progress milestones (torch.clamp)  
 - Bonus: Coordination (torch.where)
-- Baseline: Minimal (0.05)
+- Baseline: Small (0.1)
 
 **3. Keep Baseline Small:**
 - Robot should get minimal reward for doing nothing
@@ -715,7 +715,7 @@ Human walking involves specific knee flexion patterns during different phases of
 height_gain = current_height - baseline
 gentle_height = torch.where(
     (height_gain > 0.05) & (height_gain < 0.25),  # 5-25cm sweet spot
-    torch.exp(-((height_gain - 0.15) / 0.05).abs()),  # Peak at 15cm
+    torch.clamp(1.0 - (torch.abs(height_gain - 0.15) / 0.05), 0.0, 1.0),  # Peak at ~15cm
     torch.zeros_like(height_gain)  # No reward outside range
 )
 
@@ -966,7 +966,7 @@ Modern RL algorithms excel at learning sophisticated temporal patterns and phase
 
 **PROVEN RL PHASE-LEARNING SUCCESSES:**
 - **ETH Zurich ANYmal:** Learned complex quadruped gaits with phase-coordinated leg movements
-- **Boston Dynamics Simulation:** RL-trained humanoid locomotion with arm-leg coordination
+- **Boston Dynamics Simulation:** RL-trained humanoid locomotion (focus on leg-torso coordination; exclude arm-specific coordination)
 - **Cassie Bipedal Robot:** Learned dynamic walking with proper swing-stance phase timing
 - **Unitree Robot Learning:** RL-based locomotion with natural gait phase transitions
 - **Parkour RL Systems:** Learned multi-phase jumping, landing, and recovery sequences
@@ -991,7 +991,7 @@ phase_appropriate_reward = reward_phase_specific_behavior(current_phase, robot_s
 ```python
 # Reward smooth transitions between phases
 transition_quality = measure_phase_transition_smoothness(prev_phase, current_phase, robot_dynamics)
-transition_reward = torch.exp(-transition_quality * smoothness_scale)
+transition_reward = torch.clamp(1.0 - (transition_quality * smoothness_scale), 0.0, 1.0)
 ```
 
 **3. Temporal Sequence Rewards:**
@@ -1004,8 +1004,9 @@ sequence_reward = torch.where(cycle_completion, cycle_bonus, torch.zeros_like(cy
 **4. Multi-Phase Coordination Rewards:**
 ```python
 # Reward coordination between different body parts across phases
-arm_leg_coordination = measure_phase_appropriate_coordination(arms, legs, current_phase)
-coordination_reward = reward_optimal_coordination_for_phase(arm_leg_coordination, current_phase)
+# Removed arm-specific coordination; focus on legs and torso
+leg_torso_coord = measure_phase_appropriate_coordination(legs, torso, current_phase)
+coordination_reward = reward_optimal_coordination_for_phase(leg_torso_coord, current_phase)
 ```
 
 **ADVANCED RL PHASE LEARNING TECHNIQUES:**
@@ -1056,7 +1057,7 @@ coordination_reward = reward_optimal_coordination_for_phase(arm_leg_coordination
 
 Modern RL systems routinely learn complex temporal behaviors including:
 - Multi-phase locomotion patterns
-- Coordinated arm-leg sequences
+- Coordinated leg-torso sequences (no arm-specific requirements)
 - Dynamic balance across phase transitions
 - Anticipatory behavior for upcoming phases
 
@@ -1176,11 +1177,11 @@ current_step_width = torch.norm(foot_pos[:, 0, :] - foot_pos[:, 1, :], dim=1)
 placement_accuracy = torch.exp(-torch.abs(current_step_width - optimal_step_width) / 0.05)
 
 # Reward staying close to G1 baseline for terrain tracking
-terrain_tracking_reward = torch.exp(-baseline_deviation / 0.03)  # 3cm tolerance for precise tracking
+terrain_tracking_reward = torch.clamp(1.0 - (baseline_deviation / 0.03), 0.0, 1.0)  # 3cm tolerance
 ```
 
 **🔍 LIDAR-BASED OBSTACLE AVOIDANCE:**
-LiDAR provides 360° obstacle detection for safe navigation:
+LiDAR provides front-hemisphere (~180°) obstacle detection for safe navigation:
 
 ```python
 # LiDAR obstacle detection
@@ -1195,7 +1196,7 @@ safety_margin = 0.5 + robot_speed * 0.2  # Larger margin at higher speeds
 obstacle_avoidance_reward = torch.where(
     min_obstacle_distance > safety_margin,
     1.0,  # Full reward when safe
-    torch.exp(-(safety_margin - min_obstacle_distance) / 0.1)
+    torch.clamp(1.0 - ((safety_margin - min_obstacle_distance) / 0.1), 0.0, 1.0)
 )
 ```
 
@@ -1223,7 +1224,7 @@ environmental_weight = 0.3 + environmental_challenge * 0.2  # Increase environme
 terrain_safety_reward = normal_ratio * 0.5  # Reward normal terrain (0.139-0.279m range)
 obstacle_penalty = -obstacle_ratio * 0.8    # Penalty for obstacles (< 0.139m)
 gap_penalty = -gap_ratio * 0.6              # Penalty for gaps (> 0.279m)
-baseline_tracking_reward = torch.exp(-baseline_deviation / 0.03) * 0.3  # Stay close to G1 baseline
+baseline_tracking_reward = torch.clamp(1.0 - (baseline_deviation / 0.03), 0.0, 1.0) * 0.3  # Stay close to G1 baseline
 
 environmental_adaptation_reward = terrain_safety_reward + obstacle_penalty + gap_penalty + baseline_tracking_reward
 

@@ -50,6 +50,16 @@ import isaaclab_tasks.manager_based.locomotion.velocity.mdp as mdp
 
 **✅ IMPLEMENT ALL PATTERNS INLINE - DON'T IMPORT MDP FUNCTIONS**
 
+### How to use this spec (guidance, not hardcoding)
+
+- This file is a reference library of patterns. Do not copy code verbatim.
+- Generate original reward code adapted to the current environment analysis.
+- Avoid hardcoded thresholds and weights; derive them from analysis (SUS/sensors).
+- Choose families of components based on detected scenario (e.g., gap/obstacle/stairs), but decide specific components and weights yourself.
+- Use additive + clamped components; avoid multiplicative/unstable forms; clamp final total.
+- Any placeholder identifiers in examples (e.g., `front_indices`, `front_rays`) must be computed explicitly.
+- Validate shapes/devices for all tensors; sanitize sensor data before use.
+
 🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯
 🎯🎯🎯 SENSOR-DRIVEN BEHAVIORAL ADAPTATION 🎯🎯🎯
 🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯
@@ -66,30 +76,29 @@ jumping_air_time = 0.8  # Want long air time for jumping
 total = walking_reward + jumping_reward  # CONFLICTING OBJECTIVES!
 ```
 
-**Context-aware behavioral switching:**
+**Context-aware switching (pseudo-code; select/adapt components as needed):**
 ```python
 # GOOD - Robot adapts behavior based on sensor input
 gap_ahead = height_measurements[:, front_indices] > 0.2   # Look ahead for gaps (CORRECTED: positive = gaps)
 obstacle_ahead = lidar_distances[:, front_rays] < 2.0     # Look ahead for obstacles
 
-# Behavioral switching based on sensor input
+# Behavioral switching based on sensor input (illustrative)
+# Select and combine components appropriate to the detected scenario;
+# do not hardcode final rewards here. Let the generator design components.
 if torch.any(gap_ahead, dim=1).any():
-    # DIFFERENT BEHAVIOR: Prepare for gap crossing
-    behavior = foundation + gap_preparation_behavior()
+    behavior = foundation + gap_handling_components  # e.g., preparation/clearance
 elif torch.any(obstacle_ahead, dim=1).any():
-    # DIFFERENT BEHAVIOR: Navigate around obstacles  
-    behavior = foundation + obstacle_avoidance_behavior()
+    behavior = foundation + obstacle_handling_components  # e.g., safe-distance control
 else:
-    # EFFICIENT BEHAVIOR: Normal walking without sensors
-    behavior = foundation_locomotion_only()
+    behavior = foundation
 ```
 
 **🎯 SENSOR IMPACT REQUIREMENTS:**
 
 **1. HEIGHT SCANNER BEHAVIORAL IMPACT:**
 - **Flat terrain**: Robot walks normally (sensor unused)
-- **Small gap terrain (10-20cm)**: Robot modifies gait 1-2 steps BEFORE reaching gaps (predictive stepping adaptation)
-- **Large gap terrain (25cm+)**: Robot prepares for jumping 2-3 steps BEFORE reaching gaps (predictive jump preparation)
+- **Small gap environments**: Consider gait modifications ahead of gaps (predictive stepping)
+- **Medium gap environments**: Consider forward jump preparation (predictive jumping)
 - **Stair terrain**: Robot adjusts height expectations (terrain following)
 
 **2. LIDAR BEHAVIORAL IMPACT:**
@@ -105,13 +114,11 @@ else:
 
 ```
 
-**CHOOSE BASED ON ENVIRONMENT ANALYSIS:**
-- Small gaps requiring stepping (15-25cm) → Absolute height maintains clearance
-- Large gaps requiring jumping (25cm+) → Absolute height with increased clearance targets
-- Variable surface heights → Terrain-relative adapts to surface
-- Consistent platform levels → Absolute height for smooth transitions
-- Climbing/descending behavior needed → Terrain-relative for adaptation
-- Jump tasks → Absolute height with dynamic targets (crouch: 0.64m, jump: 0.94m, normal: 0.74m)
+**CHOOSE BASED ON ENVIRONMENT ANALYSIS (GUIDANCE, NOT HARD RULES):**
+- Use environment metrics to decide which components are relevant (e.g., stepping/jumping/safety distance/relaxed height).
+- Prefer additive + clamped components; avoid multiplicative/unstable forms.
+- Tune thresholds/weights from analysis instead of hardcoding fixed values in the prompt.
+- Example ranges can inform design, but the generator should select/justify specifics.
 
 These patterns are battle-tested and known to work for humanoid locomotion. Use them as a foundation:
 
@@ -161,7 +168,7 @@ gait_reward *= (command_magnitude > 0.1).float()  # Only reward when actually mo
 
 **2. YAW-ALIGNED VELOCITY TRACKING (PROVEN SUPERIOR TO BODY FRAME):**
 
-**🚨 JUMP TASK REQUIREMENT: Always include forward velocity tracking for jump tasks, regardless of terrain type! Gap jumping requires maintained forward momentum for successful crossing - velocity tracking ensures robot doesn't stop before gaps.**
+**Jump task recommendation: Include forward velocity tracking to maintain momentum for gap crossing. This typically improves success and prevents stopping before gaps.**
 ```python
 # 🎯 PROVEN: Isaac Lab's yaw-frame tracking - VASTLY superior to basic body frame
 # CRITICAL: Decouples velocity control from robot tilt/lean (prevents control coupling)
@@ -174,7 +181,8 @@ commands = env.command_manager.get_command("base_velocity")
 # This is why Isaac Lab velocity tracking works so much better!
 vel_yaw = quat_apply_inverse(yaw_quat(robot.data.root_quat_w), robot.data.root_lin_vel_w[:, :3])
 lin_vel_error = torch.sum(torch.square(commands[:, :2] - vel_yaw[:, :2]), dim=1)
-vel_reward = torch.exp(-lin_vel_error / (1.0**2))  # Exponential kernel for smooth decay
+vel_diff = torch.norm(commands[:, :2] - vel_yaw[:, :2], dim=1)
+vel_reward = torch.clamp(1.0 - vel_diff, 0.0, 2.0)  # Clamped linear for stability
 
 # 🎯 CRITICAL: No reward for zero commands (anti-exploitation)
 vel_reward *= (torch.norm(commands[:, :2], dim=1) > 0.1).float()
@@ -194,7 +202,7 @@ robot = env.scene["robot"]
 
 # World frame angular velocity for consistent turning control
 ang_vel_error = torch.square(commands[:, 2] - robot.data.root_ang_vel_w[:, 2])
-ang_reward = torch.exp(-ang_vel_error / (1.0**2))
+ang_reward = torch.clamp(1.0 - torch.sqrt(ang_vel_error), 0.0, 2.0)
 ```
 
 **4. CONTACT-AWARE FOOT SLIDING PENALTY (INTELLIGENT SLIDING DETECTION):**
@@ -538,7 +546,7 @@ Isaac Lab SDS Environment - G1 Humanoid Locomotion
 
 **Fixed Joints (24 DOF):**
 - Hand Fingers: 14 DOF maintain default poses (zero, one, two, three, four, five, six_joint per hand)
-- Arms: 10 DOF maintain default poses
+- Arms: excluded from task-specific reward requirements (maintain default poses)
 
 ## Contact Detection (VERIFIED WORKING)
 **Foot Bodies**: `left_ankle_roll_link`, `right_ankle_roll_link`
@@ -589,7 +597,7 @@ double_support = (left_contact > 0.5) & (right_contact > 0.5)
     # robot.data.root_quat_w - orientation quaternion [w,x,y,z]
     # robot.data.joint_pos - joint positions [num_envs, 37] for G1 EDU U4 with dexterous hands (VERIFIED)
     # robot.data.joint_vel - joint velocities [num_envs, 37] (VERIFIED)
-    # CONTROLLED JOINTS (23 DOF): Use robot.find_joints() to get indices for legs + arms + torso (all except hand fingers)
+    # CONTROLLED JOINTS (23 DOF): Use robot.find_joints() to get indices for legs + torso (exclude arms and hand fingers)
     # HAND FINGER JOINTS (14 DOF): Excluded from control but can be accessed if needed
     # robot.data.root_pos_w[:, 2] - robot height [num_envs] - should be around 0.74m for G1 in Isaac Lab (VERIFIED)
     # robot.data.root_lin_vel_b - linear velocity in body frame [num_envs, 3]
@@ -643,7 +651,7 @@ double_support = (left_contact > 0.5) & (right_contact > 0.5)
     # HUMANOID-SPECIFIC CONSIDERATIONS:
     # - Bipedal stability is critical: balance and contact pattern rewards
     # - Height maintenance: G1 initial height is 0.74m in Isaac Lab (VERIFIED)
-    # - Upper body stability: maintain upright torso
+    # - Torso stability: maintain upright posture (exclude arm-specific requirements)
     # - Gait patterns: Walk (alternating with double support), Jump (synchronized takeoff/landing), March (controlled single support), Sprint (extended flight), Pace (lateral movement)
     # - Isaac Lab G1 joint structure: 37 DOF total (23 controlled + 14 fixed)
     # - CONTROLLED joint naming: left/right_hip_[yaw/roll/pitch]_joint, left/right_knee_joint, left/right_ankle_[pitch/roll]_joint, torso_joint
@@ -658,8 +666,8 @@ double_support = (left_contact > 0.5) & (right_contact > 0.5)
     #    Consider command-dependent weighting based on intended movement direction
     # 4. Temporal Coordination: Natural gaits involve timing and rhythm
     #    Consider phase relationships between limbs, contact duration, and step timing
-    # 5. Upper Body Integration: Torso contributes to locomotion stability
-    #    Consider how upper body motion supports or disrupts locomotion goals
+    # 5. Torso Integration: Torso contributes to locomotion stability
+#    Exclude arms from reward requirements; focus on torso-leg coordination
     # 6. Adaptive Contact Patterns: Different gaits require different contact strategies
     #    Analyze video to determine appropriate contact timing and patterns for the demonstrated behavior
     
@@ -1141,3 +1149,30 @@ terrain_bonus          # Small positive
 # Final composition (critical for stability)
 total = foundation * 0.6 + environmental * 0.4
 ``` 
+
+## Terrain Classification (Project-specific)
+
+Use the following terrain classes consistently across prompts and reward design:
+
+- 0 = SIMPLE (flat/clear):
+  - Behavior: Efficient walking only; sensors optional
+  - Reward hints: velocity tracking, gait single-stance, gentle height/orientation; minimal environmental terms
+
+- 1 = GAP:
+  - Behavior: Predictive gap handling (stepping for small, forward jump for medium), avoidance for impossible
+  - Sensors: Height scanner required (baseline 0.209m, ±0.07m); use forward sector
+  - Reward hints: foundation + gap preparation/clearance, bilateral air for jumps, stride adaptation
+
+- 2 = OBSTACLES:
+  - Behavior: Maintain safe distances, careful navigation/turning as needed
+  - Sensors: LiDAR required (distance via norm(ray_hits_w - pos_w))
+  - Reward hints: foundation + safety distance maintenance, penalize close approaches, conservative speed near obstacles
+
+- 3 = STAIRS:
+  - Behavior: Controlled descent/ascent; avoid gap misclassification
+  - Sensors: Height scanner patterns (gradual step-like changes)
+  - Reward hints: relaxed height constraints during stair phases, controlled vertical/lateral motion, forward progress
+
+Notes:
+- Prefer additive + clamped rewards; keep final clamp within [0, 5].
+- Switch behavior based on detected primary class; avoid simultaneous conflicting behaviors. 

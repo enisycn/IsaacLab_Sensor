@@ -6,6 +6,12 @@
 
 These guidance explanations are designed for creating **environment-aware locomotion rewards** that enable **intelligent sensor-driven behavior adaptation** for humanoid robots.
 
+How to use this tip (guidance, not prescriptions):
+- If the SUS includes `TERRAIN_CLASS: [0|1|2|3]`, use it to choose families of components (0 SIMPLE foundation-only; 1 GAP height-based handling; 2 OBSTACLES LiDAR safety; 3 STAIRS relaxed-height). Decide specific components/thresholds/weights from the analysis rather than hardcoding.
+- Keep rewards additive + clamped; include a small baseline (~+0.1); clamp final total (e.g., [0.0, 5.0]).
+- Sanitize sensors with `torch.isfinite`; avoid non-existent attributes; validate shapes.
+- Treat examples as patterns; do not copy constants verbatim.
+
 **🎯 PRIMARY OBJECTIVE:** 
 Create reward functions that make **measurable positive impact when sensors are used** compared to **without sensor usage**.
 
@@ -185,10 +191,10 @@ def sds_custom_reward(env) -> torch.Tensor:
 
 **NEVER respond with standalone text - ALWAYS generate the function!**
 
-**🚨 JUMP TASK VELOCITY TRACKING REQUIREMENT:**
-- **Jump task**: ALWAYS include forward velocity tracking (even on flat terrain)
-- **Implementation**: Use proven Isaac Lab velocity tracking patterns
-- **Reason**: Jump task trains forward jumping locomotion, not vertical jumping in place
+**Jump task recommendation:**
+- Typically include forward velocity tracking to maintain momentum for gap crossing (even on flat terrain)
+- Use proven yaw-aligned velocity tracking patterns when appropriate
+- Rationale: Forward jumping locomotion benefits from maintained forward momentum
 
 **🔧 ADAPTIVE JUMPING HEIGHT FOR JUMP TASKS:**
 - **Default**: Small jumps for flat terrain (~0.1m height for energy efficiency)

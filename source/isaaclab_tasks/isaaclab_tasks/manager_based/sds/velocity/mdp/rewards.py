@@ -162,19 +162,18 @@ def sds_custom_reward(env) -> torch.Tensor:
     # Height sensor data (Isaac Lab formula)
     sensor_pos = height_sensor.data.pos_w[:, 2].unsqueeze(1)  # [N, 1]
     ray_hits = height_sensor.data.ray_hits_w[..., 2]          # [N, rays]
-    terrain_heights = sensor_pos - ray_hits - 0.5            # [N, rays] - subtract 0.5m offset
+    terrain_heights_raw = sensor_pos - ray_hits - 0.5         # [N, rays] - subtract 0.5m offset
+    # Keep infinities for classification (extreme gaps). Compute masks once.
+    finite_mask = torch.isfinite(terrain_heights_raw) & (torch.abs(terrain_heights_raw) < 10.0)
+    inf_mask = ~torch.isfinite(terrain_heights_raw)
+    terrain_heights = terrain_heights_raw  # preserve raw for thresholding; use masks in comparisons
     
-    # Handle invalid readings and filter out readings from unstable robots
     # ✅ STABILITY FILTER: Exclude readings from tilted/fallen robots
     robot_upright = u_torso_y > 0.7  # Robot is reasonably upright (gravity projection)
     robot_height_ok = h_pelvis > (h_star - 0.2)  # Robot hasn't fallen too much
     robot_stable = robot_upright & robot_height_ok  # Combined stability check
     
-    terrain_heights = torch.where(
-        torch.isfinite(terrain_heights) & (torch.abs(terrain_heights) < 10.0),
-        terrain_heights,
-        torch.zeros_like(terrain_heights)
-    )
+    # Note: Do not overwrite non-finite values here; they indicate extreme gaps and are handled below
     
     # ✅ SIMPLIFIED: Use fixed baseline consistently for training stability
     baseline_height_standard = 0.209  # Standard G1 baseline from Isaac Lab guide
@@ -200,20 +199,24 @@ def sds_custom_reward(env) -> torch.Tensor:
     obstacle_threshold = baseline_threshold # 7cm below baseline = obstacles
     
     # Extract rays for gap detection (use ALL rays for unbiased detection)
-    forward_heights = terrain_heights  # [N, all_rays] - Use all sensor data for fair detection
+    forward_heights = terrain_heights  # [N, all_rays]
     
     # ✅ CORRECT: Isaac Lab terrain classification (following guide exactly)
     # OBSTACLES: Lower readings (< baseline - threshold) = Terrain HIGHER than expected
-    obstacle_detected_rays = forward_heights < (baseline_height.unsqueeze(-1) - obstacle_threshold)  # [N, all_rays]
+    obstacle_detected_rays = finite_mask & (
+        forward_heights < (baseline_height.unsqueeze(-1) - obstacle_threshold)
+    )  # [N, all_rays]
     
     # GAPS: Higher readings (> baseline + threshold) = Terrain LOWER than expected
-    gap_detected_rays = forward_heights > (baseline_height.unsqueeze(-1) + gap_threshold)  # [N, all_rays]
+    gap_detected_rays = finite_mask & (
+        forward_heights > (baseline_height.unsqueeze(-1) + gap_threshold)
+    )  # [N, all_rays]
     
     # NORMAL TERRAIN: Between thresholds = Expected terrain level
-    normal_terrain_rays = ~obstacle_detected_rays & ~gap_detected_rays & torch.isfinite(forward_heights)  # [N, all_rays]
+    normal_terrain_rays = finite_mask & ~obstacle_detected_rays & ~gap_detected_rays  # [N, all_rays]
     
     # EXTREME GAPS: Infinite readings (no ground detected within range)
-    extreme_gap_rays = ~torch.isfinite(forward_heights)  # [N, all_rays]
+    extreme_gap_rays = inf_mask  # [N, all_rays]
     
     # Summary detection flags
     any_gap_detected = torch.any(gap_detected_rays | extreme_gap_rays, dim=1)  # [N] - any gaps ahead
@@ -317,19 +320,26 @@ def sds_custom_reward(env) -> torch.Tensor:
     current_y = root_pos[:, 1]  # Robot's current Y position
     
     distance_to_waypoint = torch.sqrt((current_x - target_x)**2 + (current_y - target_y)**2)  # [N]
+    # Progress shaping: reward reduction in distance to waypoint step-to-step
+    if not hasattr(env, '_prev_distance_to_wp'):
+        env._prev_distance_to_wp = distance_to_waypoint.clone()
+    dist_improvement = torch.clamp(env._prev_distance_to_wp - distance_to_waypoint, 0.0, 1.0)
+    w_dist_improve = 0.0  # disabled for scattered gaps
+    reward += w_dist_improve * dist_improvement
+    env._prev_distance_to_wp = distance_to_waypoint.clone()
     
     # 🎯 DISTANCE-BASED ATTRACTION: Stronger reward as robot gets closer to waypoint
     max_distance = 5.0  # Maximum expected distance (robot spawns ~3m away)
     normalized_distance = torch.clamp(distance_to_waypoint / max_distance, 0.0, 1.0)  # [N] - [0,1]
     proximity_reward = (1.0 - normalized_distance) * 2.0  # Higher reward when closer (max +2.0)
-    w_proximity = 0.8
+    w_proximity = 0.0  # disabled for scattered gaps
     reward += w_proximity * proximity_reward
     
     # 🏆 WAYPOINT REACHED BONUS: Major reward for reaching the target
-    waypoint_threshold = 0.5  # 50cm radius around target (0, 3)
+    waypoint_threshold = 0.5  # 50cm radius around target (unused here)
     waypoint_reached = distance_to_waypoint < waypoint_threshold  # [N] - boolean
-    waypoint_bonus = waypoint_reached.float() * 10.0  # +10.0 bonus for reaching waypoint
-    w_waypoint = 1.0
+    waypoint_bonus = waypoint_reached.float() * 0.0  # disabled
+    w_waypoint = 0.0
     reward += w_waypoint * waypoint_bonus
     
     # 🎯 DIRECTIONAL GUIDANCE: Reward moving in the correct direction toward waypoint
@@ -347,7 +357,7 @@ def sds_custom_reward(env) -> torch.Tensor:
     velocity_alignment = (root_vel[:, 0] * direction_to_waypoint_x_norm + 
                          root_vel[:, 1] * direction_to_waypoint_y_norm)  # [N] - dot product
     alignment_reward = torch.clamp(velocity_alignment, 0.0, 2.0)  # Only positive alignment
-    w_alignment = 0.6
+    w_alignment = 0.0  # disabled for scattered gaps
     reward += w_alignment * alignment_reward
     
     # 🚧 LATERAL DEVIATION PENALTY: Penalize moving away from centerline (Y=0)
@@ -373,7 +383,7 @@ def sds_custom_reward(env) -> torch.Tensor:
     
     # ✅ ALIVE BONUS: Constant survival reward (from parkour research)
     # Encourages robot to stay upright and avoid falling into gaps
-    alive_bonus = 2.0  # Constant +2.0 per timestep for staying alive
+    alive_bonus = 1.0  # Reduced to prevent saturation
     w_alive = 1.0
     reward += w_alive * alive_bonus
     
@@ -407,16 +417,17 @@ def sds_custom_reward(env) -> torch.Tensor:
     
     # ─── 4. SENSOR-DRIVEN SHAPING ─────────────────────────────────────────────
     
-    # Gap detection reward
-    C_det = 1.0
-    r_detect = gap_in_range.float() * C_det
-    w_detect = 0.3
-    reward += w_detect * r_detect
+    # Remove positive detection bonus to avoid hugging the gap edge
+    # r_detect = gap_in_range.float() * C_det
+    # w_detect = 0.0  # disabled
+    # reward += w_detect * r_detect
     
     # Approach-speed shaping (when gap detected, target optimal takeoff speed)
     v_star = 1.2  # Optimal approach speed for jumping
     alpha_app = 0.5
-    r_app = torch.exp(-alpha_app * (v_x - v_star) ** 2) * gap_in_range.float()
+    # Scattered gaps: use any gap detection (no ring-sector gating)
+    gap_in_front = any_gap_detected
+    r_app = torch.exp(-alpha_app * (v_x - v_star) ** 2) * gap_in_front.float()
     w_app = 0.5
     reward += w_app * r_app
     
@@ -425,30 +436,36 @@ def sds_custom_reward(env) -> torch.Tensor:
     # Take-off position reward (when airborne and gap was detected)
     is_airborne = ~any_foot_contact & (h_pelvis > h_star + 0.05)  # Airborne = no contact + 5cm above target
     
-    if torch.any(is_airborne & gap_in_range):
+    if torch.any(is_airborne & gap_in_front):
         # Optimal takeoff distance before gap
         L_star = 0.3  # Takeoff 30cm before gap edge
         x_gap = x_base - d_gap  # Estimate gap start position
         takeoff_error = torch.abs(x_base - x_gap - L_star)
         
         alpha_to = 2.0
-        r_to = torch.exp(-alpha_to * takeoff_error ** 2) * is_airborne.float() * gap_in_range.float()
+        r_to = torch.exp(-alpha_to * takeoff_error ** 2) * is_airborne.float() * gap_in_front.float()
         w_to = 1.0
         reward += w_to * r_to
     
     # ✅ ENHANCED: Stronger jumping encouragement when gaps ahead
     # Penalize staying grounded when gaps are detected ahead
-    grounded_near_gap = any_foot_contact & gap_in_range & (d_gap < 1.0)  # Within 1.0m of gap
+    grounded_near_gap = any_foot_contact & gap_in_front  # Inner ring forward sector
     grounded_penalty = grounded_near_gap.float() * -2.0  # Stronger penalty for not jumping
     reward += grounded_penalty
     
     # Bonus for attempting to jump when gap ahead (even if not perfectly airborne)
-    attempting_jump = (v_z > 0.1) & gap_in_range  # More sensitive upward velocity detection
+    attempting_jump = (v_z > 0.1) & gap_in_front  # More sensitive upward velocity detection
+    # Require some forward progress since first seeing the gap to avoid jumping in place
+    if not hasattr(env, '_x_at_gap_for_jump'): env._x_at_gap_for_jump = torch.zeros(batch_size, device=device)
+    new_gap = gap_in_front & (env._x_at_gap_for_jump == 0.0)
+    env._x_at_gap_for_jump = torch.where(new_gap, x_base, env._x_at_gap_for_jump)
+    progressed_since_gap = (x_base - env._x_at_gap_for_jump) > 0.25
+    attempting_jump = attempting_jump & progressed_since_gap
     jump_attempt_bonus = attempting_jump.float() * 5.0  # Higher reward for jump attempts
     reward += jump_attempt_bonus
     
     # Additional bonus for higher jump attempts
-    strong_jump_attempt = (v_z > 0.3) & gap_in_range  # Strong upward velocity
+    strong_jump_attempt = (v_z > 0.3) & gap_in_front & progressed_since_gap  # Strong upward velocity
     strong_jump_bonus = strong_jump_attempt.float() * 3.0  # Extra bonus for strong jumps
     reward += strong_jump_bonus
     
@@ -471,7 +488,7 @@ def sds_custom_reward(env) -> torch.Tensor:
         foot_forward_distance = foot_pos_relative[:, :, 0]     # [N, 2] - how far forward each foot is
         
         # Check if robot is near a gap (within sensor range)
-        near_gap = gap_in_range  # [N] - boolean, robot detecting gap ahead
+        near_gap = gap_in_front  # [N] - boolean, gap ahead in forward sector
         
         # For robots near gaps, penalize foot contacts too close to gap edge
         # Gap is at ~2m forward, so danger zone is 1.7-2.3m forward from robot
@@ -498,15 +515,18 @@ def sds_custom_reward(env) -> torch.Tensor:
     
     # ─── 6. SUCCESS & FAILURE ─────────────────────────────────────────────────
     
-    # Successful cross bonus (when past the gap)
-    gap_width = 0.9  # Approximate gap width from terrain config (80-100cm)
-    x_gap_end = x_base - d_gap + gap_width  # Estimate gap end position
-    successfully_crossed = (x_base > x_gap_end) & gap_in_range
-    
-    C_succ = 5.0
-    r_succ = successfully_crossed.float() * C_succ
-    w_succ = 1.0
-    reward += w_succ * r_succ
+    # Event-based success: after first gap detection, bonus if moving forward > 0.6m
+    if not hasattr(env, '_gap_event_active'):
+        env._gap_event_active = torch.zeros(batch_size, dtype=torch.bool, device=device)
+        env._x_at_gap = torch.zeros(batch_size, device=device)
+    gap_rising = gap_in_front & (~env._gap_event_active)
+    env._x_at_gap = torch.where(gap_rising, x_base, env._x_at_gap)
+    env._gap_event_active = (env._gap_event_active | gap_rising) & (~waypoint_reached)  # keep until success
+    crossed = (x_base - env._x_at_gap > 0.6) & env._gap_event_active & (h_pelvis > 0.6)
+    r_succ = crossed.float() * 6.0
+    reward += r_succ
+    # reset on success
+    env._gap_event_active = torch.where(crossed, torch.zeros_like(env._gap_event_active, dtype=torch.bool), env._gap_event_active)
     
     # Collision penalty (simplified: if pelvis drops too low)
     collision_detected = h_pelvis < 0.5  # Below safe height
@@ -558,6 +578,8 @@ def sds_custom_reward(env) -> torch.Tensor:
     backward_penalty = torch.clamp(-v_x, 0.0, 2.0) * -3.0  # -6.0 max for backward velocity
     reward += backward_penalty
     
+    # Remove anti-orbit logic for scattered gaps
+    
     # ═══════════════════════════════════════════════════════════════════════════
     # 🐛 ENHANCED DEBUG OUTPUT (Show terrain stats every time)
     # ═══════════════════════════════════════════════════════════════════════════
@@ -577,7 +599,7 @@ def sds_custom_reward(env) -> torch.Tensor:
         # ✅ ALWAYS show terrain classification stats
         total_rays = forward_heights.shape[1] * batch_size
         total_obstacle_rays = torch.sum(obstacle_detected_rays).item()
-        total_gap_rays = torch.sum(gap_detected_rays).item()
+        total_gap_rays = (torch.sum(gap_detected_rays) + torch.sum(extreme_gap_rays)).item()
         total_normal_rays = torch.sum(normal_terrain_rays).item()
         
         print(f"🔍 TERRAIN CLASSIFICATION STATS:")
@@ -613,8 +635,8 @@ def sds_custom_reward(env) -> torch.Tensor:
             jump_attempts = torch.sum(attempting_jump).item()
             if jump_attempts > 0:
                 print(f"   🚀 Jump attempts: {jump_attempts}/{batch_size}")
-            if torch.any(successfully_crossed):
-                print(f"   ✅ Crossings: {torch.sum(successfully_crossed).item()}/{batch_size}")
+            if torch.any(crossed):
+                print(f"   ✅ Crossings: {torch.sum(crossed).item()}/{batch_size}")
         
         if obstacle_count > 0:
             print(f"🔺 OBSTACLES: {obstacle_count}/{batch_size} ({100*obstacle_count/batch_size:.1f}%)")

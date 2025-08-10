@@ -165,8 +165,8 @@ This error occurs when reward functions create unstable gradients that make the 
 **✅ MANDATORY STABILITY REQUIREMENTS:**
 ✅ **Simple additive structure**: `reward = a + b + c + baseline`
 ✅ **Moderate scaling**: Use factors 0.5-3.0, NOT 10.0+
-✅ **Proper clamping**: `.clamp(min=0.0, max=10.0)` on final reward
-✅ **Baseline bonus**: Always include +0.2 to +0.5 baseline
+✅ **Proper clamping**: `.clamp(min=0.0, max=5.0)` on final reward
+✅ **Baseline bonus**: Include a small +0.1 baseline
 
 **✅ SENSOR DATA SAFETY (CRITICAL FOR ENVIRONMENTAL SENSORS):**
 ✅ **Immediate sanitization**: `torch.where(torch.isfinite(sensor_data), sensor_data, fallback_value)`
@@ -175,6 +175,16 @@ This error occurs when reward functions create unstable gradients that make the 
 ✅ **Final safety check**: `torch.where(torch.isfinite(total), total, safe_fallback)` before return
 ✅ **Safe division**: `torch.clamp(denominator, min=1e-6)`
 ✅ **Bounded components**: Each component should be [0, 2] range
+
+## Project Terrain Classes (use for behavior switching)
+Note: Derive class from SUS/environment analysis (image + sensors). Do not rely on any config-provided terrain type.
+
+- 0 = SIMPLE: Efficient walking; sensors optional. Use only foundation components.
+- 1 = GAP: Height scanner required. Stepping for small gaps; forward jumping for medium; avoidance for impossible.
+- 2 = OBSTACLES: LiDAR required. Maintain safety distance; careful navigation; conservative speed when close.
+- 3 = STAIRS: Height pattern-based classification. Relax height constraints and encourage controlled descent/ascent with forward progress.
+
+Switch behavior based on the detected primary class. Do not combine conflicting behaviors.
 
 **STABLE REWARD TEMPLATE:**
 ```python
@@ -485,7 +495,7 @@ height_err = torch.abs(robot.data.root_pos_w[:, 2] - target_height)  # Use relat
 ```python
 # Use when: Flat terrain OR gap crossing (large stepping) OR consistent platform heights
 height_err = torch.abs(robot.data.root_pos_w[:, 2] - 0.74)  # Target height above world origin
-height_reward = torch.exp(-height_err / 0.3)
+height_reward = torch.clamp(1.0 - (height_err / 0.3), 0.0, 2.0)
 ```
 
 **TERRAIN-RELATIVE HEIGHT - G1 baseline with terrain adaptation:**
@@ -504,7 +514,7 @@ baseline_deviation = torch.abs(avg_terrain_reading - baseline)  # Distance from 
 
 # Reward staying close to G1 baseline (±3cm tolerance for precise baseline tracking)
 clearance_threshold = 0.03  # 3cm tolerance from G1 baseline (much closer to baseline)
-terrain_adaptation_reward = torch.exp(-baseline_deviation / clearance_threshold) * 0.1
+terrain_adaptation_reward = torch.clamp(1.0 - (baseline_deviation / torch.clamp(clearance_threshold, min=1e-3)), 0.0, 1.0) * 0.1
 ```
 
 **DECISION GUIDE - Choose based on environment analysis:**
@@ -616,8 +626,8 @@ def sds_custom_reward(env) -> torch.Tensor:
 
     # Transform to yaw-aligned frame (much better than body frame)
     vel_yaw = quat_apply_inverse(yaw_quat(robot.data.root_quat_w), robot.data.root_lin_vel_w[:, :3])
-    lin_vel_error = torch.sum(torch.square(commands[:, :2] - vel_yaw[:, :2]), dim=1)
-    vel_reward = torch.exp(-lin_vel_error / (1.0**2))
+    vel_diff = torch.norm(commands[:, :2] - vel_yaw[:, :2], dim=1)
+    vel_reward = torch.clamp(1.0 - vel_diff, 0.0, 2.0)
     vel_reward *= (command_magnitude > 0.1).float()  # No reward for zero commands
     
     # === ROBUST BIPEDAL GAIT PATTERN ===
@@ -635,11 +645,11 @@ def sds_custom_reward(env) -> torch.Tensor:
     gait_reward = torch.clamp(gait_reward, max=0.5) * (command_magnitude > 0.1).float()
     
     # === STABLE HEIGHT & ORIENTATION ===
-    height_error = (robot.data.root_pos_w[:, 2] - (terrain_base_height + 0.74)).abs()  # Relative to terrain
+    height_error = (robot.data.root_pos_w[:, 2] - 0.74).abs()  # Absolute target height; prefer dynamic if defined
     height_reward = torch.exp(-height_error / 0.3)
     
     gravity_proj = robot.data.projected_gravity_b[:, :2]
-    lean_reward = torch.exp(-2.0 * torch.norm(gravity_proj, dim=1))
+    lean_reward = torch.clamp(1.0 - torch.norm(gravity_proj, dim=1), 0.0, 2.0)
     
     # === FOUNDATION TOTAL ===
     foundation_reward = (
@@ -653,7 +663,7 @@ def sds_custom_reward(env) -> torch.Tensor:
     # === ADD ENVIRONMENTAL IF ANALYSIS SHOWS FEATURES ===
     # Add terrain_bonus, obstacle_bonus, gap_navigation_bonus here if needed
     
-    return foundation_reward.clamp(min=0.1, max=10.0)
+    return foundation_reward.clamp(min=0.0, max=5.0)
 ```
 
 **CRITICAL: THESE BUGS WILL CRASH TRAINING!**
@@ -910,14 +920,15 @@ if torch.any(small_gaps):
     # ADAPTIVE STRIDE TARGET: Scale step length based on sensor-detected gap size
     height_sensor = env.scene.sensors["height_scanner"]
     height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
-    gap_width = torch.clamp(gap_width_raw, 0.0, 0.6)  # 0-60cm gap width (research-based)
+    # Derived from consecutive gap ray points (7.5cm per point)
+gap_width = torch.clamp(gap_width_raw, 0.0, 0.6)  # 0-60cm gap width (ensure gap_width_raw is computed as below)
     adaptive_stride_target = 0.6 + gap_width * 1.0  # 0.6-1.0m stride based on gap size
     
     stride_extension = torch.clamp(foot_separation / adaptive_stride_target, 0.0, 1.0)  # Adaptive stride
     
     # CONTROLLED FORWARD VELOCITY: Precise speed for accurate placement
     forward_velocity = robot.data.root_lin_vel_b[:, 0]
-    controlled_forward = torch.exp(-((forward_velocity - target_speed) / speed_tolerance).abs())  # Controlled speed
+    controlled_forward = torch.clamp(1.0 - ((forward_velocity - target_speed).abs() / torch.clamp(speed_tolerance, min=1e-3)), 0.0, 1.0)  # Controlled speed
     
     # FOOT CLEARANCE: Higher lift for small gap clearance
     swing_mask = (contact_time < 0.1)
@@ -989,7 +1000,7 @@ if torch.any(large_gaps):
     
     # CONSERVATIVE SPEED: Slow down near impossible gaps for safety
     forward_velocity = robot.data.root_lin_vel_b[:, 0]
-    conservative_speed = torch.exp(-torch.clamp(forward_velocity - safe_speed_limit, min=0.0) / speed_tolerance)
+    conservative_speed = torch.clamp(1.0 - (torch.clamp(forward_velocity - safe_speed_limit, min=0.0) / torch.clamp(speed_tolerance, min=1e-3)), 0.0, 1.0)
     
     avoidance_reward = turning_motion * 0.4 + lateral_motion * 0.3 + conservative_speed * 0.3
 else:
@@ -1375,7 +1386,7 @@ gait_reward *= (command_magnitude > 0.1).float()
 robot = env.scene["robot"]
 vel_yaw = quat_apply_inverse(yaw_quat(robot.data.root_quat_w), robot.data.root_lin_vel_w[:, :3])
 lin_vel_error = torch.sum(torch.square(commands[:, :2] - vel_yaw[:, :2]), dim=1)
-vel_reward = torch.exp(-lin_vel_error / (1.0**2))  # Exponential kernel for smooth gradients
+vel_reward = torch.clamp(1.0 - torch.sqrt(lin_vel_error), 0.0, 2.0)  # Clamped form for stability
 vel_reward *= (command_magnitude > 0.1).float()  # No reward for micro-movements
 ```
 
@@ -1402,7 +1413,7 @@ slide_penalty = torch.sum(body_vel.norm(dim=-1) * contacts, dim=1)  # Contact-aw
 ```python
 # 🚀 ISAAC LAB PROVEN: World frame for consistent turning control
 ang_vel_error = torch.square(commands[:, 2] - robot.data.root_ang_vel_w[:, 2])
-ang_reward = torch.exp(-ang_vel_error / (1.0**2))
+ang_reward = torch.clamp(1.0 - torch.sqrt(ang_vel_error), 0.0, 2.0)
 ```
 
 **5. HEIGHT MAINTENANCE - CHOOSE METHOD BASED ON ENVIRONMENT ANALYSIS:**

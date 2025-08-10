@@ -16,7 +16,7 @@ Your role is to provide structured, adaptive requirement frameworks that guide r
 **2. Stability Requirements:**
 - How does the robot maintain balance during locomotion?
 - What postural control is necessary for this movement type?
-- How critical is upper body stability vs lower body coordination?
+- How critical is torso stability vs lower body coordination? (exclude arm-specific requirements)
 
 **3. Efficiency Considerations:**
 - What makes this locomotion energy-efficient?
@@ -104,10 +104,10 @@ Your role is to provide structured, adaptive requirement frameworks that guide r
 - **Balance/Precision:** Very tight tracking for precision
 
 **Implementation Requirements:**
-- Replace binary success/failure with continuous exponential rewards
-- Use smooth exponential functions for gradient-friendly landscapes
-- Adjust scaling factors based on task tolerance requirements
-- Provide smooth reward landscapes for effective learning
+- Prefer clamped linear or Huber-like rewards over exponentials
+- If exponentials are used, bound inputs and clamp outputs to safe ranges
+- Adjust scaling factors conservatively to avoid instability
+- Provide dense and smoothly increasing reward landscapes
 
 ### 2. CONTEXT-DEPENDENT REWARD SWITCHING
 **Universal Principle:** Different behaviors rewarded in different movement phases

@@ -26,7 +26,7 @@ In addition to gait pattern recognition, analyze these critical movement quality
 - **Upright alignment:** Does the torso maintain appropriate vertical orientation during walking?
 - **Dynamic balance:** Does posture adjust naturally throughout the gait cycle?
 
-**NATURAL UPPER BODY COORDINATION:**
+[Removed arm-specific content]
 - **Torso stability:** Does the upper body maintain natural stability during movement?
 - **Balance control:** Does the torso provide appropriate balance assistance?
 - **Movement freedom:** Does the upper body appear relaxed and naturally mobile or rigid and restricted?
@@ -204,24 +204,24 @@ The gait descriptions below are **REFERENCE FRAMEWORKS** to guide your analysis 
 - **Timing Coordination:** Proper sequencing of hip→knee→ankle motion
 - **Smooth Transitions:** Gradual transitions between stance and swing phases
 
-**NATURAL UPPER BODY STABILITY - ELIMINATING ROBOTIC MOVEMENT:**
+**TORSO STABILITY - ELIMINATING ROBOTIC MOVEMENT:**
 
-**HUMAN UPPER BODY CHARACTERISTICS:**
+**TORSO CHARACTERISTICS:**
 Natural human walking involves upper body stability and balance control that provides efficient movement support:
 
 **NATURAL TORSO COORDINATION:**
 - **Stability:** Torso maintains appropriate stability during movement
-- **Natural Movement:** Upper body provides natural balance assistance
+- **Natural Movement:** Torso provides natural balance assistance
 - **Energy Efficiency:** Natural torso control reduces metabolic cost
 - **Balance Assistance:** Upper body helps maintain lateral balance and stability
 - **Momentum Management:** Torso helps control movement momentum
 - **Speed Adaptation:** Upper body adapts appropriately to walking speed
 
-**INDICATORS OF NATURAL UPPER BODY MOVEMENT:**
+**INDICATORS OF NATURAL TORSO MOVEMENT:**
 - **Smooth Stability:** Consistent, controlled stability patterns
 - **Appropriate Control:** Natural range of motion, not excessive or restricted
-- **Relaxed Posture:** Upper body moves naturally, not held rigid
-- **Speed Coupling:** Upper body control adapts appropriately to walking speed
+- **Relaxed Posture:** Torso motion is natural, not rigid
+- **Speed Coupling:** Torso control adapts appropriately to walking speed
 - **Bilateral Symmetry:** Left and right sides show similar stability patterns
 
 **NATURAL MOVEMENT PHASES FOR ALL GAITS:**
@@ -253,7 +253,7 @@ Every gait pattern consists of NATURAL PHASES that must transition smoothly:
 - **Ankle control:** Fine-tuned pitch and roll adjustments for balance and ground contact management
 - **Bilateral symmetry:** For synchronized gaits, corresponding joints should move similarly with temporal coordination
 
-**FULL-BODY JOINT HARMONY FOR LOCOMOTION COORDINATION:**
+**JOINT HARMONY FOR LOCOMOTION COORDINATION (LEGS + TORSO):**
 
 **Understanding Complete Humanoid Movement:**
 Natural human locomotion requires coordinated movement across controlled joints (12 legs + 1 torso). Each gait type demands specific patterns of leg-torso coordination for optimal biomechanical efficiency and natural movement quality.
@@ -595,7 +595,7 @@ Ensure all DOF contribute positively to movement objectives:
    - Identify smooth muscle loading phases, controlled movements, and gentle landing control
    - Look for coordination between limbs and proper joint flexion WITHOUT harsh motions
    - **Assess Full-Body Coordination:** Evaluate how all DOF (legs, torso) work together for the specific gait type
-   - **Verify Joint Harmony:** Ensure upper body complements legs appropriately and torso provides suitable stability/dynamics
+   - **Verify Joint Harmony:** Ensure torso complements legs appropriately and provides suitable stability/dynamics
 
 2. **Analyze Contact Patterns for Natural Gait Signature:**
    - Examine the sequence of foot contact states provided in the table
@@ -667,20 +667,20 @@ The contact patterns show synchronized bilateral contact phases with controlled 
 **Basic Vertical Jump Indicators:**
 - Height: 10-25cm clearance
 - Movement quality: Gentle, controlled
-- Upper body coordination: Simple synchronized upward movement
+- Torso coordination: Simple synchronized upward movement
 - Contact pattern: 0 or 2 feet (flight or bilateral stance)
 
 **Backflip Indicators:**
 - Height: 1.0-1.2m minimum (much higher than basic jumps)
 - Movement quality: Explosive power generation for rotation
-- Upper body coordination: Complex phase-specific patterns
+- Torso coordination: Complex phase-specific patterns
 - Contact pattern: Preparation → extended flight → controlled landing
 - Rotation: 360° backward somersault
 
 **Walking/March/Pace Indicators:**
 - Height: Terrain-relative maintained consistently using height sensor
 - Movement quality: Smooth, controlled locomotion
-- Upper body coordination: Natural stability (walking) or compensatory (pace)
+- Torso coordination: Natural stability (walking) or compensatory (pace)
 - Contact pattern: Alternating or lateral movement
 **Contacts:** Feet should not drag. Lifting feet should 4-5 cm should be like human-like. 
 
@@ -688,7 +688,7 @@ The contact patterns show synchronized bilateral contact phases with controlled 
 **Sprint Indicators:**
 - Height: Terrain-relative maintained during high-speed movement using sensor feedback
 - Movement quality: Dynamic power with controlled acceleration
-- Upper body coordination: Dynamic engagement for forward propulsion
+- Torso coordination: Dynamic engagement for forward propulsion
 - Contact pattern: Brief stance phases with extended flight
 
 **Final Note:**

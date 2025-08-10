@@ -58,11 +58,11 @@ def sds_custom_reward(env) -> torch.Tensor:
     height = torch.clamp(height_component, 0.0, 2.0)
     stability = torch.clamp(stability_component, 0.0, 2.0)
     
-    # ADDITIVE combination with baseline
-    total = velocity * 2.0 + height * 1.5 + stability * 1.0 + 0.3
+    # ADDITIVE combination with small baseline
+    total = velocity * 2.0 + height * 1.5 + stability * 1.0 + 0.1
     
     # MANDATORY: Final bounds
-    return total.clamp(min=0.1, max=8.0)
+    return total.clamp(min=0.0, max=5.0)
 ```
 
 🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
@@ -145,7 +145,7 @@ Isaac Lab reward functions can encounter various runtime errors. Here's how to d
 ```python
 # Use when: Flat terrain OR gap crossing (large stepping) OR consistent platform heights
 height_err = torch.abs(robot.data.root_pos_w[:, 2] - 0.74)  # Target height above world origin
-height_reward = torch.exp(-height_err / 0.3)
+height_reward = torch.clamp(1.0 - (height_err / 0.3), 0.0, 2.0)
 ```
 
 **TERRAIN-RELATIVE HEIGHT - For adaptive surface following:**

@@ -6,8 +6,9 @@ import re
 from utils.extract_task_code import file_to_string
 from openai import OpenAI
 import time
+import random
 
-def gpt_query(sample,messages,temperature,model):
+def gpt_query(sample,messages,temperature,model, enable_500_fallback=True):
     client = OpenAI()  # API key automatically loaded from OPENAI_API_KEY environment variable
     responses = []
     response_cur = None
@@ -15,29 +16,79 @@ def gpt_query(sample,messages,temperature,model):
     total_token = 0
     total_completion_token = 0
     chunk_size = 4
+    has_tried_reduced_detail = False
+
+    # Enforce temperature=1.0 for reasoning-style models that only accept default temperature
+    reasoning_prefixes = ['o1', 'o1-mini', 'o1-preview', 'o3', 'o3-mini', 'o4-mini', 'gpt-5', 'gpt-5-mini']
+    if any(str(model).startswith(prefix) for prefix in reasoning_prefixes):
+        temperature = 1.0
+
+    def reduce_image_detail_in_messages(msg_list):
+        """Reduce image detail from 'high' to 'low' to decrease payload size."""
+        modified_messages = []
+        for message in msg_list:
+            if isinstance(message, dict):
+                modified_message = message.copy()
+                if isinstance(message.get('content'), list):
+                    modified_content = []
+                    for item in message['content']:
+                        if isinstance(item, dict) and item.get('type') == 'image_url':
+                            modified_item = item.copy()
+                            if 'image_url' in modified_item and isinstance(modified_item['image_url'], dict):
+                                modified_item['image_url'] = modified_item['image_url'].copy()
+                                modified_item['image_url']['detail'] = 'low'
+                            modified_content.append(modified_item)
+                        else:
+                            modified_content.append(item)
+                    modified_message['content'] = modified_content
+                modified_messages.append(modified_message)
+            else:
+                modified_messages.append(message)
+        return modified_messages
 
     while True:
         if total_samples >= sample:
             break
-        for attempt in range(3):
+            
+        # Enhanced retry logic with exponential backoff for 500 errors
+        max_retries = 5
+        base_delay = 2
+        current_messages = messages
+        
+        for attempt in range(max_retries):
             try:
                 response_cur = client.chat.completions.create(
                     model=model,
-                    messages=messages,
+                    messages=current_messages,
                     temperature=temperature,
                     n=chunk_size
                 )
                 total_samples += chunk_size
                 break
+                
             except Exception as e:
-                if attempt >= 10:
-                    chunk_size = max(int(chunk_size / 2), 1)
-                    print("Current Chunk Size", chunk_size)
-                logging.info(f"Attempt {attempt+1} failed with error: {e}")
-                time.sleep(1)
+                error_str = str(e)
+                
+                # Handle 500 Internal Server Error specifically
+                if "500" in error_str or "Internal Server Error" in error_str:
+                    # Simple 500 error handling: reduce chunk size and wait
+                    if attempt == 0:
+                        chunk_size = max(int(chunk_size / 2), 1)
+                        logging.info(f"500 error - reducing chunk size to {chunk_size}")
+                    
+                elif "400" in error_str or "Bad Request" in error_str:
+                    logging.error(f"400 Bad Request error: {e}")
+                    if attempt >= 1:
+                        break
+                        
+                # Wait before retry
+                delay = min(2 * (attempt + 1), 10)  # Max 10 seconds
+                logging.warning(f"API error attempt {attempt+1}: {e}, retrying in {delay}s")
+                time.sleep(delay)
+                
         if response_cur is None:
-            logging.info("Code terminated due to too many failed attempts!")
-            exit()
+            logging.error("Failed to get response after all retries")
+            return {"choices": [{"message": {"content": "Error: Failed to get response from API"}}]}
 
         # Convert new response format to old format for compatibility
         for choice in response_cur.choices:
@@ -180,124 +231,136 @@ def construct_run_log(stdout_str):
     lines = stdout_str.split('\n')
     
     # Handle both old table format and new Isaac Lab format
-    for i, line in enumerate(lines):
+    for line in lines:
         line = line.strip()
+        if not line:
+            continue
         
         # Old table format with │ separators
         if line.startswith("│") and line.endswith("│"):
-            line = line[1:-1].split("│")
-            key, val = line[0].strip(), line[1].strip()
+            cells = line[1:-1].split("│")
+            if len(cells) >= 2:
+                key, val_str = cells[0].strip(), cells[1].strip()
             if key == "timesteps" or key == "iterations":
                 key = key + "/"
             elif "train/episode/rew" in key:
                 key = key.split("/")[2]
             elif key == "train/episode/episode length/mean":
                 key = "episode length"
-            run_log[key] = run_log.get(key, []) + [float(val)]
+                try:
+                    val = float(val_str)
+                    run_log[key] = run_log.get(key, []) + [val]
+                except Exception:
+                    # Ignore lines that cannot be parsed as float
+                    pass
+            continue
         
-        # ✅ ENHANCED: Extract ALL Isaac Lab training metrics
-        else:
-            try:
-                # Core training metrics (existing)
-                if "Mean episode length:" in line:
+        # Enhanced: Extract ALL Isaac Lab training metrics
+        try:
+            # Core training metrics
+            if "Mean episode length:" in line:
                 val = float(line.split("Mean episode length:")[-1].strip())
                 run_log["episode length"] = run_log.get("episode length", []) + [val]
-        elif "Mean reward:" in line:
+            elif "Mean reward:" in line:
                 val = float(line.split("Mean reward:")[-1].strip())
                 run_log["reward"] = run_log.get("reward", []) + [val]
-        elif "Learning iteration" in line and "/" in line:
+            elif "Learning iteration" in line and "/" in line:
                 iteration_part = line.split("Learning iteration")[-1].split("/")[0].strip()
                 val = float(iteration_part)
                 run_log["iterations/"] = run_log.get("iterations/", []) + [val]
                 
-                # ✅ NEW: Training performance metrics
-                elif "Mean action noise std:" in line:
-                    val = float(line.split("Mean action noise std:")[-1].strip())
-                    run_log["action_noise_std"] = run_log.get("action_noise_std", []) + [val]
-                elif "Mean value_function loss:" in line:
-                    val = float(line.split("Mean value_function loss:")[-1].strip())
-                    run_log["value_function_loss"] = run_log.get("value_function_loss", []) + [val]
-                elif "Mean surrogate loss:" in line:
-                    val = float(line.split("Mean surrogate loss:")[-1].strip())
-                    run_log["surrogate_loss"] = run_log.get("surrogate_loss", []) + [val]
-                elif "Mean entropy loss:" in line:
-                    val = float(line.split("Mean entropy loss:")[-1].strip())
-                    run_log["entropy_loss"] = run_log.get("entropy_loss", []) + [val]
+            # Training performance metrics
+            elif "Mean action noise std:" in line:
+                val = float(line.split("Mean action noise std:")[-1].strip())
+                run_log["action_noise_std"] = run_log.get("action_noise_std", []) + [val]
+            elif "Mean value_function loss:" in line:
+                val = float(line.split("Mean value_function loss:")[-1].strip())
+                run_log["value_function_loss"] = run_log.get("value_function_loss", []) + [val]
+            elif "Mean surrogate loss:" in line:
+                val = float(line.split("Mean surrogate loss:")[-1].strip())
+                run_log["surrogate_loss"] = run_log.get("surrogate_loss", []) + [val]
+            elif "Mean entropy loss:" in line:
+                val = float(line.split("Mean entropy loss:")[-1].strip())
+                run_log["entropy_loss"] = run_log.get("entropy_loss", []) + [val]
                 
-                # ✅ NEW: Reward component breakdown
-                elif "Episode_Reward/sds_custom:" in line:
-                    val = float(line.split("Episode_Reward/sds_custom:")[-1].strip())
-                    run_log["reward_sds_custom"] = run_log.get("reward_sds_custom", []) + [val]
+            # Reward component breakdown
+            elif "Episode_Reward/sds_custom:" in line:
+                val = float(line.split("Episode_Reward/sds_custom:")[-1].strip())
+                run_log["reward_sds_custom"] = run_log.get("reward_sds_custom", []) + [val]
                 
-                # ✅ NEW: Curriculum progression
-                elif "Curriculum/terrain_levels:" in line:
-                    val = float(line.split("Curriculum/terrain_levels:")[-1].strip())
-                    run_log["curriculum_terrain_levels"] = run_log.get("curriculum_terrain_levels", []) + [val]
+            # Curriculum progression
+            elif "Curriculum/terrain_levels:" in line:
+                val = float(line.split("Curriculum/terrain_levels:")[-1].strip())
+                run_log["curriculum_terrain_levels"] = run_log.get("curriculum_terrain_levels", []) + [val]
                 
-                # ✅ NEW: Task performance metrics
-                elif "Metrics/base_velocity/error_vel_xy:" in line:
-                    val = float(line.split("Metrics/base_velocity/error_vel_xy:")[-1].strip())
-                    run_log["velocity_error_xy"] = run_log.get("velocity_error_xy", []) + [val]
-                elif "Metrics/base_velocity/error_vel_yaw:" in line:
-                    val = float(line.split("Metrics/base_velocity/error_vel_yaw:")[-1].strip())
-                    run_log["velocity_error_yaw"] = run_log.get("velocity_error_yaw", []) + [val]
+            # Task performance metrics
+            elif "Metrics/base_velocity/error_vel_xy:" in line:
+                val = float(line.split("Metrics/base_velocity/error_vel_xy:")[-1].strip())
+                run_log["velocity_error_xy"] = run_log.get("velocity_error_xy", []) + [val]
+            elif "Metrics/base_velocity/error_vel_yaw:" in line:
+                val = float(line.split("Metrics/base_velocity/error_vel_yaw:")[-1].strip())
+                run_log["velocity_error_yaw"] = run_log.get("velocity_error_yaw", []) + [val]
                 
-                # ✅ NEW: Episode termination analysis
-                elif "Episode_Termination/time_out:" in line:
-                    val = float(line.split("Episode_Termination/time_out:")[-1].strip())
-                    run_log["termination_timeout"] = run_log.get("termination_timeout", []) + [val]
-                elif "Episode_Termination/base_contact:" in line:
-                    val = float(line.split("Episode_Termination/base_contact:")[-1].strip())
-                    run_log["termination_base_contact"] = run_log.get("termination_base_contact", []) + [val]
+            # Episode termination analysis
+            elif "Episode_Termination/time_out:" in line:
+                val = float(line.split("Episode_Termination/time_out:")[-1].strip())
+                run_log["termination_timeout"] = run_log.get("termination_timeout", []) + [val]
+            elif "Episode_Termination/base_contact:" in line:
+                val = float(line.split("Episode_Termination/base_contact:")[-1].strip())
+                run_log["termination_base_contact"] = run_log.get("termination_base_contact", []) + [val]
                 
-                # ✅ NEW: Computation performance metrics
-                elif "Computation:" in line and "steps/s" in line:
-                    # Extract "27297 steps/s" from "Computation: 27297 steps/s (collection: 2.369s, learning 0.268s)"
-                    parts = line.split("steps/s")[0].split(":")[-1].strip()
+            # Computation performance metrics
+            elif "Computation:" in line and "steps/s" in line:
+                # Extract "27297 steps/s" from "Computation: 27297 steps/s (collection: 2.369s, learning 0.268s)"
+                parts = line.split("steps/s")[0].split(":")[-1].strip()
+                try:
                     val = float(parts)
                     run_log["computation_steps_per_sec"] = run_log.get("computation_steps_per_sec", []) + [val]
+                except Exception:
+                    pass
                     
                     # Extract collection and learning times if present
                     if "collection:" in line and "learning" in line:
-                        collection_part = line.split("collection:")[-1].split("s")[0].strip()
-                        learning_part = line.split("learning")[-1].split("s")[0].strip()
-                        run_log["collection_time"] = run_log.get("collection_time", []) + [float(collection_part)]
-                        run_log["learning_time"] = run_log.get("learning_time", []) + [float(learning_part)]
+                        try:
+                            collection_part = line.split("collection:")[-1].split("s")[0].strip()
+                            learning_part = line.split("learning")[-1].split("s")[0].strip()
+                            run_log["collection_time"] = run_log.get("collection_time", []) + [float(collection_part)]
+                            run_log["learning_time"] = run_log.get("learning_time", []) + [float(learning_part)]
+                        except Exception:
+                            pass
                 
-                # ✅ NEW: Additional reward components (dynamic extraction)
-                elif line.startswith("Episode_Reward/") and ":" in line:
-                    # Extract any Episode_Reward/* metrics dynamically
-                    metric_name = line.split(":")[0].strip().replace("Episode_Reward/", "reward_")
-                    val = float(line.split(":")[-1].strip())
-                    run_log[metric_name] = run_log.get(metric_name, []) + [val]
+            # Dynamic extraction for any Episode_Reward/* metrics
+            elif line.startswith("Episode_Reward/") and ":" in line:
+                metric_name = line.split(":")[0].strip().replace("Episode_Reward/", "reward_")
+                val = float(line.split(":")[-1].strip())
+                run_log[metric_name] = run_log.get(metric_name, []) + [val]
                 
-                # ✅ NEW: Additional metrics (dynamic extraction)
-                elif line.startswith("Metrics/") and ":" in line:
-                    # Extract any Metrics/* dynamically
-                    metric_name = line.split(":")[0].strip().replace("Metrics/", "metric_").replace("/", "_")
-                    val = float(line.split(":")[-1].strip())
-                    run_log[metric_name] = run_log.get(metric_name, []) + [val]
+            # Dynamic extraction for any Metrics/* metrics
+            elif line.startswith("Metrics/") and ":" in line:
+                metric_name = line.split(":")[0].strip().replace("Metrics/", "metric_").replace("/", "_")
+                val = float(line.split(":")[-1].strip())
+                run_log[metric_name] = run_log.get(metric_name, []) + [val]
                 
-                # ✅ NEW: Environmental sensing and stability metrics (specific extraction)
-                elif "Metrics/terrain_stability:" in line:
-                    val = float(line.split("Metrics/terrain_stability:")[-1].strip())
-                    run_log["terrain_height_variance"] = run_log.get("terrain_height_variance", []) + [val]
-                elif "Metrics/terrain_complexity:" in line:
-                    val = float(line.split("Metrics/terrain_complexity:")[-1].strip())
-                    run_log["terrain_complexity_score"] = run_log.get("terrain_complexity_score", []) + [val]
-                elif "Metrics/robot_height_stability:" in line:
-                    val = float(line.split("Metrics/robot_height_stability:")[-1].strip())
-                    run_log["robot_height_baseline"] = run_log.get("robot_height_baseline", []) + [val]
-                elif "Metrics/body_orientation_stability:" in line:
-                    val = float(line.split("Metrics/body_orientation_stability:")[-1].strip())
-                    run_log["body_orientation_deviation"] = run_log.get("body_orientation_deviation", []) + [val]
-                elif "Metrics/height_tracking_accuracy:" in line:
-                    val = float(line.split("Metrics/height_tracking_accuracy:")[-1].strip())
-                    run_log["height_tracking_error"] = run_log.get("height_tracking_error", []) + [val]
+            # Environmental sensing and stability metrics (specific extraction)
+            elif "Metrics/terrain_stability:" in line:
+                val = float(line.split("Metrics/terrain_stability:")[-1].strip())
+                run_log["terrain_height_variance"] = run_log.get("terrain_height_variance", []) + [val]
+            elif "Metrics/terrain_complexity:" in line:
+                val = float(line.split("Metrics/terrain_complexity:")[-1].strip())
+                run_log["terrain_complexity_score"] = run_log.get("terrain_complexity_score", []) + [val]
+            elif "Metrics/robot_height_stability:" in line:
+                val = float(line.split("Metrics/robot_height_stability:")[-1].strip())
+                run_log["robot_height_baseline"] = run_log.get("robot_height_baseline", []) + [val]
+            elif "Metrics/body_orientation_stability:" in line:
+                val = float(line.split("Metrics/body_orientation_stability:")[-1].strip())
+                run_log["body_orientation_deviation"] = run_log.get("body_orientation_deviation", []) + [val]
+            elif "Metrics/height_tracking_accuracy:" in line:
+                val = float(line.split("Metrics/height_tracking_accuracy:")[-1].strip())
+                run_log["height_tracking_error"] = run_log.get("height_tracking_error", []) + [val]
                 
-            except (ValueError, IndexError):
-                # Skip lines that can't be parsed as metrics
-                continue
+        except (ValueError, IndexError):
+            # Skip lines that can't be parsed as metrics
+            continue
     
     # Ensure we have some episode length data for backward compatibility
     if "episode length" not in run_log and "reward" in run_log:

@@ -33,19 +33,92 @@ Enable comparison studies demonstrating:
 
 ---
 
-🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨��🚨🚨🚨🚨🚨🚨🚨🚨🚨
+🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
 🚨🚨🚨 ISAAC LAB STANDARD: RAW SENSOR ACCESS FOR REWARD FUNCTIONS 🚨🚨🚨
 🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
 
-**🚨 CRITICAL: NEVER IMPORT ISAAC LAB MDP FUNCTIONS IN CUSTOM REWARDS!**
-```python
-# ❌ THESE WILL CAUSE ImportError:
-from __main__ import feet_air_time_positive_biped
-from isaaclab.mdp import any_function
-import isaaclab_tasks.manager_based.locomotion.velocity.mdp as mdp
+**🚀 CRITICAL: USE PROVEN ISAAC LAB REWARD COMPONENTS THAT ARE ALREADY AVAILABLE!**
 
-# ✅ SAFE IMPORTS ONLY:
+**✅ THESE FUNCTIONS ARE ALREADY AVAILABLE IN THE SAME FILE (rewards.py):**
+```python
+# ✅ USE THESE PROVEN FUNCTIONS - NO IMPORTS NEEDED:
+feet_air_time_positive_biped(env, command_name, threshold, sensor_cfg)
+feet_slide(env, sensor_cfg, asset_cfg)  # asset_cfg defaults to SceneEntityCfg("robot")
+track_lin_vel_xy_yaw_frame_exp(env, std, command_name, asset_cfg)  # asset_cfg defaults to SceneEntityCfg("robot")
+track_ang_vel_z_world_exp(env, command_name, std, asset_cfg)  # asset_cfg defaults to SceneEntityCfg("robot")
+
+# ✅ SAFE IMPORTS ALREADY DONE:
 # NOTE: torch, quat_apply_inverse, yaw_quat, SceneEntityCfg already imported in rewards.py
+
+# 🚨 CRITICAL: G1 ROBOT FOOT LINK NAMES (ALWAYS USE THESE):
+# For G1 robot, contact sensors are configured with pattern ".*_ankle_roll_link"
+# This matches: left_ankle_roll_link, right_ankle_roll_link
+# 
+# 🚨 CRITICAL: sensor_cfg and asset_cfg body_names MUST BE IDENTICAL for feet_slide()
+# Both must use the same body_names pattern to avoid tensor dimension mismatches
+# 
+# 🚨 CRITICAL: sensor_cfg and asset_cfg body_names MUST BE IDENTICAL for feet_slide()
+# Both must use the same body_names pattern to avoid tensor dimension mismatches
+# 
+# FEET SLIDE SHAPE CONSISTENCY:
+# Use identical body_names for sensor_cfg and asset_cfg (e.g., ".*_ankle_roll_link").
+# Resolve foot indices once with contact_sensor.find_bodies() and reuse for both contacts and body velocities.
+# Apply a 50 N contact threshold and include a shape guard assertion if implementing inline.
+
+# ✅ CRITICAL SHAPE CONSISTENCY FOR FEET SLIDING (MUST FOLLOW)
+# Always resolve foot indices once and reuse the SAME indices for both contacts and velocities.
+# Prefer explicit index selection over patterns that match extra links.
+# If more than 4 indices are returned, constrain to ankle links only.
+# Add a shape guard assertion to catch mismatches early.
+# Example reference implementation:
+#
+# contact_sensor = env.scene.sensors["contact_forces"]
+# foot_ids, _ = contact_sensor.find_bodies(".*_ankle_roll_link")
+# foot_ids = torch.tensor(foot_ids, dtype=torch.long, device=env.device)
+#
+# # Force/contacts over history → [num_envs, num_feet]
+# forces = contact_sensor.data.net_forces_w_history[:, :, foot_ids, :].norm(dim=-1).max(dim=1)[0]
+# contacts = forces > 50.0  # threshold in Newtons
+#
+# # Body linear velocities for SAME foot_ids → [num_envs, num_feet, 2]
+# robot = env.scene["robot"]
+# body_vel = robot.data.body_lin_vel_w[:, foot_ids, :2]
+#
+# # Shape guard (required)
+# assert body_vel.shape[:2] == contacts.shape, (
+#     f"feet_slide shape mismatch: vel {{tuple(body_vel.shape)}} vs contacts {{tuple(contacts.shape)}}"
+# )
+#
+# # Contact-aware sliding penalty
+# slide_penalty = torch.sum(body_vel.norm(dim=-1) * contacts, dim=1)
+#
+# If you call feet_slide(env, sensor_cfg=..., asset_cfg=...), pass IDENTICAL body_names in both cfgs:
+#   SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link")
+#   SceneEntityCfg("robot",           body_names=".*_ankle_roll_link")
+# Do NOT mix patterns (e.g., different regex or explicit name lists) between cfgs.
+# The built-in feet_slide implementation now resolves indices internally and applies a 50 N threshold.
+```
+
+**🚫 DO NOT CREATE FROM SCRATCH - USE PROVEN COMPONENTS:**
+```python
+# ❌ DON'T DO THIS - creates bad walking behavior:
+# Custom foot air time logic using hip joint velocities
+# Proprioceptive gait quality proxy
+# Custom velocity tracking implementations
+
+# ✅ DO THIS INSTEAD - proven to work perfectly:
+gait_reward = feet_air_time_positive_biped(
+    env, 
+    command_name="base_velocity", 
+    threshold=your_threshold_value,  # LLM should decide based on task analysis
+    sensor_cfg=SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link")  # G1 robot pattern
+)
+
+slide_penalty = feet_slide(
+    env,
+    sensor_cfg=SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),  # G1 robot pattern
+    asset_cfg=SceneEntityCfg("robot", body_names=".*_ankle_roll_link")  # MUST match sensor_cfg body_names
+)
 ```
 
 **✅ IMPLEMENT ALL PATTERNS INLINE - DON'T IMPORT MDP FUNCTIONS**
@@ -111,6 +184,55 @@ else:
 - **With sensors**: Adaptive behavior → succeeds on challenging terrain
 - **Measurable improvement**: Success rate, stability, efficiency gains
 
+**🎯 CRITICAL FOR COMPARATIVE ANALYSIS:**
+
+**MANDATORY SENSOR UTILIZATION WHEN ENV_AWARE=TRUE:**
+
+When environment analysis is available, you MUST actively utilize sensor data in rewards to demonstrate clear performance benefits! This is essential for your comparative study.
+
+**📊 REQUIRED SENSOR-BASED REWARDS:**
+
+**Height Scanner Utilization (when available):**
+```python
+# Access height scanner data
+height_sensor = env.scene.sensors["height_scanner"]
+height_data = height_sensor.data.distances  # Shape: [N, 567]
+
+# Forward-looking terrain adaptation
+forward_rays = height_data[:, 200:367]  # Forward sector
+terrain_variance = torch.std(forward_rays, dim=1)
+terrain_adapt_bonus = torch.exp(-terrain_variance * 2.0)  # Smoother = better
+
+# Gap detection and preparation  
+gap_detected = (height_data > 0.5).float()  # Detect significant gaps
+gap_ahead = torch.any(gap_detected[:, 250:300], dim=1).float()  # Front-center rays
+gap_prep_bonus = gap_ahead * torch.clamp(robot_speed, 0.3, 0.8)  # Prepare speed
+```
+
+**LiDAR Utilization (when available):**
+```python  
+# Access LiDAR data
+lidar_sensor = env.scene.sensors["lidar"]
+lidar_data = lidar_sensor.data.distances  # Shape: [N, 144]
+
+# Obstacle avoidance
+front_clearance = lidar_data[:, 60:84]  # Forward-facing rays
+clearance_bonus = torch.clamp(torch.mean(front_clearance, dim=1) / 3.0, 0, 1)
+
+# Spatial awareness navigation
+min_clearance = torch.min(front_clearance, dim=1)[0]
+safety_bonus = torch.exp(min_clearance - 1.0)  # Exponential safety reward
+```
+
+**Performance Expectations:**
+- Environment-aware policies should achieve 15-30% better performance
+- Reduced termination rates from better obstacle/gap handling  
+- Higher overall rewards due to sensor-assisted navigation
+- More stable locomotion on complex terrain
+
+**⚠️ FOUNDATION-ONLY MODE (ENV_AWARE=FALSE):**
+Use ONLY proprioceptive rewards (joints, IMU, contact forces) - NO sensor access.
+This contrast demonstrates the value of environmental sensing.
 
 ```
 
@@ -177,12 +299,11 @@ gait_reward *= (command_magnitude > 0.1).float()  # Only reward when actually mo
 robot = env.scene["robot"]
 commands = env.command_manager.get_command("base_velocity")
 
-# 🚀 YAW-ALIGNED TRANSFORMATION: Removes pitch/roll interference
+# 🚀 YAW-ALIGNED TRANSFORMATION: Proven Isaac Lab pattern
 # This is why Isaac Lab velocity tracking works so much better!
 vel_yaw = quat_apply_inverse(yaw_quat(robot.data.root_quat_w), robot.data.root_lin_vel_w[:, :3])
 lin_vel_error = torch.sum(torch.square(commands[:, :2] - vel_yaw[:, :2]), dim=1)
-vel_diff = torch.norm(commands[:, :2] - vel_yaw[:, :2], dim=1)
-vel_reward = torch.clamp(1.0 - vel_diff, 0.0, 2.0)  # Clamped linear for stability
+vel_reward = torch.exp(-lin_vel_error / (0.25)**2)  # Exponential kernel (proven smooth)
 
 # 🎯 CRITICAL: No reward for zero commands (anti-exploitation)
 vel_reward *= (torch.norm(commands[:, :2], dim=1) > 0.1).float()
@@ -215,7 +336,7 @@ foot_ids = torch.tensor(foot_ids, dtype=torch.long, device=env.device)
 
 # 🚀 SMART CONTACT DETECTION: Use force history for reliable contact state
 forces = contact_sensor.data.net_forces_w_history[:, :, foot_ids, :]
-contacts = forces.norm(dim=-1).max(dim=1)[0] > 1.0  # Actual contact detection
+contacts = forces.norm(dim=-1).max(dim=1)[0] > 50.0  # Actual contact detection for G1
 
 # Get foot velocities and apply sliding penalty ONLY when in contact
 robot = env.scene["robot"]
@@ -235,7 +356,7 @@ slide_penalty = torch.sum(body_vel.norm(dim=-1) * contacts, dim=1)  # Contact-aw
 2. **YAW-ALIGNED CONTROL**: Decouples velocity from body orientation
 3. **CONTACT-AWARE PENALTIES**: Only apply constraints when physically relevant
 4. **COMMAND SCALING**: No rewards for micro-movements or standing still
-5. **NATURAL TIMING**: Air time thresholds that match human walking rhythm (0.3-0.5s)
+5. **NATURAL TIMING**: Air time targets that match walking rhythm (≈0.30–0.50s), penalize ultra-short swings and long double-support on SIMPLE terrain
 6. **FORCE-BASED DETECTION**: Use contact sensors, not position approximations
 
 **🚨 COMMON BIPEDAL WALKING FAILURES TO AVOID:**
@@ -549,9 +670,18 @@ Isaac Lab SDS Environment - G1 Humanoid Locomotion
 - Arms: excluded from task-specific reward requirements (maintain default poses)
 
 ## Contact Detection (VERIFIED WORKING)
-**Foot Bodies**: `left_ankle_roll_link`, `right_ankle_roll_link`
+**❌ CRITICAL WARNING: ONLY FOOT BODIES ARE AVAILABLE IN CONTACT SENSOR!**
+**Available Bodies**: ONLY `left_ankle_roll_link`, `right_ankle_roll_link`
 **Detection Pattern**: `contact_sensor.find_bodies(".*_ankle_roll_link")`
 **Contact Threshold**: 50.0N (corrected for humanoid mass)
+
+**⚠️ DO NOT USE THESE BODY NAMES WITH CONTACT SENSOR (WILL CRASH):**
+- `torso_link` ❌ (not available in contact sensor)
+- `base_link` ❌ (not available in contact sensor)  
+- `trunk_link` ❌ (not available in contact sensor)
+- Any body names other than ankle_roll_link ❌
+
+**✅ ONLY USE: `.*_ankle_roll_link` for contact detection**
 
 ## Key Functions Examples for Reward Generation. Don't Copy Paste Directly!
 ```python
@@ -641,7 +771,7 @@ double_support = (left_contact > 0.5) & (right_contact > 0.5)
     # Contact detection - analyze video to determine appropriate threshold
     # G1 humanoid requires higher thresholds: gentle gaits (20-50N), dynamic gaits (50-100N)
     # Evidence: G1 standing forces ~150-250N, much higher than quadrupeds
-    contact_threshold = 50.0  # Default for G1 humanoid - adjust based on observed contact forces in video
+    contact_threshold = 50.0  # Default for G1 humanoid; align with play/plot scripts; adjust only if analysis supports it
     foot_contacts = (force_magnitudes > contact_threshold).float()  # Convert to float for partial credit
     
     # Note: Design contact rewards based on the observed gait pattern in the video
@@ -673,7 +803,7 @@ double_support = (left_contact > 0.5) & (right_contact > 0.5)
     
     # Contact sensor access pattern for Isaac Lab
     foot_ids, foot_names = contact_sensor.find_bodies(".*_ankle_roll_link")  # G1 uses ankle_roll_link for contact
-    contact_forces = contact_sensor.data.net_forces_w[:, foot_ids, :]  # [num_envs, 2, 3] for G1 bipedal
+    contact_forces = contact_sensor.data.net_forces_w[:, foot_ids, :]  # [num_envs, 2, 3] for G1 bipedal (or use _history with max over H)
     contact_magnitudes = torch.norm(contact_forces, dim=-1)  # [num_envs, 2]
     foot_contacts = contact_magnitudes > contact_threshold  # Binary contact detection
     
@@ -689,7 +819,7 @@ double_support = (left_contact > 0.5) & (right_contact > 0.5)
     flight_phase = ~left_contact & ~right_contact        # Both feet up (Jump/Sprint)
     
     # Key differences from quadruped robots:
-    # - G1 height: Relative to terrain baseline (0.74m offset) - CRITICAL for adaptive height rewards
+    # - G1 height: Nominal base height ≈ 0.74 m on flat terrain (use absolute height rewards for foundation-only)
     # - Only 2 contact points (not 4)
     # - Bipedal gait patterns (alternating support, not complex quadruped gaits)
     # - Higher contact forces due to full body weight on fewer feet

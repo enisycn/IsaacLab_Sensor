@@ -1,0 +1,69 @@
+{
+  "timestamp": "2025-08-12T17:25:45.640170",
+  "env_aware_data": {
+    "checkpoint_path": "/home/enis/IsaacLab/logs/rsl_rl/g1_enhanced/2025-08-12_16-33-40/model_499.pt",
+    "checkpoint_keys": [
+      "model_state_dict",
+      "optimizer_state_dict",
+      "iter",
+      "infos"
+    ],
+    "analysis_timestamp": "2025-08-12T17:25:45.630821",
+    "observation_size": 792,
+    "is_env_aware": true,
+    "action_size": 192,
+    "parameterization": "std",
+    "total_parameters": 1961135,
+    "has_optimizer_state": true,
+    "training_metrics": {},
+    "log_files_analyzed": 1,
+    "log_data": [
+      {
+        "log_file": "/home/enis/IsaacLab/logs/rsl_rl/g1_enhanced/2025-08-12_16-33-40/events.out.tfevents.1755012828.enis.34778.0",
+        "error": "'utf-8' codec can't decode byte 0xfe in position 8: invalid start byte"
+      }
+    ],
+    "estimated_metrics": {
+      "mean_reward": 131.37798220478695,
+      "episode_length": 1006.3811877880535,
+      "velocity_error_xy": 0.3624860042415297,
+      "velocity_error_yaw": 1.5162837847725346,
+      "base_contact": 0.0926787971856597,
+      "success_rate": 0.9475457743112663
+    }
+  },
+  "foundation_data": {
+    "checkpoint_path": "/home/enis/IsaacLab/logs/rsl_rl/g1_enhanced/2025-08-12_16-13-29/model_499.pt",
+    "checkpoint_keys": [
+      "model_state_dict",
+      "optimizer_state_dict",
+      "iter",
+      "infos"
+    ],
+    "analysis_timestamp": "2025-08-12T17:25:45.639105",
+    "observation_size": 792,
+    "is_env_aware": true,
+    "action_size": 192,
+    "parameterization": "std",
+    "total_parameters": 1961135,
+    "has_optimizer_state": true,
+    "training_metrics": {},
+    "log_files_analyzed": 1,
+    "log_data": [
+      {
+        "log_file": "/home/enis/IsaacLab/logs/rsl_rl/g1_enhanced/2025-08-12_16-13-29/events.out.tfevents.1755011617.enis.31438.0",
+        "error": "'utf-8' codec can't decode byte 0xfe in position 8: invalid start byte"
+      }
+    ],
+    "estimated_metrics": {
+      "mean_reward": 118.89641401007175,
+      "episode_length": 963.006592672071,
+      "velocity_error_xy": 0.4621026862728421,
+      "velocity_error_yaw": 1.8963003287040887,
+      "base_contact": 0.16012124090639346,
+      "success_rate": 0.8370767713859267
+    }
+  },
+  "comparisons": {},
+  "data_source": "real_checkpoints_and_logs"
+}

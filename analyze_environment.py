@@ -323,46 +323,35 @@ def main():
         import traceback
         traceback.print_exc()
     finally:
-        # Clean shutdown
-        print(f"\n🧹 Shutting down...")
-        
-        # Environment cleanup only
+        # Clean shutdown (silent)
         try:
             env.close()
-            print(f"✅ Environment closed")
-        except Exception as e:
-            print(f"⚠️ Environment close warning: {e}")
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     try:
         main()
     finally:
-        # Final GPU memory clearing before simulation app close
-        print(f"\n🔄 Final cleanup before app shutdown...")
+        # Final GPU memory clearing before simulation app close (silent)
         try:
             import torch
             import gc
             import time
             
             if torch.cuda.is_available():
-                print("🔧 Final GPU memory clear...")
                 time.sleep(1)
                 device = torch.cuda.current_device()
                 torch.cuda.synchronize(device)
                 torch.cuda.empty_cache()
-                print("✅ Final GPU cache cleared")
             
             gc.collect()
-            print("✅ Final garbage collection completed")
             
-        except Exception as final_gpu_e:
-            print(f"⚠️ Final GPU cleanup warning: {final_gpu_e}")
+        except Exception:
+            pass
         
-        # Close sim app (same as play.py)  
+        # Close sim app silently  
         try:
             simulation_app.close()
-            print("✅ Simulation app closed successfully")
-        except Exception as app_e:
-            print(f"⚠️ Simulation app close warning: {app_e}")
-        
-        print("🏁 analyze_environment.py completed") 
+        except Exception:
+            pass 

@@ -8,8 +8,8 @@ These guidance explanations are designed for creating **environment-aware locomo
 
 How to use this tip (guidance, not prescriptions):
 - If the SUS includes `TERRAIN_CLASS: [0|1|2|3]`, use it to choose families of components (0 SIMPLE foundation-only; 1 GAP height-based handling; 2 OBSTACLES LiDAR safety; 3 STAIRS relaxed-height). Decide specific components/thresholds/weights from the analysis rather than hardcoding.
-- Keep rewards additive + clamped; include a small baseline (~+0.1); clamp final total (e.g., [0.0, 5.0]).
-- Sanitize sensors with `torch.isfinite`; avoid non-existent attributes; validate shapes.
+- Keep rewards additive + clamped; include a small baseline (~+0.1); clamp final total (e.g., [0.0, 5.0]). For SIMPLE terrain you MAY use bounded exponential kernels for velocity/yaw tracking (exp-shaped but clamped to [0,1]) to improve natural gait formation.
+- Use direct sensor access; avoid non-existent attributes; validate shapes.
 - Treat examples as patterns; do not copy constants verbatim.
 
 **🎯 PRIMARY OBJECTIVE:** 
@@ -51,6 +51,17 @@ Enable comparison studies demonstrating:
 - **Range**: 3.0m maximum distance
 - **Baseline**: Dynamic calculation per environment (0.209m fallback only)
 - **Formula**: `height_reading = sensor.data.pos_w[:, 2].unsqueeze(1) - sensor.data.ray_hits_w[..., 2] - 0.5`
+
+🔧 **CONTACT SENSOR DEFAULT (G1):**
+- **❌ CRITICAL: ONLY foot bodies available**: `.*_ankle_roll_link`
+- **Contact detection threshold**: 50.0 N (default; align with contact plotting/play scripts)
+- **⚠️ DO NOT USE**: `torso_link`, `base_link`, `trunk_link` with contact sensor (WILL CRASH!)
+- Example code:
+```python
+forces = env.scene.sensors["contact_forces"].data.net_forces_w[:, foot_ids, :]
+force_mag = forces.norm(dim=-1)
+contacts_mask = force_mag > 50.0
+```
 
 🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯
 🎯 SENSOR-DRIVEN BEHAVIORAL ADAPTATION: CRITICAL PROJECT REQUIREMENT 🎯
@@ -132,12 +143,10 @@ else:
 # ✅ CORRECT: Include height sensor for terrain analysis
 height_sensor = env.scene.sensors["height_scanner"]
 height_readings = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
-height_readings = torch.where(torch.isfinite(height_readings), height_readings, torch.zeros_like(height_readings))
 
 # ✅ CORRECT: Include LiDAR when obstacles present  
 lidar_sensor = env.scene.sensors["lidar"]
 lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
-lidar_distances = torch.where(torch.isfinite(lidar_distances), lidar_distances, torch.ones_like(lidar_distances) * 5.0)
 obstacle_avoidance = torch.min(lidar_distances, dim=1)[0]  # Maintain safe distances
 ```
 
@@ -238,6 +247,35 @@ import isaaclab_tasks.manager_based.locomotion.velocity.mdp as mdp
 
 ---
 
+**🚀 PERFORMANCE OPTIMIZATION REQUIREMENTS:**
+
+**MANDATORY: Use vectorized operations for 3000+ environments**
+- ❌ `for i in range(env.num_envs):` → EXTREMELY SLOW
+- ✅ `torch.where()`, `torch.clamp()`, `tensor.mean()` → FAST
+
+**EFFICIENT HEIGHT SCANNER PROCESSING:**
+```python
+# ✅ FAST: Vectorized processing
+valid_mask = torch.isfinite(height_measurements)
+baseline = torch.where(valid_mask, height_measurements, torch.zeros_like(height_measurements)).mean(dim=1)
+
+# ❌ SLOW: Per-environment loops  
+for i in range(env.num_envs):
+    vals = height_measurements[i][valid_mask[i]]  # Don't do this!
+```
+
+**EFFICIENT CONTACT PROCESSING:**
+```python
+# ✅ FAST: Batch operations
+contact_forces = contact_sensor.data.net_forces_w_history[:, :, foot_ids, :].norm(dim=-1).max(dim=1)[0]
+
+# ❌ SLOW: Individual processing
+for foot in foot_ids: 
+    forces = contact_sensor.data.net_forces_w_history[:, :, foot, :]  # Don't do this!
+```
+
+**TARGET: <5 minutes for 500 training iterations**
+
 **🔧 DEBUGGING BEHAVIORAL ISSUES:**
 
 **Robot turns in place:**
@@ -254,4 +292,37 @@ import isaaclab_tasks.manager_based.locomotion.velocity.mdp as mdp
 ```python
 total = foundation_reward * 0.6 + environmental_reward * 0.4
 ```
+
+**🏆 USE PROVEN ISAAC LAB PATTERNS FOR NATURAL WALKING:**
+
+**1. EXPONENTIAL VELOCITY TRACKING:**
+```python
+# Use exponential kernels instead of linear clamping
+vel_yaw = quat_apply_inverse(yaw_quat(robot.data.root_quat_w), robot.data.root_lin_vel_w[:, :3])
+lin_vel_error = torch.sum(torch.square(commands[:, :2] - vel_yaw[:, :2]), dim=1)
+vel_reward = torch.exp(-lin_vel_error / (0.25)**2)  # Exponential is smoother than clamp
+```
+
+**2. PROPER BIPED AIR TIME:**
+```python
+# Use the proven biped pattern for natural gait
+air_time = contact_sensor.data.current_air_time[:, foot_ids]
+contact_time = contact_sensor.data.current_contact_time[:, foot_ids]
+in_contact = contact_time > 0.0
+in_mode_time = torch.where(in_contact, contact_time, air_time)
+single_stance = torch.sum(in_contact.int(), dim=1) == 1
+gait_reward = torch.min(torch.where(single_stance.unsqueeze(-1), in_mode_time, 0.0), dim=1)[0]
+gait_reward = torch.clamp(gait_reward, max=0.3)  # Cap to prevent over-optimization
+```
+
+**3. FORCE-BASED SLIDING DETECTION:**
+```python
+# Use contact forces for accurate sliding detection
+contact_forces = contact_sensor.data.net_forces_w_history[:, :, foot_ids, :].norm(dim=-1).max(dim=1)[0]
+contacts = contact_forces > 50.0
+foot_velocities = robot.data.body_lin_vel_w[:, foot_ids, :2]
+slide_penalty = torch.sum(foot_velocities.norm(dim=-1) * contacts, dim=1)
+```
+
+**THESE PATTERNS PRODUCE NATURAL WALKING WITH PROPER AIR TIME**
 

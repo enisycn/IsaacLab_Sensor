@@ -73,8 +73,8 @@ class G1EnhancedPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     experiment_name = "g1_enhanced"
     empirical_normalization = False
     policy = RslRlPpoActorCriticCfg(
-        init_noise_std=0.5,
-        noise_std_type="log",  # ensure positivity: std = exp(log_std)
+        init_noise_std=1.0,  # Matches G1RoughPPORunnerCfg (regular std)
+        # noise_std_type="log",  # Removed: use regular std instead of log_std for more exploration
         # FIXED NETWORKS: Larger networks for ~800-dimensional observation space
         actor_hidden_dims=[768, 384, 192],     # Scaled to avoid input bottleneck with rich sensors
         critic_hidden_dims=[768, 384, 192],    # Matching architecture for value estimation

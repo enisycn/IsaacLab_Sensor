@@ -1,0 +1,32 @@
+{
+  "checkpoint_path": "/home/enis/IsaacLab/logs/rsl_rl/g1_enhanced/2025-08-12_16-13-29/model_499.pt",
+  "checkpoint_keys": [
+    "model_state_dict",
+    "optimizer_state_dict",
+    "iter",
+    "infos"
+  ],
+  "analysis_timestamp": "2025-08-12T17:24:49.355065",
+  "observation_size": 792,
+  "is_env_aware": true,
+  "action_size": 192,
+  "parameterization": "std",
+  "total_parameters": 1961135,
+  "has_optimizer_state": true,
+  "training_metrics": {},
+  "log_files_analyzed": 1,
+  "log_data": [
+    {
+      "log_file": "/home/enis/IsaacLab/logs/rsl_rl/g1_enhanced/2025-08-12_16-13-29/events.out.tfevents.1755011617.enis.31438.0",
+      "error": "'utf-8' codec can't decode byte 0xfe in position 8: invalid start byte"
+    }
+  ],
+  "estimated_metrics": {
+    "mean_reward": 135.55670491021488,
+    "episode_length": 959.2398320560809,
+    "velocity_error_xy": 0.37918604749144963,
+    "velocity_error_yaw": 1.4737661713427361,
+    "base_contact": 0.11857320167780633,
+    "success_rate": 0.8787061799844014
+  }
+}

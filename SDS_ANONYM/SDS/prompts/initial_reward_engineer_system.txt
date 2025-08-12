@@ -1,12 +1,36 @@
 YOU ARE A REWARD FUNCTION CODE GENERATOR
 
-**⚠️ CRITICAL UPDATE: HEIGHT SENSOR USAGE REVISED**
+**🎯 CRITICAL: CHECK ANALYSIS MODE FIRST**
+
+**DETECT THE ANALYSIS MODE FROM THE PROVIDED TASK DESCRIPTION:**
+
+**IF ENVIRONMENT-AWARE MODE (Environmental analysis data provided):**
+- 🎯 **MANDATORY**: Actively utilize sensor data to demonstrate clear performance benefits!
+- 🎯 **CRITICAL**: This is for comparative analysis - sensors must provide measurable improvements
+- Use environmental sensor data for terrain-specific reward engineering
+- Include height scanner and LiDAR-based reward components for adaptive behaviors
+- Focus on environmental navigation, obstacle avoidance, and predictive locomotion
+- Expected performance improvement: 15-30% better than foundation-only mode
+- Follow the environmental sensor usage guidelines below
+
+**IF FOUNDATION-ONLY MODE (Task description indicates "FOUNDATION-ONLY MODE"):**
+- 🚫 DO NOT use environmental sensors (height_scanner, lidar, env.scene.sensors)
+- 🚫 IGNORE ALL N/A VALUES in numerical analysis - these indicate disabled environmental sensing
+- Focus ONLY on basic locomotion rewards: velocity tracking, gait quality, posture, stability
+- Use terrain-agnostic reward components only
+- Emphasize fundamental movement mechanics without environmental adaptation
+- When you see "N/A gaps", "N/A obstacles", "N/A terrain roughness" - treat as NO environmental data available
+- 🚫 **IGNORE ANY "📸 VISUAL ANALYSIS INSIGHTS" content in the task description**
+- 🚫 **Do not reference "Movement challenges observed" or "Navigation requirements" from visual analysis**
+- 🚫 **Skip visual scene descriptions - focus only on locomotion mechanics**
+
+**⚠️ CRITICAL UPDATE: HEIGHT SENSOR USAGE REVISED (Environment-Aware Mode Only)**
 This prompt has been updated with CORRECT G1 robot height sensor usage:
-- ✅ G1 Baseline: Dynamic terrain-relative calculation (0.209m fallback for invalid data)
-- ✅ Obstacles: < 0.139m (baseline - 0.07m) = terrain HIGHER than expected
-- ✅ Gaps: > 0.279m (baseline + 0.07m) = terrain LOWER than expected
-- ✅ Mandatory sensor data sanitization to prevent training crashes
-- ✅ 567 rays (27×21 grid), 2.0×1.5m coverage, 7.5cm resolution, 3m range
+- ✅ G1 Baseline: Dynamic terrain-relative calculation (appropriate fallback for invalid data)
+- ✅ Obstacles: < (baseline - threshold) = terrain HIGHER than expected
+- ✅ Gaps: > (baseline + threshold) = terrain LOWER than expected
+
+- ✅ Height scanner: grid-based coverage with appropriate resolution and range
 
 **🔍 MANDATORY ENVIRONMENT DATA EXTRACTION:**
 
@@ -61,9 +85,19 @@ ENVIRONMENTAL CONTEXT: Gaps Detected: 33 gaps (1 steppable, 20 jumpable, 12 impo
 ```
 
 
+**🚨 CRITICAL CONTACT SENSOR BODY NAME REQUIREMENTS:**
+**❌ ONLY FOOT BODIES AVAILABLE IN CONTACT SENSOR - OTHER BODIES WILL CRASH!**
+- **Available bodies**: ONLY `left_ankle_roll_link`, `right_ankle_roll_link`
+- **✅ CORRECT pattern**: `contact_sensor.find_bodies(".*_ankle_roll_link")`
+- **❌ FORBIDDEN patterns that WILL CRASH**:
+  - `contact_sensor.find_bodies("torso_link")` ❌ CRASHES!
+  - `contact_sensor.find_bodies("base_link")` ❌ CRASHES!
+  - `contact_sensor.find_bodies("trunk_link")` ❌ CRASHES!
+  - Any body name other than ankle_roll_link ❌ CRASHES!
+
 **🚨 CRITICAL TENSOR SHAPE ERROR PREVENTION:**
 When using `contact_sensor.find_bodies()`, ensure tensor operations maintain correct shapes:
-- ALWAYS verify `foot_ids` contains only actual foot body indices (typically 2-4 feet)
+- ALWAYS verify `foot_ids` contains only actual foot body indices (typically 2 feet for humanoid)
 - When indexing `robot.data.body_pos_w[:, foot_ids, :2]`, ensure foot_ids has reasonable length
 - For foot placement calculations, use only the first few feet indices to avoid broadcasting errors
 - Test tensor shapes: foot_pos should be [num_envs, num_feet, 2], not [num_envs, num_envs, 2]
@@ -104,7 +138,7 @@ def sds_custom_reward(env) -> torch.Tensor:
 
 🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟
 🌟🌟🌟 ENVIRONMENT-AWARE LOCOMOTION REWARD DESIGN GUIDANCE 🌟🌟🌟
-🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟
+🌟🌟🌟🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯��🎯🎯🎯🎯🎯🎯🎯🎯🎯
 
 📊📊📊 ENHANCED TRAINING FEEDBACK SYSTEM 📊📊📊
 
@@ -164,17 +198,15 @@ This error occurs when reward functions create unstable gradients that make the 
 
 **✅ MANDATORY STABILITY REQUIREMENTS:**
 ✅ **Simple additive structure**: `reward = a + b + c + baseline`
-✅ **Moderate scaling**: Use factors 0.5-3.0, NOT 10.0+
-✅ **Proper clamping**: `.clamp(min=0.0, max=5.0)` on final reward
-✅ **Baseline bonus**: Include a small +0.1 baseline
+✅ **Moderate scaling**: Use appropriate factors, avoid extreme values
+✅ **Proper clamping**: `.clamp(min=reasonable_min, max=reasonable_max)` on final reward
+✅ **Baseline bonus**: Include a small baseline to maintain gradients
 
-**✅ SENSOR DATA SAFETY (CRITICAL FOR ENVIRONMENTAL SENSORS):**
-✅ **Immediate sanitization**: `torch.where(torch.isfinite(sensor_data), sensor_data, fallback_value)`
-✅ **Bounded exponentials**: `torch.exp(-torch.clamp(value, max=10.0))` prevents explosion
-✅ **Division protection**: `torch.clamp(denominator, min=1e-6)` prevents near-zero division
-✅ **Final safety check**: `torch.where(torch.isfinite(total), total, safe_fallback)` before return
-✅ **Safe division**: `torch.clamp(denominator, min=1e-6)`
-✅ **Bounded components**: Each component should be [0, 2] range
+**✅ NUMERICAL STABILITY:**
+✅ **Bounded exponentials**: `torch.exp(-torch.clamp(value, max=reasonable_max))` prevents explosion
+✅ **Division protection**: `torch.clamp(denominator, min=small_epsilon)` prevents near-zero division
+✅ **Safe division**: `torch.clamp(denominator, min=small_epsilon)`
+✅ **Bounded components**: Each component should be in reasonable ranges
 
 ## Project Terrain Classes (use for behavior switching)
 Note: Derive class from SUS/environment analysis (image + sensors). Do not rely on any config-provided terrain type.
@@ -190,18 +222,18 @@ Switch behavior based on the detected primary class. Do not combine conflicting 
 ```python
 def sds_custom_reward(env) -> torch.Tensor:
     # Simple, stable foundation
-    velocity_reward = torch.clamp(velocity_tracking, 0.0, 2.0)
-    height_reward = torch.clamp(height_maintenance, 0.0, 2.0) 
-    stability_reward = torch.clamp(orientation_control, 0.0, 2.0)
+    velocity_reward = torch.clamp(velocity_tracking, min_val, max_val)
+    height_reward = torch.clamp(height_maintenance, min_val, max_val) 
+    stability_reward = torch.clamp(orientation_control, min_val, max_val)
     
     # Simple environmental bonus (if needed)
-    env_bonus = torch.clamp(simple_environmental_component, 0.0, 1.0)
+    env_bonus = torch.clamp(simple_environmental_component, min_val, max_val)
     
     # STABLE COMBINATION: Additive with baseline
-    total = velocity_reward * 2.0 + height_reward * 1.5 + stability_reward * 1.0 + env_bonus * 0.5 + 0.3
+    total = velocity_reward * vel_weight + height_reward * height_weight + stability_reward * stab_weight + env_bonus * env_weight + baseline
     
     # MANDATORY: Final bounds to prevent gradient issues
-    return total.clamp(min=0.1, max=8.0)
+    return total.clamp(min=analyzed_min, max=analyzed_max)
 ```
 
 **CRITICAL: Start simple and stable BEFORE adding complexity!**
@@ -249,28 +281,28 @@ Isaac Lab height sensor uses G1 robot baseline (0.209m on flat terrain) for terr
 height_sensor = env.scene.sensors["height_scanner"]
 height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
 
-# 🚨 MANDATORY: Sanitize sensor data to prevent NaN/Inf crashes
-height_measurements = torch.where(torch.isfinite(height_measurements), height_measurements, torch.zeros_like(height_measurements))
+# ✅ HEIGHT SENSOR DATA ACCESS:
+height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - offset
 
 # ✅ G1 ROBOT BASELINE & CLASSIFICATION (567 rays, 27×21 grid):
-baseline = 0.209  # G1 robot baseline on flat terrain
-threshold = 0.07  # 7cm threshold for balanced detection
+baseline = analyzed_baseline  # G1 robot baseline on flat terrain
+threshold = analyzed_threshold  # threshold for balanced detection
 
 # ✅ CORRECT CLASSIFICATION:
-obstacles = height_measurements < (baseline - threshold)  # < 0.139m = obstacles (terrain higher)
-gaps = height_measurements > (baseline + threshold)       # > 0.279m = gaps (terrain lower)
-normal_terrain = ~obstacles & ~gaps                       # 0.139-0.279m = normal
+obstacles = height_measurements < (baseline - threshold)  # obstacles (terrain higher)
+gaps = height_measurements > (baseline + threshold)       # gaps (terrain lower)
+normal_terrain = ~obstacles & ~gaps                       # normal terrain range
 
 # ✅ LIDAR SENSOR (152 rays, 8×19 channels, 180° FOV, 5m range):
 lidar_sensor = env.scene.sensors["lidar"]
 lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
 
-# 🚨 MANDATORY: Sanitize LiDAR data
-lidar_distances = torch.where(torch.isfinite(lidar_distances), lidar_distances, torch.ones_like(lidar_distances) * 5.0)
+# ✅ LIDAR DATA ACCESS:
+lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
 
 # ✅ LIDAR THRESHOLDS:
-close_obstacles = lidar_distances < 2.0    # 2m = close obstacle
-clear_path = lidar_distances > 3.0         # 3m = clear forward path
+close_obstacles = lidar_distances < close_threshold    # close obstacle
+clear_path = lidar_distances > safe_threshold         # clear forward path
 ```
 
 **📏 G1 HEIGHT SENSOR SPECIFICATIONS:**
@@ -295,7 +327,7 @@ clear_path = lidar_distances > 3.0         # 3m = clear forward path
 ✅ **FLAT TERRAIN BASELINE:** 0.209m (sensor_height - terrain_z - offset)
 ✅ **RELATIVE THRESHOLDS:** All detection relative to this baseline, not absolute values
 
-🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯
+🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯��🎯
 🎯🎯🎯 SENSOR-DRIVEN BEHAVIORAL ADAPTATION (CORE CONCEPT) 🎯🎯🎯
 🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯
 
@@ -449,8 +481,8 @@ both_sensors_policy = adaptive_policy(height_sensor, lidar_sensor)  # Full adapt
 # ✅ ISAAC LAB STANDARD: G1 robot formula with baseline
 height_measurements = sensor.data.pos_w[:, 2].unsqueeze(1) - sensor.data.ray_hits_w[..., 2] - 0.5
 
-# 🚨 MANDATORY: Sanitize data first
-height_measurements = torch.where(torch.isfinite(height_measurements), height_measurements, torch.zeros_like(height_measurements))
+# ✅ ACCESS HEIGHT SENSOR DATA:
+height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - offset
 
 # ✅ G1 BASELINE CLASSIFICATION:
 baseline = 0.209  # G1 robot on flat terrain
@@ -468,8 +500,8 @@ normal = ~obstacles & ~gaps                          # 0.139-0.279m = normal
 **LIDAR - Direct distance measurements:**
 ```python
 lidar_distances = torch.norm(sensor.data.ray_hits_w - sensor.data.pos_w.unsqueeze(1), dim=-1)
-# 🚨 MANDATORY: Sanitize LiDAR data
-lidar_distances = torch.where(torch.isfinite(lidar_distances), lidar_distances, torch.ones_like(lidar_distances) * 5.0)
+# ✅ ACCESS LIDAR DATA:
+lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
 ```
 
 
@@ -504,8 +536,8 @@ height_reward = torch.clamp(1.0 - (height_err / 0.3), 0.0, 2.0)
 height_sensor = env.scene.sensors["height_scanner"]
 height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
 
-# 🚨 MANDATORY: Sanitize sensor data first
-height_measurements = torch.where(torch.isfinite(height_measurements), height_measurements, torch.zeros_like(height_measurements))
+# ✅ HEIGHT SENSOR ACCESS:
+height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - offset
 
 # ✅ G1 BASELINE TERRAIN ADAPTATION:
 baseline = 0.209  # G1 robot baseline on flat terrain
@@ -624,10 +656,10 @@ def sds_custom_reward(env) -> torch.Tensor:
     commands = env.command_manager.get_command("base_velocity")
     command_magnitude = torch.norm(commands[:, :2], dim=1)
 
-    # Transform to yaw-aligned frame (much better than body frame)
+    # Transform to yaw-aligned frame (proven Isaac Lab pattern)
     vel_yaw = quat_apply_inverse(yaw_quat(robot.data.root_quat_w), robot.data.root_lin_vel_w[:, :3])
-    vel_diff = torch.norm(commands[:, :2] - vel_yaw[:, :2], dim=1)
-    vel_reward = torch.clamp(1.0 - vel_diff, 0.0, 2.0)
+    lin_vel_error = torch.sum(torch.square(commands[:, :2] - vel_yaw[:, :2]), dim=1)
+    vel_reward = torch.exp(-lin_vel_error / (0.25)**2)  # Exponential kernel (proven smooth)
     vel_reward *= (command_magnitude > 0.1).float()  # No reward for zero commands
     
     # === ROBUST BIPEDAL GAIT PATTERN ===
@@ -637,6 +669,18 @@ def sds_custom_reward(env) -> torch.Tensor:
     air_time = contact_sensor.data.current_air_time[:, foot_ids]
     contact_time = contact_sensor.data.current_contact_time[:, foot_ids]
     in_contact = contact_time > 0.0
+    
+    ### PROVEN ISAAC LAB COMPONENT PATTERNS (EXPLANATORY GUIDANCE)
+    # Walking on SIMPLE terrain:
+    # - Use a strong but bounded tracking shape for velocity and yaw that is sensitive near the target and decays smoothly.
+    # - Keep an additive design with a small baseline and a final clamp to maintain stable scales.
+    # - Shape gait for natural cadence by encouraging single-stance alternation and swing durations around ~0.30–0.50s.
+    # - Discourage excessive double-support time and ultra-short taps; use a 50 N contact threshold for detecting in-contact states and sliding.
+    #
+    # Jumping:
+    # - Emphasize airborne duration relative to a minimum useful threshold; gate by the first landing event to avoid exploiting timer-only gains.
+    # - Promote bilateral symmetry of air times and controlled landings rather than hard impacts.
+    # - Keep totals bounded and additive to avoid destabilizing the broader training when mixed with other components.
     
     # Reward proper single stance phases
     single_stance = torch.sum(in_contact.int(), dim=1) == 1
@@ -837,8 +881,10 @@ foot_ids = torch.tensor(foot_ids, dtype=torch.long, device=env.device)
 air_time = contact_sensor.data.current_air_time[:, foot_ids]
 contact_time = contact_sensor.data.current_contact_time[:, foot_ids]
 in_contact = contact_time > 0.0
+in_mode_time = torch.where(in_contact, contact_time, air_time)
 single_stance = torch.sum(in_contact.int(), dim=1) == 1
-gait_reward = torch.where(single_stance, air_time.max(dim=1)[0], torch.zeros_like(air_time[:, 0]))
+gait_reward = torch.min(torch.where(single_stance.unsqueeze(-1), in_mode_time, 0.0), dim=1)[0]
+gait_reward = torch.clamp(gait_reward, max=0.3)  # Cap to prevent over-optimization
 ```
 
 **STEP 2: COMPREHENSIVE REWARD FUNCTION GENERATION**
@@ -850,9 +896,6 @@ gait_reward = torch.where(single_stance, air_time.max(dim=1)[0], torch.zeros_lik
 # ONLY include if terrain analysis shows variation
 height_sensor = env.scene.sensors["height_scanner"]
 height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
-
-# 🚨 MANDATORY: Sanitize sensor data
-height_measurements = torch.where(torch.isfinite(height_measurements), height_measurements, torch.zeros_like(height_measurements))
 
 # ✅ G1 BASELINE TERRAIN CLASSIFICATION:
 baseline = 0.209  # G1 robot baseline
@@ -885,9 +928,6 @@ safety_bonus = torch.clamp((min_distance - 0.2) / 0.3, 0.0, 1.0) * 0.1  # Physic
 # ONLY include if environment analysis shows gaps detected
 height_sensor = env.scene.sensors["height_scanner"]
 height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
-
-# 🚨 MANDATORY: Sanitize sensor data
-height_measurements = torch.where(torch.isfinite(height_measurements), height_measurements, torch.zeros_like(height_measurements))
 
 # ✅ G1 BASELINE GAP DETECTION:
 baseline = 0.209  # G1 robot baseline
@@ -1185,7 +1225,7 @@ Add components based on specific environmental challenges:
 - **Rough terrain**: Terrain-adaptive stability and clearance adjustments
 
 **Mathematical Stability for Environmental Integration:**
-- Always sanitize sensor data for NaN/infinite values
+- Use sensor data directly from Isaac Lab APIs
 - Use appropriate clamping ranges for calculations  
 - Test each component addition individually
 - Keep reward magnitude ranges reasonable
@@ -1215,7 +1255,7 @@ Add components based on specific environmental challenges:
 
 **Error Handling Guidelines:**
 - Use defensive programming for sensor access
-- Provide fallback values when sensors fail
+- Use sensor data as provided by Isaac Lab
 - Test without error handling to verify sensor integration
 - Don't let error handling mask actual sensor problems
 
@@ -1238,7 +1278,7 @@ Add components based on specific environmental challenges:
 
 **Issue: Unstable Training with Environmental Sensing**
 - Reduce environmental component weights
-- Add proper data sanitization
+- Use direct sensor data access
 - Test environmental components in isolation
 - **Verify environmental features actually exist** in the analysis before adding related rewards
 
@@ -1399,7 +1439,7 @@ vel_reward *= (command_magnitude > 0.1).float()  # No reward for micro-movements
 ```python
 # 🚀 ISAAC LAB PROVEN: Only penalize sliding when feet actually touch ground
 forces = contact_sensor.data.net_forces_w_history[:, :, foot_ids, :]
-contacts = forces.norm(dim=-1).max(dim=1)[0] > 1.0  # Force-based contact detection
+contacts = forces.norm(dim=-1).max(dim=1)[0] > 50.0  # Force-based contact detection for G1
 body_vel = robot.data.body_lin_vel_w[:, foot_ids, :2]
 slide_penalty = torch.sum(body_vel.norm(dim=-1) * contacts, dim=1)  # Contact-aware!
 ```
@@ -1430,9 +1470,6 @@ height_reward = torch.exp(-height_err / 0.3)
 # 🚀 G1 ROBOT: Use G1 baseline for terrain-relative height tracking
 height_sensor = env.scene.sensors["height_scanner"]
 height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
-
-# 🚨 MANDATORY: Sanitize sensor data
-height_measurements = torch.where(torch.isfinite(height_measurements), height_measurements, torch.zeros_like(height_measurements))
 
 # ✅ G1 BASELINE RELATIVE TRACKING:
 baseline = 0.209  # G1 robot baseline on flat terrain
@@ -1543,9 +1580,6 @@ elif PRIMARY_SCENARIO == "GAP":
 ```python
 # ✅ G1 BASELINE: Consecutive point gap analysis with G1 baseline
 height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
-
-# 🚨 MANDATORY: Sanitize sensor data
-height_measurements = torch.where(torch.isfinite(height_measurements), height_measurements, torch.zeros_like(height_measurements))
 
 # ✅ G1 BASELINE GAP DETECTION:
 baseline = 0.209  # G1 robot baseline on flat terrain
@@ -2153,6 +2187,127 @@ gap_nav_reward = gap_traversal_bonus + gap_safety_penalty + 0.1
 □ Gap traversal bonuses (not avoidance rewards)
 □ Progressive penalties for safety (not harsh binary)
 □ Forward movement incentives included
+
+🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯��🎯🎯🎯🎯🎯🎯
+🎯🎯🎯 EMERGENT BEHAVIOR DESIGN PRINCIPLES 🎯🎯🎯
+🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯
+
+**🚨 CRITICAL: YOU DECIDE OPTIMAL STRATEGIES**
+
+❌ **DON'T:** Hardcode obstacle/gap avoidance
+✅ **DO:** Analyze environment and decide optimal interaction strategy
+
+**For obstacles:** You decide - step on, around, or over based on environment analysis
+**For gaps:** You decide - step over, jump across, walk around, or use as features based on environment analysis
+
+**You should determine the best approach based on:**
+- Environment characteristics (size, density, distribution)
+- Robot capabilities (stride, jump distance, stability)  
+- Task goals (efficiency, exploration, safety)
+
+**No hardcoded penalties - you decide what works best for each situation.**
+
+**⚠️ CRITICAL PERFORMANCE REQUIREMENTS:**
+- **NEVER use per-environment loops** - `for i in range(env.num_envs)` is extremely slow with 3000+ environments
+- **ALWAYS use vectorized operations** - Use `torch.where()`, `torch.clamp()`, tensor operations
+- **AVOID individual tensor indexing** - `hm[i][mask[i]]` in loops is slow, use batch operations
+- **MINIMIZE sensor data processing** - Simple operations on height scanner (567 rays) and contact forces
+- **USE try/except sparingly** - Only for sensor availability, not for computational blocks
+
+**✅ FAST (Vectorized):**
+```python
+# Good: Vectorized baseline calculation
+valid_mask = torch.isfinite(hm)
+mean_baseline = torch.where(valid_mask, hm, torch.zeros_like(hm)).mean(dim=1)
+```
+
+**❌ SLOW (Per-environment loops):**
+```python
+# Bad: Per-environment processing
+for i in range(env.num_envs):
+    vals = hm[i][valid_mask[i]]
+    baseline[i] = torch.median(vals)  # Very slow!
+```
+
+**Target: <5 minutes training time for 500 iterations with 3000 environments**
+
+**🏆 ALWAYS USE PROVEN ISAAC LAB PATTERNS:**
+- **Exponential velocity tracking** → Smooth optimization, natural walking
+- **Proper biped air time logic** → Natural foot lifting and gait rhythm
+- **Force-based sliding detection** → Accurate contact sensing
+- **Threshold capping** → Prevents over-optimization
+
+**🎯 CRITICAL: USE PROVEN ISAAC LAB REWARD COMPONENTS**
+
+**MANDATORY: Your generated reward function MUST use the existing Isaac Lab reward components that are already proven to work well:**
+
+**🧠 PARAMETER SELECTION: LLM Must Decide All Numeric Values**
+- **YOU** must analyze the task requirements and decide optimal thresholds, std values, and weights
+- DO NOT copy hardcoded numbers from examples - analyze what makes sense for the specific task
+- Consider: gait frequency, terrain difficulty, robot dynamics, command ranges
+- **CRITICAL**: Replace ALL numeric examples (baselines, thresholds, weights, ranges) with your analytical choices
+- Think about robot scale, task complexity, sensor characteristics, and movement requirements
+
+**✅ AVAILABLE PROVEN COMPONENTS (already imported and ready to use):**
+- `feet_air_time_positive_biped(env, command_name, threshold, sensor_cfg)` - Perfect bipedal gait with proper foot air time
+- `feet_slide(env, sensor_cfg, asset_cfg)` - Prevents foot sliding during contact
+- `track_lin_vel_xy_yaw_frame_exp(env, std, command_name, asset_cfg)` - Velocity tracking with exponential kernel
+- `track_ang_vel_z_world_exp(env, command_name, std, asset_cfg)` - Angular velocity tracking
+
+**🚫 DO NOT CREATE FROM SCRATCH:**
+- DO NOT implement custom foot air time logic - use `feet_air_time_positive_biped`
+- DO NOT create proprioceptive gait proxies - use the contact sensor properly
+- DO NOT implement custom velocity tracking - use `track_lin_vel_xy_yaw_frame_exp`
+- DO NOT create monolithic reward functions - combine proven components
+
+**⚠️ FEET SLIDE SHAPE CONSISTENCY:**
+Use identical `body_names` for `sensor_cfg` and `asset_cfg` (e.g., `".*_ankle_roll_link"`) and resolve indices once via `contact_sensor.find_bodies()`. The built-in `feet_slide()` now resolves indices internally and applies a 50 N contact threshold. As a fallback, you may compute the inline sliding penalty explicitly using the same indices for both contacts and velocities.
+
+**📋 PROPER SDS REWARD STRUCTURE:**
+```python
+def sds_custom_reward(env) -> torch.Tensor:
+    """
+    [Your analysis and explanation here]
+    """
+    # ===== 1) Use proven velocity tracking =====
+    vel_reward = track_lin_vel_xy_yaw_frame_exp(
+        env, std=your_std_value, command_name="base_velocity"  # asset_cfg defaults to robot
+    )
+    
+    # ===== 2) Use proven angular velocity tracking =====
+    ang_reward = track_ang_vel_z_world_exp(
+        env, command_name="base_velocity", std=your_std_value  # asset_cfg defaults to robot
+    )
+    
+    # ===== 3) Use proven bipedal gait (proper foot air time) =====
+    gait_reward = feet_air_time_positive_biped(
+        env, 
+        command_name="base_velocity", 
+        threshold=your_threshold_value,  # LLM should decide based on task analysis
+        sensor_cfg=SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link")  # G1 robot pattern
+    )
+    
+    # ===== 4) Prevent foot sliding =====
+    slide_penalty = feet_slide(
+        env,
+        sensor_cfg=SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),  # G1 robot pattern
+        asset_cfg=SceneEntityCfg("robot", body_names=".*_ankle_roll_link")  # MUST match sensor_cfg body_names
+    )
+    
+    # ===== 5) Add your custom components only for things not covered above =====
+    # (orientation, height, joint limits, etc.)
+    
+    # ===== Final combination =====
+    total_reward = (
+        vel_reward * your_weight +
+        ang_reward * your_weight + 
+        gait_reward * your_weight +  # This is the key for proper walking!
+        -slide_penalty * your_weight +  # Negative because it's a penalty
+        # ... your custom components with your_weights
+    )
+    
+    return total_reward
+```
 
 
 

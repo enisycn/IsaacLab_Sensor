@@ -23,6 +23,72 @@ from utils.plotting import create_sds_training_plots
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
+def validate_foundation_only_code(code: str):
+    """
+    Validate reward code for foundation-only compliance.
+    Returns: (is_valid, violations, feedback_message)
+    """
+    violations = []
+    
+    # Forbidden patterns that indicate environmental sensor usage
+    forbidden_patterns = [
+        r'env\.scene\.sensors',
+        r'height_scanner', 
+        r'lidar',
+        r'RayCaster',
+        r'height_scan',
+        r'lidar_range',
+        r'ray_caster',
+        r'terrain_height',
+        r'gap_detection',
+        r'obstacle_detection', 
+        r'stair_detection',
+        r'SceneEntityCfg\(["\']height_scanner["\']\)',
+        r'SceneEntityCfg\(["\']lidar["\']\)',
+        r'sensor_cfg.*height',
+        r'sensor_cfg.*lidar',
+        r'terrain_following',
+        r'obstacle_avoidance',
+        r'gap_crossing',
+        r'stair_climbing'
+    ]
+    
+    # Check for forbidden environmental sensor patterns
+    for pattern in forbidden_patterns:
+        matches = re.findall(pattern, code, re.IGNORECASE)
+        if matches:
+            violations.append(f"Forbidden sensor usage: {pattern}")
+    
+    is_valid = len(violations) == 0
+    
+    # Generate feedback message
+    if not is_valid:
+        feedback_msg = "🚫 FOUNDATION-ONLY VIOLATIONS:\n"
+        for violation in violations:
+            feedback_msg += f"• {violation}\n"
+        feedback_msg += "\n✅ ALLOWED: velocity tracking, gait quality, posture, stability, smoothness only"
+    else:
+        feedback_msg = "✅ Code validates for foundation-only constraints"
+    
+    return is_valid, violations, feedback_msg
+
+def extract_code_from_response(response_content: str):
+    """Extract Python code from LLM response."""
+    patterns = [
+        r'```python(.*?)```',
+        r'```(.*?)```', 
+        r'"""(.*?)"""',
+        r'""(.*?)""',
+        r'"(.*?)"',
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, response_content, re.DOTALL)
+        if match:
+            return match.group(1).strip()
+    
+    return response_content.strip()
+
 def find_isaac_lab_root():
     """Find Isaac Lab root directory by looking for isaaclab.sh."""
     from pathlib import Path
@@ -111,6 +177,35 @@ def create_readable_json_version(json_file_path):
         logging.error(f"❌ Failed to create readable JSON version for {json_file_path}: {e}")
         return None
 
+def reduce_image_detail_in_messages(messages):
+    """Reduce image detail from 'high' to 'low' to decrease payload size for 500 error recovery."""
+    modified_messages = []
+    
+    for message in messages:
+        if isinstance(message, dict):
+            modified_message = message.copy()
+            
+            # Check if content is a list (multimodal content)
+            if isinstance(message.get('content'), list):
+                modified_content = []
+                for item in message['content']:
+                    if isinstance(item, dict) and item.get('type') == 'image_url':
+                        # Reduce image detail
+                        modified_item = item.copy()
+                        if 'image_url' in modified_item and isinstance(modified_item['image_url'], dict):
+                            modified_item['image_url'] = modified_item['image_url'].copy()
+                            modified_item['image_url']['detail'] = 'low'
+                        modified_content.append(modified_item)
+                    else:
+                        modified_content.append(item)
+                modified_message['content'] = modified_content
+            
+            modified_messages.append(modified_message)
+        else:
+            modified_messages.append(message)
+    
+    return modified_messages
+
 # Get SDS root directory from script location, not working directory
 # This is important because Hydra changes the working directory
 SDS_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -168,16 +263,36 @@ def main(cfg):
     logging.info(f"Training each RF for: {cfg.train_iterations} iterations")
     logging.info(f"Generating {cfg.sample} reward function samples per iteration")
     
-    # 🆕 AUTOMATIC ENVIRONMENT IMAGE CAPTURE
-    if getattr(cfg, 'auto_capture_environment_image', True):
+    # 🎯 ENVIRONMENT-AWARE MODE CONTROL
+    env_aware = getattr(cfg, 'env_aware', True)
+    if os.environ.get('SDS_ENV_AWARE') is not None:
+        env_aware = os.environ.get('SDS_ENV_AWARE').lower() in ['1', 'true', 'on']
+    
+    logging.info(f"🎯 SDS Environment-Aware Mode: {'ENABLED' if env_aware else 'DISABLED (Foundation-Only)'}")
+    
+    # Create context dict for prompt injection
+    context_dict = {
+        'ENV_AWARE': env_aware,
+        'SENSORS_AVAILABLE': env_aware,
+        'TERRAIN_INFO': 'PROVIDED' if env_aware else 'NOT_PROVIDED',
+        'ENVIRONMENT_IMAGE': 'AVAILABLE' if env_aware else 'NONE'
+    }
+    
+    # 🆕 CONDITIONAL ENVIRONMENT IMAGE CAPTURE
+    if env_aware and getattr(cfg, 'auto_capture_environment_image', True):
         logging.info("🎯 Starting automatic environment image capture...")
         capture_success = capture_environment_image_automatically(workspace_dir)
         if capture_success:
             logging.info("✅ Environment image ready for reward generation")
+            context_dict['ENVIRONMENT_IMAGE'] = 'CAPTURED'
         else:
             logging.info("📝 Proceeding with video-only analysis")
+            context_dict['ENVIRONMENT_IMAGE'] = 'FAILED_CAPTURE'
+    elif not env_aware:
+        logging.info("🚫 Environment image capture DISABLED (Foundation-only mode)")
+        context_dict['ENVIRONMENT_IMAGE'] = 'DISABLED'
     else:
-        logging.info("⏭️ Auto environment image capture disabled")
+        logging.info("⏭️ Auto environment image capture disabled by configuration")
 
     model = cfg.model
     logging.info(f"Using LLM: {model}")
@@ -217,28 +332,36 @@ def main(cfg):
     
     eval_script_dir = os.path.join(ROOT_DIR,"forward_locomotion_sds/scripts/play.py")
     
-    encoded_gt_frame_grid = encode_image(f'{workspace_dir}/gt_demo.png', max_size=(768, 768), quality=80)
+    encoded_gt_frame_grid = encode_image(f'{workspace_dir}/gt_demo.png', max_size=(512, 512), quality=60)
     
     # Check for environment image captured by the image capture script
+    # 🎯 CONDITIONAL ENVIRONMENT IMAGE HANDLING
     environment_image_path = f'{workspace_dir}/environment_image.png'
-    has_environment_image = os.path.exists(environment_image_path)
-    if has_environment_image:
-        encoded_environment_image = encode_image(environment_image_path, max_size=(768, 768), quality=80)
+    has_environment_image = os.path.exists(environment_image_path) and env_aware
+    
+    if env_aware and os.path.exists(environment_image_path):
+        encoded_environment_image = encode_image(environment_image_path, max_size=(512, 512), quality=60)
         logging.info(f"✅ Found environment image for SUS generation: {environment_image_path}")
+        context_dict['ENVIRONMENT_IMAGE'] = 'AVAILABLE'
+    elif not env_aware:
+        encoded_environment_image = None
+        logging.info(f"🚫 Environment image DISABLED (Foundation-only mode)")
+        context_dict['ENVIRONMENT_IMAGE'] = 'DISABLED_FOUNDATION_MODE'
     else:
         encoded_environment_image = None
         logging.info(f"ℹ️ No environment image found at: {environment_image_path}")
+        context_dict['ENVIRONMENT_IMAGE'] = 'NOT_FOUND'
     
-    # Choose SUS generator based on configuration
-    enable_env_analysis = getattr(cfg, 'enable_environment_analysis', True)
+    # Choose SUS generator based on env_aware configuration
+    enable_env_analysis = getattr(cfg, 'enable_environment_analysis', True) and env_aware
     
-    if enable_env_analysis:
+    if enable_env_analysis and env_aware:
         # Use enhanced SUS generator with environment awareness
         sus_generator = EnhancedSUSGenerator(cfg, prompt_dir)
         
         # Generate environment-aware SUS prompt
         num_envs_for_analysis = getattr(cfg, 'environment_analysis_robots', 100)
-        logging.info(f"Using environment-aware SUS generation with {num_envs_for_analysis} robots for terrain analysis")
+        logging.info(f"🌍 Using environment-aware SUS generation with {num_envs_for_analysis} robots for terrain analysis")
         
         SUS_prompt = sus_generator.generate_enhanced_sus_prompt(
             encoded_gt_frame_grid, 
@@ -247,10 +370,17 @@ def main(cfg):
             encoded_environment_image=encoded_environment_image if has_environment_image else None
         )
     else:
-        # Use original SUS generator (video-only analysis)
+        # Use original SUS generator (video-only analysis) or foundation-only mode
         sus_generator = SUSGenerator(cfg, prompt_dir)
-        logging.info("Using original SUS generation (video-only analysis)")
-        
+        if not env_aware:
+            logging.info("🚫 Using FOUNDATION-ONLY SUS generation (no environmental analysis, gait-focused)")
+            # For foundation-only mode, we need to inject foundation explanations instead of environment analysis
+            SUS_prompt = sus_generator.generate_foundation_only_sus_prompt(
+                encoded_gt_frame_grid, 
+                cfg.task.description
+            )
+        else:
+            logging.info("📝 Using original SUS generation (video-only analysis)")
         SUS_prompt = sus_generator.generate_sus_prompt(
             encoded_gt_frame_grid, 
             cfg.task.description,
@@ -262,6 +392,45 @@ def main(cfg):
     
     # 🔧 CREATE DATA FLOW SUMMARY
     create_data_flow_summary(workspace_dir, SUS_prompt)
+
+    # 🎯 FOUNDATION-ONLY PROMPT INJECTION
+    if not env_aware:
+        foundation_constraint = f"""
+🚫 CRITICAL CONSTRAINT - FOUNDATION-ONLY MODE:
+ENV_AWARE: FALSE
+SENSORS_AVAILABLE: FALSE  
+ENVIRONMENT_IMAGE: {context_dict['ENVIRONMENT_IMAGE']}
+TERRAIN_CONTEXT: NOT PROVIDED
+
+MANDATORY RESTRICTIONS:
+• DO NOT import or access env.scene.sensors, height_scanner, lidar, RayCaster
+• DO NOT use terrain-specific adaptations or environmental sensing
+• FOCUS ONLY on fundamental locomotion: velocity tracking, gait quality, posture, stability, smoothness
+• Use ONLY proprioceptive observations (joint states, IMU, commands)
+• Design terrain-agnostic rewards that work across all environments
+
+ALLOWED FOUNDATION COMPONENTS ONLY:
+• track_lin_vel_xy_yaw_frame_exp (velocity tracking)
+• track_ang_vel_z_world_exp (angular velocity control)  
+• feet_air_time_positive_biped (gait quality)
+• base_height_l2 (postural stability)
+• orientation_l2 (balance and uprightness)
+• joint_deviation_l1 (natural joint positions)
+• action_smoothness_l2 (smooth control)
+• feet_slide (contact quality)
+
+FOUNDATION-ONLY EXPLANATION:
+This is foundation-only mode where environmental analysis has been disabled.
+The SUS (Status Understanding Summary) contains ONLY basic gait and movement analysis from video footage.
+NO environmental sensor data, terrain analysis, or adaptive strategies are available.
+Focus on creating robust, terrain-agnostic locomotion rewards.
+
+"""
+        initial_reward_engineer_system = foundation_constraint + initial_reward_engineer_system
+        initial_reward_engineer_user = foundation_constraint + initial_reward_engineer_user
+        
+        # Also inject explanation into task evaluator
+        initial_task_evaluator_system = foundation_constraint + initial_task_evaluator_system
 
     initial_reward_engineer_system = initial_reward_engineer_system.format(task_reward_signature_string=reward_signature,task_obs_code_string=task_obs_code_string) + code_output_tip
 
@@ -394,6 +563,11 @@ def main(cfg):
                 return '\n'.join(adjusted_lines)
             
             code_string = ensure_proper_indentation(code_string)
+            
+            # 🚫 FOUNDATION-ONLY CODE VALIDATION DISABLED (per user request)
+            if not env_aware:
+                logging.info(f"🚫 Foundation-only mode active for sample {response_id} - validation disabled")
+            
             code_runs.append(code_string)
                     
             # Add the SDS Reward Signature to the environment code
@@ -756,8 +930,9 @@ def main(cfg):
                     video_file = max(video_files, key=os.path.getmtime)  # Use the newest video file
                     logging.info(f"Found Isaac Lab video file: {video_file}")
                     
-                    annotated_video_path = vitpose_inference(video_file, f"{workspace_dir}/pose-estimate/sample-pose-estimate")
-                    training_frame_grid = create_grid_image(annotated_video_path, crop=True, crop_option="RobotFocus", training_fixed_length=True)
+                    # Skip ViTPose processing - use original video directly for faster processing
+                    logging.info("Skipping ViTPose annotation for faster post-training capture")
+                    training_frame_grid = create_grid_image(video_file, crop=True, crop_option="RobotFocus", training_fixed_length=True)
                     
                     footage_grid_save_dir = f"training_footage/training_frame_{iter}_{response_id}.png"
                     save_grid_image(training_frame_grid, footage_grid_save_dir)
@@ -830,6 +1005,7 @@ def main(cfg):
         contents = []
         reward_correlations = []
         code_paths = []
+        successful_run_logs = []  # Store run_logs for grading agent
         
         exec_success = False 
         for response_id, (code_run, rl_run) in enumerate(zip(code_runs, rl_runs)):
@@ -842,6 +1018,7 @@ def main(cfg):
                 content += code_output_tip
                 contents.append(content) 
                 reward_correlations.append(DUMMY_FAILURE)
+                successful_run_logs.append(None)  # Keep indices aligned
                 continue
                 
             try:
@@ -852,6 +1029,7 @@ def main(cfg):
                 content += code_output_tip
                 contents.append(content) 
                 reward_correlations.append(DUMMY_FAILURE)
+                successful_run_logs.append(None)  # Keep indices aligned
                 continue
 
             content = ''
@@ -861,6 +1039,7 @@ def main(cfg):
                 # If RL execution has no error, provide policy statistics feedback
                 exec_success = True
                 run_log = construct_run_log(stdout_str)
+                successful_run_logs.append(run_log)  # Store for grading agent
                 
                 train_iterations = np.array(run_log['iterations/']).shape[0]
                 epoch_freq = max(int(train_iterations // 5), 1)
@@ -908,6 +1087,7 @@ def main(cfg):
                 # Otherwise, provide execution traceback error feedback
 
                 reward_correlations.append(DUMMY_FAILURE)
+                successful_run_logs.append(None)  # Keep indices aligned
                 content += execution_error_feedback.format(traceback_msg=traceback_msg)
 
             content += code_output_tip
@@ -922,7 +1102,7 @@ def main(cfg):
             continue
         
         
-        def compute_similarity_score_gpt(footage_grids_dir,contact_pattern_dirs):
+        def compute_similarity_score_gpt(footage_grids_dir,contact_pattern_dirs,run_logs=None):
             
             evaluator_query_content = [
             {
@@ -933,7 +1113,7 @@ def main(cfg):
             
             for footage_dir in footage_grids_dir:
                 
-                encoded_footage = encode_image(footage_dir)
+                encoded_footage = encode_image(footage_dir, max_size=(512, 512), quality=60)
             
                 evaluator_query_content.append(
                     {
@@ -955,7 +1135,7 @@ def main(cfg):
             
             for contact_dir in contact_pattern_dirs:
                 
-                encoded_contact = encode_image(contact_dir)
+                encoded_contact = encode_image(contact_dir, max_size=(512, 512), quality=60)
             
                 contact_evaluator_query_content.append(
                     {
@@ -990,10 +1170,41 @@ def main(cfg):
                 
                 successful_runs_index.append(-1)
             
+            # Add performance metrics for grading evaluation
+            if run_logs is not None and len(run_logs) > 0:
+                metrics_text = "PERFORMANCE METRICS FOR EVALUATION:\n\n"
+                for i, run_log in enumerate(run_logs):
+                    if run_log is not None:
+                        metrics_text += f"Policy {i+1} Performance:\n"
+                        # Core metrics
+                        if "reward" in run_log:
+                            metrics_text += f"- Mean Reward: {run_log['reward'][-5:]} (last 5 iterations)\n"
+                        if "episode_length" in run_log:
+                            metrics_text += f"- Episode Length: {run_log['episode_length'][-5:]}\n"
+                        # Task performance  
+                        if "velocity_error_xy" in run_log:
+                            metrics_text += f"- Velocity Error XY: {[f'{x:.3f}' for x in run_log['velocity_error_xy'][-3:]]}\n"
+                        if "velocity_error_yaw" in run_log:
+                            metrics_text += f"- Velocity Error Yaw: {[f'{x:.3f}' for x in run_log['velocity_error_yaw'][-3:]]}\n"
+                        # Termination rates
+                        if "termination_base_contact" in run_log:
+                            metrics_text += f"- Fall Rate: {[f'{x:.3f}' for x in run_log['termination_base_contact'][-3:]]}\n"
+                        if "termination_timeout" in run_log:
+                            timeout_rate = [f'{x:.3f}' for x in run_log['termination_timeout'][-3:]]
+                            completion_rate = [f'{1.0-x:.3f}' for x in run_log['termination_timeout'][-3:]]
+                            metrics_text += f"- Task Completion Rate: {completion_rate}\n"
+                        metrics_text += "\n"
+                
+                # Add metrics as text content
+                contact_evaluator_query_content.append({
+                    "type": "text",
+                    "text": metrics_text + "Consider these performance metrics alongside visual similarity for comprehensive evaluation."
+                })
+            
             if cfg.task.use_annotation:
-                encoded_gt_frame_grid = encode_image(f'{workspace_dir}/gt_demo_annotated.png')
+                encoded_gt_frame_grid = encode_image(f'{workspace_dir}/gt_demo_annotated.png', max_size=(512, 512), quality=60)
             else:
-                encoded_gt_frame_grid = encode_image(f'{workspace_dir}/gt_demo.png')
+                encoded_gt_frame_grid = encode_image(f'{workspace_dir}/gt_demo.png', max_size=(512, 512), quality=60)
             
             evaluator_query_messages = [
                 {"role": "system", "content": initial_task_evaluator_system},
@@ -1060,7 +1271,7 @@ def main(cfg):
                 
                 return best_idx, True
         
-        best_sample_idx,improved = compute_similarity_score_gpt(footage_grids_dir,contact_pattern_dirs)
+        best_sample_idx,improved = compute_similarity_score_gpt(footage_grids_dir,contact_pattern_dirs,successful_run_logs)
 
         best_content = contents[best_sample_idx]
 
@@ -1068,7 +1279,7 @@ def main(cfg):
         if improved:
             logging.info(f"Iteration {iter}: A better reward function has been generated")
             max_reward_code_path = code_paths[best_sample_idx]
-            best_footage = encode_image(f'{workspace_dir}/training_footage/training_frame_{iter}_{best_sample_idx}.png')
+            best_footage = encode_image(f'{workspace_dir}/training_footage/training_frame_{iter}_{best_sample_idx}.png', max_size=(512, 512), quality=60)
             
             # Get best contact pattern from Isaac Lab - NO FALLBACKS
             rl_filepath = f"env_iter{iter}_response{best_sample_idx}.txt"
@@ -1092,7 +1303,7 @@ def main(cfg):
             if not os.path.exists(contact_pattern_dir):
                 raise RuntimeError(f"Contact analysis file not found: {contact_pattern_dir}")
             
-            best_contact = encode_image(contact_pattern_dir)
+            best_contact = encode_image(contact_pattern_dir, max_size=(512, 512), quality=60)
             logging.info(f"Loaded best contact pattern: {contact_pattern_dir}")
 
         best_code_paths.append(code_paths[best_sample_idx])
@@ -1136,6 +1347,28 @@ def main(cfg):
             run_dir = line.split(": ")[1].strip()
             run_dir = run_dir.replace("http://app.dash.ml/", f"{ROOT_DIR}/{env_name}/runs/")
             logging.info("Best policy run directory: " + run_dir)
+    
+    # 🏷️ SAVE RUN METADATA FOR ANALYSIS GROUPING
+    run_meta = {
+        "env_aware": env_aware,
+        "mode": "environment_aware" if env_aware else "foundation_only",
+        "sensors_available": env_aware,
+        "environment_analysis": enable_env_analysis and env_aware,
+        "auto_image_capture": getattr(cfg, 'auto_capture_environment_image', True) and env_aware,
+        "timestamp": str(workspace_dir).split('/')[-1],  # Extract timestamp from workspace dir
+        "terrain_type": getattr(cfg, 'terrain', 'unknown'),
+        "model": cfg.model,
+        "iterations": cfg.iteration,
+        "samples_per_iteration": cfg.sample,
+        "train_iterations": cfg.train_iterations
+    }
+    
+    meta_file = workspace_dir / "run_meta.json"
+    with open(meta_file, 'w') as f:
+        json.dump(run_meta, f, indent=2)
+    
+    logging.info(f"📊 Run metadata saved: {meta_file}")
+    logging.info(f"🎯 Mode: {'Environment-Aware' if env_aware else 'Foundation-Only'}")
 
 def copy_agent_conversations_to_output(workspace_dir):
     """Copy all agent conversation files to the output directory"""

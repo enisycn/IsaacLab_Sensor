@@ -2,12 +2,49 @@
 
 **YOUR OUTPUT MUST START WITH: `def sds_custom_reward(...):`**
 
+**🚀 MANDATORY: USE PROVEN ISAAC LAB COMPONENTS FOR PROPER WALKING**
+
+**The current SDS-generated reward is failing because it creates everything from scratch instead of using Isaac Lab's proven reward components that work perfectly for walking.**
+
+**✅ YOU MUST USE THESE PROVEN FUNCTIONS:**
+1. **`feet_air_time_positive_biped()`** - This is the KEY for proper bipedal walking with foot air time
+2. **`track_lin_vel_xy_yaw_frame_exp()`** - Perfect velocity tracking with exponential kernel  
+3. **`track_ang_vel_z_world_exp()`** - Perfect angular velocity tracking
+4. **`feet_slide()`** - Prevents foot sliding during contact
+
+**🧠 CRITICAL: YOU DECIDE ALL NUMERIC VALUES**
+- Analyze the task description and decide optimal thresholds, std values, weights
+- Consider robot dynamics, gait patterns, terrain, command ranges from the task analysis
+- DO NOT use hardcoded example numbers - think about what makes sense for THIS specific task
+
+**🚨 CRITICAL: G1 ROBOT FOOT LINK PATTERN:**
+- **ALWAYS USE:** `body_names=".*_ankle_roll_link"` for G1 robot contact sensors
+- **NEVER USE:** `["left_ankle_roll_link", "right_ankle_roll_link"]` (causes tensor dimension errors)
+- **NEVER USE:** `["left_foot_link", "right_foot_link"]` (G1 doesn't have these names)
+- **CRITICAL:** For `feet_slide()`, sensor_cfg and asset_cfg must have IDENTICAL body_names
+- **CRITICAL:** For `feet_slide()`, sensor_cfg and asset_cfg must have IDENTICAL body_names
+
+**🚫 DO NOT CREATE THESE FROM SCRATCH:**
+- DON'T make custom foot air time logic using hip joint velocities
+- DON'T create "proprioceptive gait quality proxy" 
+- DON'T implement custom velocity tracking
+- DON'T make monolithic reward functions
+
 **🔍 URGENT: YOU MUST FIND AND USE REAL ENVIRONMENT DATA FROM THE SUS PROMPT BELOW!**
 
 **THE SUS PROMPT CONTAINS EXACT LINES LIKE:**
 - "- Gaps Detected: 34 gaps (5 steppable, 17 jumpable, 12 impossible)"
 - "- Terrain Roughness: 2.6cm (below threshold 20cm)"  
 - "- Safety Score: 88.7% traversable terrain"
+
+**🚫 FOUNDATION-ONLY MODE DETECTION:**
+**IF YOU SEE N/A VALUES LIKE:**
+- "- Gaps Detected: N/A gaps"
+- "- Terrain Roughness: N/Acm"
+- "- Safety Score: N/A% traversable terrain"
+
+**THIS INDICATES FOUNDATION-ONLY MODE - DO NOT USE ENVIRONMENTAL SENSORS!**
+**Focus only on basic locomotion (velocity, gait, posture, stability)**
 
 **YOU MUST USE THESE EXACT NUMBERS IN YOUR REWARD FUNCTION DOCSTRING!**
 
@@ -47,8 +84,8 @@ Enable comparison studies demonstrating:
 ❌ Sensors provide only minor bonuses without changing core behavior
 ❌ Conflicting reward objectives that confuse the policy
 
-🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
-🚨🚨🚨 CRITICAL: EXTRACT REAL ENVIRONMENT DATA FOR CODE GENERATION! 🚨🚨🚨
+🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨��🚨🚨🚨🚨🚨🚨
+🚨��🚨 ADAPTIVE SENSOR-BASED REWARD DESIGN 🚨🚨🚨
 🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
 
 **STEP 1: INTERNAL ENVIRONMENT DATA EXTRACTION (FOR CODE GENERATION ONLY)**
@@ -281,7 +318,7 @@ total = (basic_movement * 2.0 + progress * 1.0 + coordination_bonus + baseline).
 - **Gap crossing** → Reward CROSSING BEHAVIOR (maintaining height over gaps), not just detection
 - **Obstacle avoidance** → Reward SAFE DISTANCES from obstacles, not just sensing them
 
-**🎯 SENSOR-DRIVEN BEHAVIORAL ADAPTATION REQUIREMENT 🎯**
+**🎯 SENSOR-DRIVEN BEHAVIORA L ADAPTATION REQUIREMENT 🎯**
 
 **CRITICAL PROJECT GOAL: SENSORS MUST CHANGE ROBOT BEHAVIOR MEASURABLY!**
 
@@ -822,8 +859,9 @@ height_norm = ((current_height - baseline) / max_gain).clamp(0.0, 1.0)
 
 **2. Use Principled Thresholds:**
 ```python
-# Example: Mass-scaled contact detection  
-contact_threshold = robot_mass * 9.81 * 0.1  # 10% of weight
+# Example: Contact detection (G1 default)
+CONTACT_FORCE_THRESH_N = 50.0  # default for G1; align with contact plotting and play scripts
+contact_threshold = CONTACT_FORCE_THRESH_N  # adapt if analysis supports different threshold
 ```
 
 **3. Address Specific Problems with Targeted Metrics:**
@@ -1080,8 +1118,8 @@ IMPORTANT: Provide ONLY the Python code wrapped in ```python ```
 height_sensor = env.scene.sensors["height_scanner"]
 height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
 
-# 🚨 MANDATORY: Sanitize sensor data to prevent training crashes
-height_measurements = torch.where(torch.isfinite(height_measurements), height_measurements, torch.zeros_like(height_measurements))
+# ✅ HEIGHT SENSOR ACCESS:
+height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - offset
 
 # ✅ G1 BASELINE TERRAIN CLASSIFICATION:
 baseline = 0.209  # G1 robot baseline on flat terrain (CRITICAL: NOT zero!)
@@ -1092,7 +1130,7 @@ normal_terrain = ~obstacles & ~gaps                  # 0.139-0.279m = normal ter
 # ✅ LIDAR SENSOR: Direct distance measurement
 lidar_sensor = env.scene.sensors["lidar"]
 lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
-lidar_distances = torch.where(torch.isfinite(lidar_distances), lidar_distances, torch.ones_like(lidar_distances) * 5.0)
+lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
 ```
 
 ✅ Use Isaac Lab standard raw sensor access for all reward functions with physical measurements!
@@ -1133,8 +1171,8 @@ lidar_distances = torch.where(torch.isfinite(lidar_distances), lidar_distances, 
 height_sensor = env.scene.sensors["height_scanner"]
 height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
 
-# 🚨 MANDATORY: Sanitize sensor data first
-height_measurements = torch.where(torch.isfinite(height_measurements), height_measurements, torch.zeros_like(height_measurements))
+# ✅ ACCESS HEIGHT SENSOR:
+height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - offset
 
 # ✅ G1 BASELINE GAP DETECTION:
 baseline = 0.209  # G1 robot baseline on flat terrain
@@ -1234,7 +1272,7 @@ total_reward = (basic_locomotion_reward * locomotion_weight +
 
 **🎯 G1 BASELINE KEY IMPLEMENTATION PRINCIPLES:**
 1. **Use G1 baseline classification**: Always use baseline = 0.209m with ±0.07m thresholds
-2. **Mandatory data sanitization**: Always sanitize sensor data to prevent training crashes
+2. **Direct sensor usage**: Use sensor data directly from Isaac Lab APIs
 3. **Relative terrain classification**: Obstacles (< 0.139m), Gaps (> 0.279m), Normal (0.139-0.279m)
 4. **Precise baseline tracking**: Reward staying within 3cm of G1 baseline for terrain adaptation
 5. **Count-based terrain analysis**: Use ray counts and ratios for adaptive navigation strategies
@@ -1281,11 +1319,16 @@ def terrain_classification(height_readings, baseline=0.209):
 
 ## 🔬 **Height Scanner Specifications**
 
+**⚠️ CRITICAL: DO NOT CONFUSE HEIGHT SCANNER WITH CONTACT SENSOR!**
+- **Height scanner**: Uses `torso_link` for sensor placement ✅
+- **Contact sensor**: ONLY uses `.*_ankle_roll_link` for body detection ✅
+- **❌ NEVER use `torso_link` with `contact_sensor.find_bodies()`** 
+
 ### **G1 Robot Configuration (Enhanced)**
 ```python
 # Enhanced sensor configuration from flat_with_box_env_cfg.py
 height_scanner = RayCasterCfg(
-    prim_path="/World/envs/env_0/Robot/torso_link",
+    prim_path="/World/envs/env_0/Robot/torso_link",  # ✅ CORRECT for height scanner
     offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 0.6)),  # 60cm above torso
     attach_yaw_only=True,  # Only yaw rotation (not pitch/roll)
     pattern_cfg=patterns.GridPatternCfg(
@@ -1716,3 +1759,15 @@ environmental = gap_traversal_bonus + gap_safety_penalty + 0.1
 ❌ Gap avoidance instead of gap traversal
 ❌ Binary harsh penalties instead of progressive approach
 ❌ Equal weighting between foundation and environmental components
+```
+
+**🚨 FEET_SLIDE CRITICAL SHAPE RULES (G1):**
+- **DO**: Resolve `foot_ids` ONCE via `contact_forces.find_bodies(".*_ankle_roll_link")` and reuse for both contacts and velocities.
+- **DO**: If you call `feet_slide(env, ...)`, pass IDENTICAL `body_names` for `sensor_cfg` and `asset_cfg` (both `".*_ankle_roll_link"`).
+- **DO**: Add shape guard before multiply:
+```python
+assert body_vel.shape[:2] == contacts.shape, (
+    f"feet_slide shape mismatch: vel {{tuple(body_vel.shape)}} vs contacts {{tuple(contacts.shape)}}"
+)
+```
+- **DO NOT**: Mix different regex or explicit names across cfgs; it creates dimension mismatches like `(44) vs (2)`.

@@ -2,7 +2,7 @@ Please carefully analyze the policy feedback and provide a new, improved reward 
 
 Project context (terrain-aware guidance, not prescriptions):
 - If the SUS includes `TERRAIN_CLASS: [0|1|2|3]`, use it to decide which families of components to consider (0 SIMPLE foundation-only; 1 GAP height-based handling; 2 OBSTACLES LiDAR safety; 3 STAIRS relaxed-height). Choose the specific components/thresholds/weights based on the analysis rather than hardcoding.
-- Keep rewards additive + clamped; sanitize sensors; avoid multiplicative chains.
+- Keep rewards additive + clamped; use direct sensor access; avoid multiplicative chains.
 - Prefer deriving thresholds/weights from feedback and environment metrics, not fixed constants.
 
 **🚨 MANDATORY: YOUR RESPONSE MUST INCLUDE COMPREHENSIVE FEEDBACK ANALYSIS! 🚨**
@@ -31,6 +31,13 @@ Each training session develops **ONE SPECIALIZED LOCOMOTION SKILL** for teacher-
 - **Single-Skill:** Each training produces one specialized teacher policy
 - **Environment-Responsive:** Let challenges determine appropriate locomotion approach
 - **Teacher Quality:** Clean, focused skills make better teacher policies for student learning
+
+**🎯 SENSOR UTILIZATION FOR COMPARATIVE ANALYSIS:**
+- **MANDATORY in Environment-Aware Mode:** Actively use height scanner and LiDAR data in rewards
+- **Performance Target:** Achieve 15-30% improvement over foundation-only mode
+- **Measurable Benefits:** Lower termination rates, better navigation, higher rewards
+- **Foundation-Only Mode:** Use only proprioceptive data - NO sensor access
+- **Critical Contrast:** Sensor vs. non-sensor performance demonstrates environmental sensing value
 
 **Core Performance Metrics:**
 - `reward`: Total episode reward progression
@@ -148,17 +155,37 @@ Some helpful tips for analyzing the policy feedback:
             - Verify sensor coverage: height scanner and lidar cover backward movement areas
             - Ensure yaw-aligned velocity transformation works with negative commands
         (e) **Sensor Integration Crashes**: If adding height_scanner or lidar causes failures:
-            - **CRITICAL**: ALWAYS sanitize sensor data first: `torch.where(torch.isfinite(sensor_data), sensor_data, fallback)`
+            - **CRITICAL**: Use direct sensor data access from Isaac Lab APIs
             - **Verified Failure**: Raw sensor data contains NaN/Inf when rays miss targets
             - Test sensor data shapes: height_measurements should be [num_envs, 567], lidar_distances should be [num_envs, 152] 
             - Check grid access: use height_measurements directly (already flattened from 27x21 grid)
             - Verify ray indexing: forward_rays = lidar_distances[:, :76], backward_rays = lidar_distances[:, 76:]
-            - **Production Fix**: Always add final safety net: `torch.where(torch.isfinite(total), total, safe_fallback)`
+            - **Production Fix**: Use numerical stability with clamping: `torch.clamp(total, min=reasonable_min, max=reasonable_max)`
         (f) **Enhanced Environment Specific**: For Isaac-SDS-Velocity-Flat-G1-Enhanced-v0:
             - Use exact sensor configurations: GridPatternCfg (2.0x1.5m, 0.075m resolution), LidarPatternCfg (8 channels, 180° FoV, 10° resolution)
             - Account for velocity ranges: x: (-0.1, 0.4), y: (-0.15, 0.15), z: (-0.3, 0.3)
             - Focus on legs + torso coordination for locomotion (exclude arm-specific requirements)
 Please analyze each existing reward component in the suggested manner above first, and then write the reward function code. 
+
+**Cadence and Air-Time Control (Walking and Jumping):**
+
+- **Walking (alternating gait) targets:**
+  - Swing duration: 0.35–0.55 s; Stance duration: 0.25–0.45 s
+  - Contact ratio: 70–80%; Double support: ~10–20% of cycle
+  - Penalize ultra-short phases: add small hinge penalties for swing/stance <0.15–0.20 s
+  - Use `feet_air_time_positive_biped(threshold=0.55–0.65)` and clamp the component to prevent high-knee tapping
+  - Optional: add a small step-frequency limiter (penalty ∝ transitions per second) to discourage rapid micro‑steps
+
+- **Jumping (bilateral flight) targets:**
+  - Reward synchronized takeoff/landing using bilateral measures (e.g., `torch.min(air_time, dim=1)[0]`), not single-foot maxima
+  - Basic vertical jumps: bilateral flight 0.20–0.40 s; walking tasks should avoid prolonged flight
+  - Gate jumping components so they are only active in jump skills; do not mix with walking cadence terms in the same reward
+
+- **Command gating (both):**
+  - Gate gait/velocity rewards by non-trivial commands (e.g., `||cmd_xy||>0.1`, `|cmd_yaw|>0.05`) to avoid rewarding inactivity
+
+- **Monitoring (both):**
+  - Track distributions of `current_air_time`, `current_contact_time`, step transitions per second, `contact_ratio`, and (for jumping) bilateral flight fraction; retune thresholds/weights if you observe contact_ratio >0.9 (shuffling) or swing/stance <0.15 s (rapid stepping)
 
 **🔧 DEBUGGING: GAP NAVIGATION BEHAVIORAL ISSUES**
 

@@ -1,8 +1,38 @@
 You are an expert in humanoid robotics and task specification generation. Your objective is to compile the analyzed data into a comprehensive task requirement paragraph that can be used to train or program a humanoid to imitate the demonstrated task.
 
-**CRITICAL: EXACT ENVIRONMENTAL DATA PRESERVATION REQUIRED**
+**🎯 MODE-SPECIFIC TASK GENERATION:**
+
+**CHECK THE PROVIDED ANALYSES TO DETERMINE MODE:**
+
+**IF ENVIRONMENT-AWARE MODE (Environmental analysis data provided):**
+- Include all environmental context and sensor-based requirements
+- Preserve exact numerical environmental analysis data
+- Generate requirements for terrain-specific navigation and adaptation
+- **EMPHASIZE**: Use proven Isaac Lab reward components (`feet_air_time_positive_biped`, `track_lin_vel_xy_yaw_frame_exp`, etc.)
+
+**IF FOUNDATION-ONLY MODE (Environmental analysis shows "FOUNDATION-ONLY MODE"):**
+- Focus ONLY on basic locomotion patterns from video analysis
+- DO NOT include environmental sensor requirements
+- Generate requirements for fundamental movement mechanics only
+- Emphasize gait quality, velocity tracking, posture, and stability
+- INTERPRET N/A VALUES as "environmental sensing disabled" - do not use them for numerical analysis
+- When copying analysis with N/A values, add clarification that these indicate foundation-only mode
+- **EMPHASIZE**: Use proven Isaac Lab reward components for proper walking behavior
+- 🚫 **CRITICAL: DO NOT COPY OR REFERENCE "📸 VISUAL ANALYSIS INSIGHTS" SECTIONS**
+- 🚫 **Skip any "Movement challenges observed" or "Navigation requirements" content**
+- 🚫 **Do not include visual scene descriptions or terrain feature analysis**
+
+**CRITICAL: EXACT ENVIRONMENTAL DATA PRESERVATION REQUIRED (Environment-Aware Mode Only)**
 
 **IF the Task Description contains environmental analysis data, you MUST copy the EXACT numerical values without any summarizing, paraphrasing, or omission. This data is ESSENTIAL for downstream reward engineering.**
+
+**🚫 FOUNDATION-ONLY MODE N/A VALUE HANDLING:**
+
+**IF the Task Description contains N/A values (indicating foundation-only mode):**
+- Copy the N/A values exactly as provided but add clarification comments
+- Add note: "N/A values indicate environmental sensing disabled in foundation-only mode"
+- Do NOT attempt to convert N/A to numerical values
+- Emphasize that reward generation should ignore these environmental placeholders
 
 **MANDATORY PRESERVATION CHECKLIST:**
 - Copy EXACT sensor measurement counts (e.g., height measurement data)
@@ -31,13 +61,13 @@ You are an expert in humanoid robotics and task specification generation. Your o
 ```
 IF INPUT CONTAINS:
 📊 NUMERICAL ANALYSIS RESULTS:
-- Gaps Detected: 33 gaps (1 steppable, 20 jumpable, 12 impossible)
+- Gaps Detected: 33 gaps with varying characteristics
 - Obstacles Detected: 2 large obstacles
-- Terrain Roughness: 2.5cm (moderate, above threshold 2cm)
-- Safety Score: 88.8% traversable terrain
+- Terrain Roughness: [analysis value] (analyze roughness level)
+- Safety Score: [analysis percentage] traversable terrain
 
 THEN OUTPUT MUST INCLUDE EXACTLY:
-ENVIRONMENTAL CONTEXT: Gaps Detected: 33 gaps (1 steppable, 20 jumpable, 12 impossible), Obstacles Detected: 2 large obstacles, Terrain Roughness: 2.5cm (moderate, above threshold 2cm), Safety Score: 88.8% traversable terrain
+ENVIRONMENTAL CONTEXT: Gaps Detected: [analysis count] gaps with varying characteristics, Obstacles Detected: [analysis count] obstacles, Terrain Roughness: [analysis value], Safety Score: [analysis percentage] traversable terrain
 ```
 
 **🚨 SENSOR DATA PRIORITY RULE**
@@ -91,7 +121,7 @@ ENVIRONMENTAL CONTEXT: Gaps Detected: 33 gaps (1 steppable, 20 jumpable, 12 impo
 
 **Examples of EXACT Data to Preserve:**
 - "Height scanner: [measurement count] measurements" → Copy EXACTLY as provided
-- "X gaps detected (Y steppable ≤[size], Z jumpable [size range], W impassable >[size])" → Copy ALL numbers and classifications
+- "X gaps detected with various characteristics" → Copy gap count and terrain analysis
 - "Average terrain roughness: [value]cm" → Copy EXACTLY as provided
 - "[number] obstacles detected" → Copy EXACTLY as provided
 - "Safety assessment: [percentage]% safe traversable terrain" → Copy EXACTLY as provided

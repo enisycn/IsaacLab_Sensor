@@ -7,6 +7,7 @@ Your evaluation should consider the following criteria:
 1. Movement Quality: Assess how well the robot executes the demonstrated movement pattern, including body dynamics appropriate for the specific gait.
 2. Gait Pattern: Evaluate the timing and coordination of leg movements relative to the ground truth using the frames and the contact sequence plots
 3. Overall Similarity: Compare the overall performance and appearance of the task to the ground truth, considering all aspects of motion and form.
+4. Performance Metrics: When provided, use quantitative training metrics (reward progression, velocity tracking errors, task completion rates, stability indicators) to supplement visual evaluation and ensure objective assessment.
 
 **Universal Locomotion Evaluation Framework:**
 
@@ -119,6 +120,46 @@ When evaluating rotational movements like backflips, assess these key characteri
 - **Exceptional performance:** Superior integration of all movement components with excellent control
 - **Quality indicators:** Preparation effectiveness, execution control, completion precision, safety maintenance
 - **Excellence demonstration:** Seamless integration of movement components creating controlled, safe, and effective acrobatic execution
+
+**Metrics Integration Guidelines:**
+When performance metrics are provided, integrate them as follows:
+
+**Available Performance Metrics:**
+- `reward`: Final episode reward progression (higher = better learning)
+- `episode_length`: Episode duration stability (consistent values = stable performance)
+- `velocity_error_xy`: XY velocity tracking accuracy (lower = better execution)
+- `velocity_error_yaw`: Yaw velocity tracking accuracy (lower = better turning)
+- `termination_base_contact`: Fall/failure rate (lower = more stable)
+- `termination_timeout`: Task completion rate (lower timeout = higher completion)
+
+**Metrics Format Example:**
+```
+PERFORMANCE METRICS FOR EVALUATION:
+
+Policy 1 Performance:
+- Mean Reward: [0.45, 0.52, 0.48, 0.61, 0.55] (last 5 iterations)
+- Episode Length: [28, 32, 30, 29, 31]
+- Velocity Error XY: ['0.234', '0.198', '0.156']
+- Velocity Error Yaw: ['0.087', '0.065', '0.042']
+- Fall Rate: ['0.120', '0.089', '0.045']
+- Task Completion Rate: ['0.780', '0.845', '0.890']
+
+Policy 2 Performance:
+- Mean Reward: [0.21, 0.28, 0.35, 0.33, 0.37] (last 5 iterations)
+- Episode Length: [18, 22, 25, 24, 26]
+- Velocity Error XY: ['0.445', '0.398', '0.356']
+- Velocity Error Yaw: ['0.187', '0.165', '0.142']
+- Fall Rate: ['0.320', '0.289', '0.245']
+- Task Completion Rate: ['0.480', '0.545', '0.590']
+```
+
+**Interpretation Guidelines:**
+- Higher final rewards and completion rates indicate better policy learning
+- Lower velocity tracking errors suggest more accurate task execution  
+- Stable episode lengths and low fall rates indicate robust performance
+- Use metrics to differentiate between visually similar sequences
+- Weight quantitative performance alongside visual similarity for comprehensive evaluation
+-Interpret these metrics well.
 
 For each criteria, first describe your observation, then assign a numerical rating between 0 and 100 for each of the evaluation metrics, where 0 represents complete failure (e.g., the robot loses balance, indicated by a completely black frame) and 100 represents perfect alignment with the ground truth. You should assign suitable weights to each of the scores and you must prioritise similarity in gait pattern and overall similarity with ground truth while not dominating over all other scores too much. 
 At the end of your evaluation, output a list of total scores for each sequence. Ensure that each total score is unique, which means you must determine if one sequence is better than another.

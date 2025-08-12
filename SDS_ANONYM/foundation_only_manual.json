@@ -1,0 +1,252 @@
+{
+  "metadata": {
+    "task": "Isaac-SDS-Velocity-Flat-G1-Enhanced-v0",
+    "checkpoint": "logs/rsl_rl/g1_enhanced/2025-08-12_23-42-33/model_500.pt",
+    "foundation_only": false,
+    "sensors_enabled": true,
+    "num_envs": 20,
+    "collection_steps": 300,
+    "timestamp": "2025-08-13T00:17:41.297391",
+    "observation_space": "Dict('policy': Box(-inf, inf, (20, 81), float32))",
+    "action_space": "Box(-inf, inf, (20, 23), float32)"
+  },
+  "summary_metrics": {},
+  "comprehensive_metrics": {
+    "tracking_performance": {
+      "velocity_error_xy": {
+        "count": 6000,
+        "mean": 0.5302360830406347,
+        "std": 0.1901346581352611,
+        "min": 0.0,
+        "max": 0.7963705062866211,
+        "median": 0.514945924282074,
+        "q25": 0.4518498480319977,
+        "q75": 0.7144121080636978
+      },
+      "velocity_error_yaw": {
+        "count": 6000,
+        "mean": 0.0,
+        "std": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "median": 0.0,
+        "q25": 0.0,
+        "q75": 0.0
+      },
+      "command_tracking_accuracy": {
+        "count": 6000,
+        "mean": 0.049833333333333334,
+        "std": 0.21760048764242743,
+        "min": 0.0,
+        "max": 1.0,
+        "median": 0.0,
+        "q25": 0.0,
+        "q75": 0.0
+      },
+      "velocity_variance": {
+        "count": 5900,
+        "mean": 0.0,
+        "std": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "median": 0.0,
+        "q25": 0.0,
+        "q75": 0.0
+      },
+      "heading_drift": {
+        "count": 5800,
+        "mean": 0.0,
+        "std": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "median": 0.0,
+        "q25": 0.0,
+        "q75": 0.0
+      }
+    },
+    "gait_quality": {},
+    "foot_contact": {},
+    "stability_posture": {
+      "base_height_deviation": {
+        "count": 6000,
+        "mean": 0.74,
+        "std": 0.0,
+        "min": 0.74,
+        "max": 0.74,
+        "median": 0.74,
+        "q25": 0.74,
+        "q75": 0.74
+      },
+      "angular_velocity_magnitude": {
+        "count": 6000,
+        "mean": 0.0,
+        "std": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "median": 0.0,
+        "q25": 0.0,
+        "q75": 0.0
+      },
+      "com_stability": {
+        "count": 6000,
+        "mean": 1.0,
+        "std": 0.0,
+        "min": 1.0,
+        "max": 1.0,
+        "median": 1.0,
+        "q25": 1.0,
+        "q75": 1.0
+      },
+      "postural_sway": {
+        "count": 5800,
+        "mean": 1.914177628664063e-18,
+        "std": 1.4451724176112848e-17,
+        "min": 0.0,
+        "max": 1.1102230246251565e-16,
+        "median": 0.0,
+        "q25": 0.0,
+        "q75": 0.0
+      }
+    },
+    "velocity_stability": {
+      "velocity_smoothness": {
+        "count": 5960,
+        "mean": 1.0,
+        "std": 0.0,
+        "min": 1.0,
+        "max": 1.0,
+        "median": 1.0,
+        "q25": 1.0,
+        "q75": 1.0
+      },
+      "acceleration_magnitude": {
+        "count": 5980,
+        "mean": 0.0,
+        "std": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "median": 0.0,
+        "q25": 0.0,
+        "q75": 0.0
+      },
+      "jerk_index": {
+        "count": 5960,
+        "mean": 0.0,
+        "std": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "median": 0.0,
+        "q25": 0.0,
+        "q75": 0.0
+      },
+      "direction_changes": {
+        "count": 6000,
+        "mean": 0.0,
+        "std": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "median": 0.0,
+        "q25": 0.0,
+        "q75": 0.0
+      },
+      "speed_consistency": {
+        "count": 5960,
+        "mean": 1.0,
+        "std": 0.0,
+        "min": 1.0,
+        "max": 1.0,
+        "median": 1.0,
+        "q25": 1.0,
+        "q75": 1.0
+      },
+      "turning_smoothness": {
+        "count": 5980,
+        "mean": 1.0,
+        "std": 0.0,
+        "min": 1.0,
+        "max": 1.0,
+        "median": 1.0,
+        "q25": 1.0,
+        "q75": 1.0
+      }
+    },
+    "command_adherence": {
+      "steady_state_error": {
+        "count": 6000,
+        "mean": 0.5302360830406347,
+        "std": 0.1901346581352611,
+        "min": 0.0,
+        "max": 0.7963705062866211,
+        "median": 0.514945924282074,
+        "q25": 0.4518498480319977,
+        "q75": 0.7144121080636978
+      },
+      "command_following_precision": {
+        "count": 6000,
+        "mean": 0.2021435915433571,
+        "std": 0.1863069302084568,
+        "min": 0.11156103472915901,
+        "max": 1.0,
+        "median": 0.16261595697465203,
+        "q25": 0.12278921451880409,
+        "q75": 0.1812087028314726
+      }
+    },
+    "evaluation_coverage": {
+      "velocity_range_coverage": {
+        "count": 300,
+        "mean": 0.0,
+        "std": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "median": 0.0,
+        "q25": 0.0,
+        "q75": 0.0
+      },
+      "turning_range_coverage": {
+        "count": 300,
+        "mean": 0.0,
+        "std": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "median": 0.0,
+        "q25": 0.0,
+        "q75": 0.0
+      },
+      "termination_reasons": {}
+    },
+    "disturbance_robustness": {
+      "stability_margin": {
+        "count": 6000,
+        "mean": 1.0,
+        "std": 0.0,
+        "min": 1.0,
+        "max": 1.0,
+        "median": 1.0,
+        "q25": 1.0,
+        "q75": 1.0
+      },
+      "adaptive_response": {
+        "count": 5900,
+        "mean": 0.0,
+        "std": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "median": 0.0,
+        "q25": 0.0,
+        "q75": 0.0
+      },
+      "fall_prevention": {
+        "count": 5800,
+        "mean": 1.0,
+        "std": 0.0,
+        "min": 1.0,
+        "max": 1.0,
+        "median": 1.0,
+        "q25": 1.0,
+        "q75": 1.0
+      }
+    }
+  },
+  "episodes_summary": []
+}

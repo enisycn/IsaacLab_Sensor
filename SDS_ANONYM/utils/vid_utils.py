@@ -10,9 +10,50 @@ VIDEO_RESOLUTION = 16
 GRID_SIZE = int(math.sqrt(VIDEO_RESOLUTION))
 EPISODE_FRAME_LEN = 1002
 
-def encode_image(image_path):
-  with open(image_path, "rb") as image_file:
-    return base64.b64encode(image_file.read()).decode('utf-8')
+def encode_image(image_path, max_size=None, quality=90):
+  """
+  Encode an image file to base64 PNG.
+  - max_size: optional (width, height) tuple to constrain max dimensions while preserving aspect ratio
+  - quality: 0-100, mapped to PNG compression (0 = no compression, 9 = max). Higher quality => lower compression
+  """
+  try:
+    img = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+    if img is None:
+      # Fallback to raw file read if OpenCV cannot read
+      with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode('utf-8')
+
+    # Resize if max_size is provided
+    if max_size is not None and isinstance(max_size, (tuple, list)) and len(max_size) == 2:
+      max_w, max_h = int(max_size[0]), int(max_size[1])
+      h, w = img.shape[:2]
+      if w > 0 and h > 0:
+        scale = min(max_w / float(w), max_h / float(h), 1.0)
+        if scale < 1.0:
+          new_w = max(1, int(w * scale))
+          new_h = max(1, int(h * scale))
+          img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+    # Map quality (0-100) to PNG compression level (0-9)
+    try:
+      q = int(quality)
+    except Exception:
+      q = 90
+    q = max(0, min(100, q))
+    png_compression = max(0, min(9, int(round((100 - q) / 10.0))))
+
+    success, buf = cv2.imencode('.png', img, [cv2.IMWRITE_PNG_COMPRESSION, png_compression])
+    if not success:
+      # Fallback to raw file read
+      with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode('utf-8')
+
+    return base64.b64encode(buf.tobytes()).decode('utf-8')
+
+  except Exception:
+    # Last-resort fallback
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode('utf-8')
 
 
 def readVideoPyav(container, indices):

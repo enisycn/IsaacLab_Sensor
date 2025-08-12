@@ -70,7 +70,7 @@ class Agent():
         self.model = cfg.model
         
         # Reasoning models (o1, o3, o4 series) only support temperature=1.0
-        reasoning_models = ['o1', 'o1-mini', 'o1-preview', 'o3', 'o3-mini', 'o4-mini']
+        reasoning_models = ['o1', 'o1-mini', 'o1-preview', 'o3', 'o3-mini', 'o4-mini', 'gpt-5', 'gpt-5-mini']
         if any(self.model.startswith(model) for model in reasoning_models):
             self.temperature = 1.0  # Required for reasoning models
             self.logger.info(f"Using temperature=1.0 for reasoning model {self.model}")
@@ -259,10 +259,77 @@ class SUSGenerator(Agent):
         
         return sus_prompt
 
+    def generate_foundation_only_sus_prompt(self, encoded_gt_frame_grid, task_description_hint=None):
+        """Generate SUS prompt for foundation-only mode using SAME pipeline as environment-aware mode"""
+        
+        # Use EnvironmentAwareTaskDescriptor with foundation-only environment analysis injection
+        task_descriptor = EnvironmentAwareTaskDescriptor(self.cfg, self.prompt_dir)
+        
+        # Inject foundation-only explanation into the environment analysis section
+        foundation_explanation = """📋 COMPREHENSIVE FINAL ENVIRONMENT ANALYSIS FOR AI AGENT
+🚫 FOUNDATION-ONLY MODE - NO ENVIRONMENTAL ANALYSIS AVAILABLE
+🚫 ENVIRONMENTAL SENSING DISABLED:
+    Standard baseline: N/A (environmental sensing disabled)
+    Classification threshold: N/A
+    Gap threshold: N/A (no environmental detection available)
+    Obstacle threshold: N/A (no environmental detection available)
+    
+📊 ANALYSIS STATUS:
+    Total rays: 0 (environmental analysis disabled in foundation-only mode)
+    Height readings: N/A (height scanner disabled)
+    LiDAR data: N/A (LiDAR sensor disabled)
+    
+🔺 OBSTACLES: N/A (obstacle detection disabled)
+🕳️  GAPS: N/A (gap detection disabled)  
+🏞️  TERRAIN ANALYSIS: N/A (terrain analysis disabled)
+
+🚫 VISUAL ANALYSIS DISABLED IN FOUNDATION-ONLY MODE:
+    📸 VISUAL ANALYSIS INSIGHTS: DISABLED (foundation-only mode)
+    Movement challenges observed: N/A (visual analysis disabled)
+    Navigation requirements: N/A (visual analysis disabled)
+    Visual scene documentation: N/A (environmental features disabled)
+    Terrain-specific observations: N/A (terrain analysis disabled)
+
+🎯 FOUNDATION-ONLY GUIDANCE:
+    Mode: Foundation locomotion only (gait, velocity, posture, stability)
+    Focus: Terrain-agnostic robust walking patterns
+    Strategy: Develop consistent locomotion independent of environment
+    Approach: Use only proprioceptive feedback and basic movement patterns
+    Visual Analysis: DISABLED - focus only on basic gait mechanics from video"""
+        
+        # Inject foundation explanation and use foundation-only analysis (NO analyze_environment.py)
+        success = task_descriptor.inject_environment_analysis(foundation_explanation)
+        # 🔧 FIX: Use analyse_foundation_only to completely skip analyze_environment.py
+        task_description = task_descriptor.analyse_foundation_only(encoded_gt_frame_grid, task_description_hint)
+        
+        # 🔧 FIX: Use EXACT SAME pipeline as EnhancedSUSGenerator (environment-aware mode)
+        contact_sequence_analyser = ContactSequenceAnalyser(self.cfg, self.prompt_dir)
+        contact_pattern = contact_sequence_analyser.analyse(encoded_gt_frame_grid)
+        
+        gait_analyser = GaitAnalyser(self.cfg, self.prompt_dir)
+        gait_response = gait_analyser.analyse(encoded_gt_frame_grid, contact_pattern)
+        
+        task_requirement_analyser = TaskRequirementAnalyser(self.cfg, self.prompt_dir)
+        # 🔧 FIX: Pass full task description like EnhancedSUSGenerator does
+        task_requirement_response = task_requirement_analyser.analyse(encoded_gt_frame_grid, task_description)
+        
+        # 🔧 FIX: Use SAME content preparation as EnhancedSUSGenerator (no extra foundation context)
+        self.prepare_user_content([
+            {"type":"text","data": task_description},
+            {"type":"text","data": gait_response},
+            {"type":"text","data": task_requirement_response}
+        ])
+        
+        sus_prompt = self.query()
+        
+        return sus_prompt
+
 class EnvironmentAwareTaskDescriptor(Agent):
     def __init__(self, cfg, prompt_dir):
         system_prompt_file=f"{prompt_dir}/environment_aware_task_descriptor_system.txt"
         super().__init__(system_prompt_file, cfg)
+        
+
         self.prompt_file = system_prompt_file
         
     def inject_environment_analysis(self, environment_analysis):
@@ -306,14 +373,13 @@ class EnvironmentAwareTaskDescriptor(Agent):
             self.logger.info("Activated Agent EnvironmentAnalyzer")
             
             # Predefined RL policy checkpoint (hardcoded for reliable analysis)
-            default_checkpoint = "logs/rsl_rl/g1_enhanced/2025-08-03_23-45-47/model_200.pt"
+            default_checkpoint = "logs/rsl_rl/g1_enhanced/2025-08-12_15-16-58/model_500.pt"
             
             # Change to IsaacLab directory and run analysis
             isaac_lab_path = "/home/enis/IsaacLab"
             analysis_script = f"{isaac_lab_path}/analyze_environment.py"
             
             # Run the analysis script with gravity enabled and predefined RL policy
-            # Use direct Python call instead of isaaclab.sh wrapper to avoid subprocess issues
             cmd = [
                 "bash", "-c", 
                 f"source /home/enis/miniconda3/etc/profile.d/conda.sh && conda activate sam2 && cd {isaac_lab_path} && python -u analyze_environment.py --task=Isaac-SDS-Velocity-Flat-G1-Enhanced-v0 --checkpoint {default_checkpoint} --headless --num_envs {num_envs}"
@@ -405,6 +471,22 @@ class EnvironmentAwareTaskDescriptor(Agent):
         
         self.prepare_user_content(user_content)
         return self.query()
+    
+    def analyse_foundation_only(self, encoded_frame_grid, task_hint=None):
+        """Analyze in foundation-only mode without environment analysis"""
+        # Foundation-only explanation has already been injected
+        self.logger.info("🚫 Running foundation-only task analysis (no environmental data)")
+        
+        # Prepare user content for foundation-only analysis
+        user_content = [{"type":"image_uri","data":encoded_frame_grid}]
+        
+        if task_hint:
+            user_content.append({"type":"text","data":f"You are analyzing a video demonstrating: {task_hint}. Focus ONLY on basic locomotion patterns (gait, velocity, posture) visible in the video. DO NOT reference environmental adaptation or sensor-based strategies. DO NOT generate any 📸 VISUAL ANALYSIS INSIGHTS sections or Movement challenges observed content."})
+        else:
+            user_content.append({"type":"text","data":"Analyze the basic locomotion patterns shown in this video. Focus ONLY on gait characteristics, velocity patterns, and postural elements. Ignore environmental features - focus on fundamental movement mechanics. DO NOT include any 📸 VISUAL ANALYSIS INSIGHTS, Movement challenges observed, or Navigation requirements sections."})
+        
+        self.prepare_user_content(user_content)
+        return self.query()
 
 class TaskDescriptor(Agent):
     def __init__(self, cfg, prompt_dir):
@@ -422,6 +504,8 @@ class TaskDescriptor(Agent):
             user_content.append({"type":"text","data":f"You are analyzing a video demonstrating: {task_hint}. Focus your analysis on the specific behaviors and movements characteristic of this task."})
         self.prepare_user_content(user_content)
         return self.query()
+
+
 
 class EnhancedSUSGenerator(Agent):
     def __init__(self, cfg, prompt_dir):

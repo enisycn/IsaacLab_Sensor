@@ -23,9 +23,9 @@ You are an expert in analyzing humanoid locomotion tasks with advanced environme
    - **Height Scanner Analysis:** Process grid-based height measurements for terrain features
    - **LiDAR Sensor Analysis:** Process ~180° front hemisphere distance measurements for obstacle detection  
    - **Gap Classification:** Categorize detected gaps by size for environmental analysis:
-  * **Small gaps (≤30cm wide):** Detailed measurement and traversability assessment
-  * **Medium gaps (30-80cm wide, variable depth):** Gap dimensions and environmental challenge level
-  * **Large gaps (>80cm wide, variable depth):** Environmental hazard assessment and navigation complexity
+  * **Small terrain variations:** Detailed measurement and traversability assessment
+* **Medium terrain variations:** Terrain dimensions and environmental challenge level
+* **Large terrain variations:** Environmental hazard assessment and navigation complexity
    - **Obstacle Distribution:** Analyze obstacle density, size distribution, navigation complexity
    - **Terrain Characteristics:** Assess roughness, height variation, safety levels
 
@@ -52,78 +52,115 @@ You are an expert in analyzing humanoid locomotion tasks with advanced environme
 
 **Instructions:**
 
-**Note:** You have access to REAL-TIME ENVIRONMENT ANALYSIS from the actual simulation environment. Use this data to enhance your video analysis and provide accurate, terrain-specific task descriptions.
+**Note:** You may have access to REAL-TIME ENVIRONMENT ANALYSIS from the actual simulation environment. Use this data to enhance your video analysis and provide accurate, terrain-specific task descriptions.
 
-**CRITICAL: READ THE ENVIRONMENT ANALYSIS SECTION BELOW CAREFULLY**
+**IMPORTANT: CHECK THE ENVIRONMENT ANALYSIS SECTION BELOW**
+If environmental analysis is provided, use it for terrain-specific insights.
+If environmental analysis is NOT AVAILABLE (foundation-only mode), focus on basic locomotion patterns only.
 <!-- ENVIRONMENT_ANALYSIS_START -->
 📋 COMPREHENSIVE FINAL ENVIRONMENT ANALYSIS FOR AI AGENT
-   📊 COMBINED RAY ANALYSIS:
+   🎯 USING ISAAC LAB STANDARD DETECTION:
+     Standard baseline: 0.209m
+     Classification threshold: ±0.07m
+     Gap threshold: >0.279m (terrain >0.07m lower)
+     Obstacle threshold: <0.139m (terrain >0.07m higher)
+     Normal range: 0.139m to 0.279m
+   📊 CORRECTED RAY ANALYSIS (Isaac Lab Standards):
      Total rays: 28350 (from 50 robots)
-     Height readings: 0.172m to 0.496m (avg: 0.226m)
-     Baseline terrain level: 0.226m
+     Height readings: 0.229m to 0.261m (avg: 0.240m)
+     Isaac Lab baseline: 0.209m (standard)
+     Measured baseline: 0.240m (actual terrain average)
    ---
    🔺 OBSTACLES:
      Count: 0 rays (0.0%)
    🕳️  GAPS:
-     Count: 1971 rays (7.0%)
-     Deepest gap depth below baseline: 0.271m
-       (Gap sensor reading: 0.496m)
-       (Baseline reference: 0.226m)
-       (Physical meaning: Terrain is 0.271m lower than normal)
-     Shallowest gap depth below baseline: 0.100m
-       (Gap sensor reading: 0.326m)
-       (Baseline reference: 0.226m)
-       (Physical meaning: Terrain is 0.100m lower than normal)
+     Count: 0 rays (0.0%)
    🏞️  NORMAL TERRAIN:
-     Count: 26379 rays (93.0%)
-     Definition: Terrain within ±0.1m of baseline (0.226m)
-   🚨 Overall terrain safety: 🔴 DANGEROUS
-     Reason: 7.0% gaps (limit: 5.0%), 0.0% obstacles (limit: 7.0%)
+     Count: 28350 rays (100.0%)
+     Definition: Terrain between 0.139m and 0.279m
+     Range: ±0.07m tolerance zone around 0.209m baseline
+   🚨 Overall terrain safety: 🟢 SAFE
+     Reason: 0.0% gaps (limit: 10.0%), 0.0% obstacles (limit: 30.0%)
 
-🧹 Shutting down...
-✅ Environment closed
+📸 VISUAL ANALYSIS INSIGHTS:
+   Environment Type: Flat terrain with gentle variations
+   Surface Characteristics: Uniform height distribution, stable footing
+   Movement Challenges: None - consistent flat terrain
+   Navigation Requirements: Standard bipedal locomotion without terrain-specific adaptations
+   Visual Scene Documentation: Clean flat environment with minimal height variation (±3cm range)
+   Terrain-Specific Observations: Safe traversal conditions, no environmental hazards detected
 
-🔄 Final cleanup before app shutdown...
-🔧 Final GPU memory clear...
-✅ Final GPU cache cleared
-✅ Final garbage collection completed
+🎯 ENVIRONMENT-AWARE GUIDANCE:
+   Mode: Environment-aware locomotion with sensor integration
+   Focus: Flat terrain optimized walking with height scanner feedback
+   Strategy: Use proprioceptive and environmental sensors for stable locomotion
+   Approach: Combine basic movement patterns with terrain height awareness
+   Environmental Context: Flat, safe terrain suitable for standard walking behaviors
 <!-- ENVIRONMENT_ANALYSIS_END -->
+
+**🎯 ANALYSIS MODE INSTRUCTIONS:**
+
+**IF ENVIRONMENT ANALYSIS IS AVAILABLE (Environment-Aware Mode):**
+- Use the environmental sensor data above to enhance your visual analysis
+- Focus on terrain-specific navigation strategies and adaptive behaviors
+- Correlate visual observations with quantitative sensor measurements
+- Generate task descriptions that incorporate environmental challenges
+
+**IF ENVIRONMENT ANALYSIS SHOWS "FOUNDATION-ONLY MODE" (Foundation-Only Mode):**
+- Environmental sensing is disabled - focus ONLY on basic locomotion patterns
+- Analyze gait characteristics, velocity patterns, and postural elements visible in video
+- DO NOT reference environmental adaptation, sensor-based navigation, or terrain-specific strategies
+- Create task descriptions based purely on fundamental movement mechanics
+- Emphasize terrain-agnostic locomotion skills (balance, coordination, rhythm)
+- IGNORE ALL N/A VALUES in environmental analysis - these indicate disabled sensors
+- If you see "N/A gaps", "N/A obstacles", "N/A terrain roughness" - treat as foundation-only placeholders
+- 🚫 **CRITICAL: DO NOT INCLUDE VISUAL ANALYSIS INSIGHTS SECTIONS**
+- 🚫 **DO NOT generate "📸 VISUAL ANALYSIS INSIGHTS", "Movement challenges observed", or "Navigation requirements"**
+- 🚫 **Skip all visual scene documentation and environmental feature descriptions**
 
 **Analysis Framework:**
 
 **STEP 1: DETAILED FOOTAGE ANALYSIS**
    - **Grid Frame Sequence:** Analyze the provided video frames arranged in grid format (left-to-right, top-to-bottom chronological order)
-   - **Visual Scene Documentation:**
-     * Describe overall environment, terrain type, surface characteristics
+   - **Visual Scene Documentation (Environment-Aware Mode Only):**
+     * **IF FOUNDATION-ONLY MODE:** Skip visual scene documentation entirely
+     * **IF ENVIRONMENT-AWARE MODE:** Describe overall environment, terrain type, surface characteristics
      * Note visible obstacles, background elements, spatial layout
      * Identify lighting conditions, visual clarity, viewing perspective
    - **Character/Object Identification:**
      * Describe humanoid robot configuration, joint structure, physical characteristics
-     * Identify visible equipment, environmental features, structural elements
-     * Note any additional objects or interactive elements
+     * **IF FOUNDATION-ONLY MODE:** Focus only on robot movement mechanics, skip environmental features
+     * **IF ENVIRONMENT-AWARE MODE:** Identify visible equipment, environmental features, structural elements
+     * Note any additional objects or interactive elements (environment-aware only)
    - **Movement Sequence Analysis:**
      * Document locomotion patterns visible across frames
      * Track body position changes, orientation shifts, spatial progression
      * Observe gait characteristics, contact patterns, balance strategies
-     * Note obstacle interaction methods and navigation approaches
+     * **IF FOUNDATION-ONLY MODE:** Focus purely on gait mechanics and locomotion patterns
+     * **IF ENVIRONMENT-AWARE MODE:** Note obstacle interaction methods and navigation approaches
 
-**STEP 2: ENVIRONMENTAL SENSOR INTEGRATION**
-   - Use the provided environment analysis to understand actual terrain conditions
-   - Identify gap types (steppable, jumpable, impossible) and their distribution
-   - Assess obstacle density and navigation complexity
-   - Determine overall terrain difficulty and safety levels
+**STEP 2: ENVIRONMENTAL SENSOR INTEGRATION (Environment-Aware Mode Only)**
+   - **IF ENVIRONMENT ANALYSIS AVAILABLE:** Use the provided environment analysis to understand actual terrain conditions
+   - **IF FOUNDATION-ONLY MODE:** Skip this step - no environmental sensor data available
+   - Identify gap characteristics and distribution patterns (if available)
+   - Assess obstacle density and navigation complexity (if available)
+   - Determine overall terrain difficulty and safety levels (if available)
 
-**STEP 3: VISUAL-SENSOR CORRELATION**
-   - **Cross-Reference Analysis:** Compare visual observations from footage with quantitative sensor measurements
-   - **Validation Checks:** Verify that visual terrain features match sensor-detected features
-   - **Enhanced Understanding:** Use sensor data to clarify ambiguous visual elements
-   - **Discrepancy Documentation:** Note any differences between visual appearance and sensor readings
+**STEP 3: VISUAL-SENSOR CORRELATION (Environment-Aware Mode Only)**
+   - **IF ENVIRONMENT ANALYSIS AVAILABLE:**
+     * **Cross-Reference Analysis:** Compare visual observations from footage with quantitative sensor measurements
+     * **Validation Checks:** Verify that visual terrain features match sensor-detected features
+     * **Enhanced Understanding:** Use sensor data to clarify ambiguous visual elements
+     * **Discrepancy Documentation:** Note any differences between visual appearance and sensor readings
+   - **IF FOUNDATION-ONLY MODE:** Skip this step - rely only on visual analysis
 
 **STEP 4: UNIFIED TASK SPECIFICATION**
-   - Combine visual observations with sensor-confirmed environmental challenges
-   - Create comprehensive task description incorporating both visual and quantitative data
-   - Specify locomotion requirements based on combined analysis
-   - Provide environment-adaptive task specifications
+   - **Environment-Aware Mode:** Combine visual observations with sensor-confirmed environmental challenges
+   - **Foundation-Only Mode:** Base task description purely on visual locomotion patterns
+   - Create comprehensive task description appropriate for the available data
+   - Specify locomotion requirements based on the analysis mode
+   - **Environment-Aware:** Provide environment-adaptive task specifications
+   - **Foundation-Only:** Provide terrain-agnostic locomotion specifications
 
 **Output Format:**
 
@@ -296,8 +333,8 @@ This data is essential for subsequent reward engineering to make informed enviro
 1. **Quantitative Enhancement:** Always include specific numbers from environment analysis (gap counts, percentages, distances)
 
 2. **Terrain-Specific Language:** Use terminology that reflects actual detected features:
-   - "Navigate 91 steppable gaps" (not "avoid some obstacles")
-   - "Execute path planning for 1444 impossible gaps" (not "walk around things")
+   - "Navigate 91 terrain variations" (not "avoid some obstacles")  
+- "Execute path planning for challenging terrain sections" (not "walk around things")
    - "Maintain balance on 82.7% traversable terrain" (not "walk on flat ground")
 
 3. **Safety-Informed Descriptions:** Incorporate risk levels and navigation strategies:
@@ -327,7 +364,7 @@ Based on the environment analysis, provide specific task description guidance:
 - **Navigation Intelligence:** Describe appropriate strategy selection for different environmental features
 - **Adaptive Locomotion:** Specify movement pattern requirements for terrain challenges
 - **Safety Prioritization:** Balance task completion with environmental risk factors
-- **Sensor Integration:** Describe requirements for environmental sensor utilization
+- **Sensor Integration:** 🎯 **CRITICAL FOR COMPARATIVE ANALYSIS** - Emphasize that environmental sensors (height scanner, LiDAR) MUST be actively utilized to achieve superior performance compared to foundation-only mode. Describe specific sensor-based advantages for navigation, obstacle avoidance, and terrain adaptation.
 
 **TASK COMPLEXITY SCALING:**
 - **Complex environments:** Emphasize safety-focused task descriptions
@@ -392,12 +429,14 @@ Your analysis must END with this exact format:
 🔍 COMPREHENSIVE ENVIRONMENT ANALYSIS:
 
 📊 NUMERICAL ANALYSIS RESULTS:
-- Gaps Detected: [EXACT NUMBER FROM ANALYSIS] gaps ([BREAKDOWN: X steppable, Y jumpable, Z impossible])
+- Gaps Detected: [EXACT NUMBER FROM ANALYSIS] gaps with varying characteristics
 - Obstacles Detected: [EXACT NUMBER FROM ANALYSIS] large obstacles  
 - Terrain Roughness: [EXACT VALUE FROM ANALYSIS]cm ([complexity level], [above/below] threshold [threshold value]cm)
 - Safety Score: [EXACT PERCENTAGE FROM ANALYSIS]% traversable terrain
 
 📸 VISUAL ANALYSIS INSIGHTS:
+- [FOUNDATION-ONLY MODE]: DISABLED (foundation-only mode)
+- [ENVIRONMENT-AWARE MODE]:
 - Primary terrain type: [detailed visual terrain description]
 - Visual environment features: [specific visual observations]
 - Movement challenges observed: [specific movement challenges from visual analysis]

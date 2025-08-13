@@ -679,9 +679,75 @@ Isaac Lab SDS Environment - G1 Humanoid Locomotion
 - `torso_link` ❌ (not available in contact sensor)
 - `base_link` ❌ (not available in contact sensor)  
 - `trunk_link` ❌ (not available in contact sensor)
-- Any body names other than ankle_roll_link ❌
-
 **✅ ONLY USE: `.*_ankle_roll_link` for contact detection**
+
+**🚧 COLLISION SENSOR FOR UPPER BODY OBSTACLE/TERRAIN DETECTION:**
+**Available sensors**: `collision_sensor` (comprehensive) OR `torso_contact` (limited)
+**Upper body collision threshold**: 300.0 N (high-force impacts only)
+**✅ G1 UPPER BODY COLLISION MONITORING**: Monitor ONLY upper body parts for obstacle/terrain collisions
+
+**G1 Upper Body Parts for Collision Detection (Exact Names):**
+```python
+# G1 TORSO COLLISIONS - Body hitting obstacles/terrain
+"pelvis", "torso_link", "pelvis_contour_link"
+
+# G1 ARM COLLISIONS - Arms hitting obstacles/terrain  
+"left_shoulder_pitch_link", "right_shoulder_pitch_link",
+"left_shoulder_roll_link", "right_shoulder_roll_link", 
+"left_shoulder_yaw_link", "right_shoulder_yaw_link",
+"left_elbow_pitch_link", "right_elbow_pitch_link",
+"left_elbow_roll_link", "right_elbow_roll_link",
+
+# G1 HAND COLLISIONS - Hands hitting obstacles/terrain
+"left_palm_link", "right_palm_link"
+```
+
+**❌ EXCLUDE LEG LINKS**: DO NOT monitor legs for obstacle collisions (normal locomotion contact)
+
+**Collision Detection Pattern:**
+```python
+# Access collision sensor (prioritize collision_sensor over torso_contact)
+collision_sensor = env.scene.sensors.get("collision_sensor") or env.scene.sensors.get("torso_contact")
+
+# Get upper body force data with history for peak detection
+peak_forces = collision_sensor.data.net_forces_w_history.norm(dim=-1).max(dim=1)[0]
+
+# Find G1 upper body collision body IDs
+upper_body_parts = ["pelvis", "torso_link", "pelvis_contour_link",
+                   "left_shoulder_pitch_link", "right_shoulder_pitch_link",
+                   "left_shoulder_roll_link", "right_shoulder_roll_link", 
+                   "left_shoulder_yaw_link", "right_shoulder_yaw_link",
+                   "left_elbow_pitch_link", "right_elbow_pitch_link",
+                   "left_elbow_roll_link", "right_elbow_roll_link",
+                   "left_palm_link", "right_palm_link"]
+
+collision_body_ids = []
+robot = env.scene["robot"]
+for body_name in upper_body_parts:
+    if hasattr(robot, 'body_names') and body_name in robot.body_names:
+        collision_body_ids.append(robot.body_names.index(body_name))
+
+# CRITICAL: Filter body IDs covered by collision sensor
+num_bodies_in_sensor = peak_forces.shape[1]
+collision_body_ids = [id for id in collision_body_ids if id < num_bodies_in_sensor]
+
+# Detect high-force collisions (300N threshold filters out minor contacts)
+if len(collision_body_ids) > 0:
+    collision_forces = peak_forces[:, collision_body_ids]
+    collision_mask = collision_forces > 300.0
+    collision_count = torch.sum(collision_mask, dim=1)
+    
+    # Apply collision penalty for obstacle/terrain impacts
+    collision_penalty = -collision_count.float() * 0.2
+else:
+    collision_penalty = torch.zeros(env.num_envs, device=env.device)
+```
+
+**When to Include Collision Detection:**
+- **Obstacle terrain (Type 2)**: MANDATORY - robot may hit obstacles with upper body
+- **Gap terrain (Type 1)**: Optional - may hit terrain edges during jumping/stepping  
+- **Stairs terrain (Type 3)**: Optional - may contact walls/railings during navigation
+- **Flat terrain (Type 0)**: Usually not needed, but can detect falls/instability
 
 ## Key Functions Examples for Reward Generation. Don't Copy Paste Directly!
 ```python
@@ -857,8 +923,8 @@ def terrain_classification(height_readings, baseline=0.209):
     gap_threshold = 0.07       # 7cm
     
     obstacles = height_readings < (baseline - obstacle_threshold)    # < 0.139m
-    gaps = height_readings > (baseline + gap_threshold)              # > 0.279m  
-    normal = ~obstacles & ~gaps                                      # 0.139-0.279m
+    gaps = height_readings > (baseline + gap_threshold)              # Above baseline threshold
+normal = ~obstacles & ~gaps                                      # Within baseline tolerance
     extreme_gaps = height_readings == float('inf')                   # No terrain detected
     
     return obstacles, gaps, normal, extreme_gaps
@@ -922,8 +988,8 @@ def relative_terrain_reward(env, sensor_cfg=SceneEntityCfg("height_scanner")):
     baseline = 0.209  # G1 robot baseline
     
     # Classification using ONLY sensor readings
-    obstacles = height_readings < (baseline - 0.07)
-    gaps = height_readings > (baseline + 0.07)
+    obstacles = height_readings < (baseline - obstacle_threshold)
+    gaps = height_readings > (baseline + gap_threshold)
     normal_terrain = ~obstacles & ~gaps & (height_readings != float('inf'))
     
     # Count features
@@ -962,7 +1028,7 @@ def lookahead_terrain_reward(env, sensor_cfg=SceneEntityCfg("height_scanner")):
     # Analyze each zone for upcoming terrain
     def analyze_zone(zone_data, zone_weight):
         obstacles = (zone_data < (baseline - 0.07)).float().mean(dim=(-1, -2))
-        gaps = (zone_data > (baseline + 0.07)).float().mean(dim=(-1, -2))
+        gaps = (zone_data > (baseline + gap_threshold)).float().mean(dim=(-1, -2))
         return -(obstacles * 2.0 + gaps * 1.5) * zone_weight
     
     # Weight zones: near=highest, far=planning
@@ -1025,8 +1091,8 @@ def comprehensive_terrain_reward(env, sensor_cfg=SceneEntityCfg("height_scanner"
     baseline = 0.209  # G1 robot baseline
     
     # Classification
-    obstacles = height_readings < (baseline - 0.07)
-    gaps = height_readings > (baseline + 0.07)
+    obstacles = height_readings < (baseline - obstacle_threshold)
+    gaps = height_readings > (baseline + gap_threshold)
     normal_terrain = ~obstacles & ~gaps & (height_readings != float('inf'))
     infinite_gaps = height_readings == float('inf')
     
@@ -1107,7 +1173,7 @@ obstacles = height_readings < (baseline - 0.07)  # < 0.139m for 0.209 baseline
 obstacle_penalty = torch.where(obstacles, -penalty_value, 0.0)
 
 # GAPS: Positive height readings (terrain lower than expected)  
-gaps = height_readings > (baseline + 0.07)  # > 0.279m for 0.209 baseline
+gaps = height_readings > (baseline + gap_threshold)  # Above baseline threshold
 gap_penalty = torch.where(gaps, -penalty_value, 0.0)
 ```
 
@@ -1119,7 +1185,7 @@ gap_penalty = torch.where(gaps, -penalty_value, 0.0)
 ### 4. **THRESHOLD VALIDATION**
 ✅ **OPTIMIZED THRESHOLDS:**
 - **Standard obstacles:** 0.07m above baseline (baseline - 0.07)
-- **Standard gaps:** 0.07m below baseline (baseline + 0.07)
+- **Standard gaps:** Detection threshold below baseline (baseline + gap_threshold)
 - **Acceptable range:** 0.05-0.15m for balanced sensitivity
 - **Research validation:** 5-25cm proven successful in academic studies
 
@@ -1172,7 +1238,7 @@ clip=(-0.5, 3.0)      # Custom extended range
 ### 6. **CLIPPING COMPATIBILITY**
 ✅ **CHECK**: Thresholds work with clip ranges:
 - `clip=(-1.0, 1.0)` or `clip=(-0.5, 3.0)`
-- 0.07m thresholds → 0.139m, 0.279m ✅ Within range
+- Dynamic thresholds → Adaptive range ✅ Within sensor capabilities
 
 ### 7. **RELATIVE TRACKING VALIDATION**
 ✅ **CORRECT RELATIVE TRACKING:**
@@ -1203,8 +1269,8 @@ height_reward = -torch.square(robot.data.root_pos_w[:, 2] - target_height)
 
 # ✅ CORRECT - Isaac Lab formula + relative thresholds
 height = sensor.data.pos_w[:, 2].unsqueeze(1) - sensor.data.ray_hits_w[..., 2] - 0.5
-obstacles = height_readings < (baseline - 0.07)
-gaps = height_readings > (baseline + 0.07)
+obstacles = height_readings < (baseline - obstacle_threshold)
+gaps = height_readings > (baseline + gap_threshold)
 # ✅ CORRECT - Only relative terrain navigation
 terrain_reward = analyze_terrain_features(height_readings, baseline)
 ```
@@ -1221,7 +1287,7 @@ terrain_reward = analyze_terrain_features(height_readings, baseline)
 ```
 0.139m ← OBSTACLE THRESHOLD (baseline - 0.07)
 0.209m ← BASELINE (G1 flat terrain) 
-0.279m ← GAP THRESHOLD (baseline + 0.07)
+Dynamic threshold ← GAP THRESHOLD (baseline + gap_threshold)
 
 Examples:
 0.120m = 7cm obstacle (terrain higher)

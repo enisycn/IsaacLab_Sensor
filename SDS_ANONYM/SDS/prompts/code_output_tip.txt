@@ -63,6 +63,63 @@ force_mag = forces.norm(dim=-1)
 contacts_mask = force_mag > 50.0
 ```
 
+🚧 **COLLISION SENSOR FOR UPPER BODY OBSTACLE DETECTION:**
+- **Available sensor**: `collision_sensor` (comprehensive) OR `torso_contact` (limited)
+- **Upper body collision threshold**: 300.0 N (high-force impacts only)
+- **✅ G1 UPPER BODY COLLISION MONITORING**: Monitor ONLY upper body parts for obstacle/terrain collisions
+- **G1 Upper Body Parts (Exact Names)**:
+  ```python
+  # G1 TORSO COLLISIONS - Body hitting obstacles/terrain
+  "pelvis"                     # Main pelvis contact
+  "torso_link"                 # Main torso contact
+  "pelvis_contour_link"        # Pelvis contour contact
+  
+  # G1 ARM COLLISIONS - Arms hitting obstacles/terrain  
+  "left_shoulder_pitch_link"   # Left shoulder collisions
+  "right_shoulder_pitch_link"  # Right shoulder collisions
+  "left_shoulder_roll_link"    # Left shoulder roll collisions
+  "right_shoulder_roll_link"   # Right shoulder roll collisions
+  "left_shoulder_yaw_link"     # Left shoulder yaw collisions
+  "right_shoulder_yaw_link"    # Right shoulder yaw collisions
+  "left_elbow_pitch_link"      # Left elbow collisions
+  "right_elbow_pitch_link"     # Right elbow collisions
+  "left_elbow_roll_link"       # Left elbow roll collisions
+  "right_elbow_roll_link"      # Right elbow roll collisions
+  
+  # G1 HAND COLLISIONS - Hands hitting obstacles/terrain
+  "left_palm_link"             # Left palm collisions
+  "right_palm_link"            # Right palm collisions
+  ```
+- **❌ EXCLUDE LEG LINKS**: DO NOT monitor legs for obstacle collisions (normal locomotion contact)
+- **Usage Pattern**:
+  ```python
+  # Access collision sensor (prioritize collision_sensor over torso_contact)
+  collision_sensor = env.scene.sensors.get("collision_sensor") or env.scene.sensors.get("torso_contact")
+  
+  # Get upper body force data with history for peak detection
+  peak_forces = collision_sensor.data.net_forces_w_history.norm(dim=-1).max(dim=1)[0]
+  
+  # Find upper body collision body IDs using exact G1 names
+  upper_body_parts = ["pelvis", "torso_link", "left_shoulder_pitch_link", 
+                     "right_shoulder_pitch_link", "left_shoulder_roll_link",
+                     "right_shoulder_roll_link", "left_shoulder_yaw_link", 
+                     "right_shoulder_yaw_link", "left_elbow_pitch_link",
+                     "right_elbow_pitch_link", "left_elbow_roll_link",
+                     "right_elbow_roll_link", "left_palm_link", "right_palm_link"]
+  collision_body_ids = []
+  for body_name in upper_body_parts:
+      if body_name in robot.body_names:
+          collision_body_ids.append(robot.body_names.index(body_name))
+  
+  # Detect high-force collisions (300N threshold for significant impacts)
+  collision_forces = peak_forces[:, collision_body_ids]
+  collision_mask = collision_forces > 300.0
+  collision_count = torch.sum(collision_mask, dim=1)
+  
+  # Apply collision penalty (obstacle/terrain impacts)
+  collision_penalty = -collision_count.float() * 0.2  # Penalty for body collisions
+  ```
+
 🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯
 🎯 SENSOR-DRIVEN BEHAVIORAL ADAPTATION: CRITICAL PROJECT REQUIREMENT 🎯
 🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯
@@ -206,10 +263,10 @@ def sds_custom_reward(env) -> torch.Tensor:
 - Rationale: Forward jumping locomotion benefits from maintained forward momentum
 
 **🔧 ADAPTIVE JUMPING HEIGHT FOR JUMP TASKS:**
-- **Default**: Small jumps for flat terrain (~0.1m height for energy efficiency)
-- **Sensor-adaptive**: Scale jumping height based on gap detection (~0.3-0.5m range)
-- **Implementation**: `adaptive_target = torch.where(gap_detected, base_target + scaling, base_target)`
-- **Physics**: Calculate vertical velocities based on desired jump heights
+- **Default**: Small jumps for flat terrain (energy efficient baseline)
+- **Sensor-adaptive**: Scale jumping height based on detected gap sizes from environmental analysis
+- **Implementation**: `adaptive_target = torch.where(gap_detected, base_target + gap_based_scaling, base_target)`
+- **Physics**: Calculate vertical velocities based on desired jump heights from sensor data
 - **⚠️ CRITICAL: Prevent over-jumping on flat terrain!**
 
 **⚠️ CRITICAL: Ensure bilateral jumping coordination!**
@@ -227,9 +284,9 @@ bilateral_flight_time = torch.min(air_time, dim=1)[0]  # Both feet must particip
 ```
 
 **🔧 ADAPTIVE STEP SIZES FOR WALK TASKS:**
-- **Default**: Normal steps for flat terrain (0.6m stride length)
-- **Sensor-adaptive**: Scale stride length based on gap detection (0.6-1.0m range)
-- **Implementation**: `adaptive_stride = base_stride + gap_width_factor * scaling`
+- **Default**: Normal steps for flat terrain (nominal stride length)
+- **Sensor-adaptive**: Scale stride length based on detected gap sizes from environmental analysis
+- **Implementation**: `adaptive_stride = base_stride + detected_gap_scaling_factor`
 
 **🚨 CRITICAL: AVOID ISAAC LAB FUNCTION IMPORT ERRORS**
 ```python

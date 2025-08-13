@@ -1124,8 +1124,8 @@ height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_senso
 # ✅ G1 BASELINE TERRAIN CLASSIFICATION:
 baseline = 0.209  # G1 robot baseline on flat terrain (CRITICAL: NOT zero!)
 obstacles = height_measurements < (baseline - 0.07)  # < 0.139m = obstacles (terrain HIGHER)
-gaps = height_measurements > (baseline + 0.07)       # > 0.279m = gaps (terrain LOWER)
-normal_terrain = ~obstacles & ~gaps                  # 0.139-0.279m = normal terrain
+gaps = height_measurements > (baseline + gap_threshold)       # Above baseline = gaps (terrain LOWER)
+normal_terrain = ~obstacles & ~gaps                  # Within baseline tolerance = normal terrain
 
 # ✅ LIDAR SENSOR: Direct distance measurement
 lidar_sensor = env.scene.sensors["lidar"]
@@ -1180,10 +1180,10 @@ gap_threshold = baseline + 0.07  # 0.279m = gap detection threshold
 consecutive_gap_points = height_measurements > gap_threshold  # Terrain LOWER than expected
 gap_width_raw = torch.sum(consecutive_gap_points.float(), dim=1) * 0.075  # 7.5cm resolution per ray
 
-# Gap classification based on biomechanics research (≤30cm step, 30-60cm jump, >60cm avoid)
-steppable_gaps = (gap_width_raw > 0.0) & (gap_width_raw <= 0.30)      # ≤30cm: Step over
-jumpable_gaps = (gap_width_raw > 0.30) & (gap_width_raw <= 0.60)      # 30-60cm: Jump required  
-impossible_gaps = gap_width_raw > 0.60                                # >60cm: Must avoid
+# Gap classification based on environmental analysis data
+steppable_gaps = extract_steppable_gaps_from_analysis()      # Small gaps: Step over
+jumpable_gaps = extract_jumpable_gaps_from_analysis()       # Medium gaps: Jump required
+impossible_gaps = extract_impossible_gaps_from_analysis()   # Large gaps: Must avoid
 
 # Count terrain features for adaptive navigation
 total_rays = height_measurements.shape[-1]  # 567 rays

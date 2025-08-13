@@ -102,6 +102,72 @@ When using `contact_sensor.find_bodies()`, ensure tensor operations maintain cor
 - For foot placement calculations, use only the first few feet indices to avoid broadcasting errors
 - Test tensor shapes: foot_pos should be [num_envs, num_feet, 2], not [num_envs, num_envs, 2]
 
+**🚧 COLLISION SENSOR FOR UPPER BODY OBSTACLE/TERRAIN COLLISION DETECTION:**
+**Available sensors**: `collision_sensor` (comprehensive) OR `torso_contact` (limited)
+**Upper body collision threshold**: 300.0 N (high-force impacts only - filters out minor contacts)
+**✅ G1 UPPER BODY COLLISION MONITORING**: Monitor ONLY upper body parts for obstacle/terrain collisions
+
+**G1 Upper Body Parts for Collision Detection (Exact Names):**
+- **G1 TORSO COLLISIONS** - Body hitting obstacles/terrain:
+  - `"pelvis"` - Main pelvis contact
+  - `"torso_link"` - Main torso contact  
+  - `"pelvis_contour_link"` - Pelvis contour contact
+- **G1 ARM COLLISIONS** - Arms hitting obstacles/terrain:
+  - `"left_shoulder_pitch_link"`, `"right_shoulder_pitch_link"` - Shoulder collisions
+  - `"left_shoulder_roll_link"`, `"right_shoulder_roll_link"` - Shoulder roll collisions
+  - `"left_shoulder_yaw_link"`, `"right_shoulder_yaw_link"` - Shoulder yaw collisions
+  - `"left_elbow_pitch_link"`, `"right_elbow_pitch_link"` - Elbow collisions
+  - `"left_elbow_roll_link"`, `"right_elbow_roll_link"` - Elbow roll collisions
+- **G1 HAND COLLISIONS** - Hands hitting obstacles/terrain:
+  - `"left_palm_link"`, `"right_palm_link"` - Palm collisions
+
+**❌ EXCLUDE LEG LINKS**: DO NOT monitor legs for obstacle collisions (normal locomotion contact)
+
+**Collision Detection Usage Pattern:**
+```python
+# Access collision sensor (prioritize collision_sensor over torso_contact)
+collision_sensor = env.scene.sensors.get("collision_sensor") or env.scene.sensors.get("torso_contact")
+
+# Get upper body force data with history for peak detection
+peak_forces = collision_sensor.data.net_forces_w_history.norm(dim=-1).max(dim=1)[0]
+
+# Find upper body collision body IDs using exact G1 names
+upper_body_parts = ["pelvis", "torso_link", "pelvis_contour_link",
+                   "left_shoulder_pitch_link", "right_shoulder_pitch_link",
+                   "left_shoulder_roll_link", "right_shoulder_roll_link", 
+                   "left_shoulder_yaw_link", "right_shoulder_yaw_link",
+                   "left_elbow_pitch_link", "right_elbow_pitch_link",
+                   "left_elbow_roll_link", "right_elbow_roll_link",
+                   "left_palm_link", "right_palm_link"]
+
+collision_body_ids = []
+robot = env.scene["robot"]
+for body_name in upper_body_parts:
+    if hasattr(robot, 'body_names') and body_name in robot.body_names:
+        collision_body_ids.append(robot.body_names.index(body_name))
+
+# CRITICAL: Filter body IDs to ensure they're covered by the collision sensor
+num_bodies_in_sensor = peak_forces.shape[1]
+collision_body_ids = [id for id in collision_body_ids if id < num_bodies_in_sensor]
+
+# Detect high-force collisions (300N threshold for significant impacts)
+if len(collision_body_ids) > 0:
+    collision_forces = peak_forces[:, collision_body_ids]
+    collision_mask = collision_forces > 300.0
+    collision_count = torch.sum(collision_mask, dim=1)
+    
+    # Apply collision penalty (obstacle/terrain impacts)
+    collision_penalty = -collision_count.float() * 0.2  # Penalty for body collisions
+else:
+    collision_penalty = torch.zeros(env.num_envs, device=env.device)
+```
+
+**When to Include Collision Detection:**
+- **Obstacle terrain (Type 2)**: - robot may hit obstacles with upper body
+- **Gap terrain (Type 1)**: Optional - may hit terrain edges during jumping/stepping  
+- **Stairs terrain (Type 3)**: Optional - may contact walls/railings during navigation
+- **Flat terrain (Type 0)**: Usually not needed, but can detect falls/instability
+
 ```python
 def sds_custom_reward(env) -> torch.Tensor:
     """
@@ -309,9 +375,9 @@ clear_path = lidar_distances > safe_threshold         # clear forward path
 
 **HEIGHT SCANNER:** 567 rays (27×21 grid), 2.0×1.5m coverage, 7.5cm resolution, 3m range
 - **G1 Baseline**: 0.209m on flat terrain (sensor_height - terrain_z - 0.5m offset)
-- **Obstacles**: < 0.139m (baseline - 0.07m) = terrain HIGHER than expected
-- **Gaps**: > 0.279m (baseline + 0.07m) = terrain LOWER than expected  
-- **Normal**: 0.139-0.279m = acceptable terrain variation
+- **Obstacles**: Below expected baseline = terrain HIGHER than expected  
+- **Gaps**: Above expected baseline = terrain LOWER than expected
+- **Normal**: Within baseline tolerance = acceptable terrain variation
 
 **LIDAR RANGE:** 152 rays (8×19 channels), 180° FOV, 5m range
 - **Close obstacles**: < 2.0m = immediate navigation concern
@@ -487,15 +553,15 @@ height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_senso
 # ✅ G1 BASELINE CLASSIFICATION:
 baseline = 0.209  # G1 robot on flat terrain
 obstacles = height_measurements < (baseline - 0.07)  # < 0.139m = obstacles
-gaps = height_measurements > (baseline + 0.07)       # > 0.279m = gaps
-normal = ~obstacles & ~gaps                          # 0.139-0.279m = normal
+gaps = height_measurements > (baseline + gap_threshold)       # Above baseline = gaps
+normal = ~obstacles & ~gaps                                      # Within tolerance = normal
 ```
 
 **G1 HEIGHT SENSOR INTERPRETATION:**
 - baseline = 0.209m → G1 robot on flat terrain (NOT zero!)
-- < 0.139m → Obstacles (terrain HIGHER than expected)
-- > 0.279m → Gaps (terrain LOWER than expected)
-- 0.139-0.279m → Normal terrain variation
+- Below baseline threshold → Obstacles (terrain HIGHER than expected)
+- Above baseline threshold → Gaps (terrain LOWER than expected)  
+- Within baseline tolerance → Normal terrain variation
 
 **LIDAR - Direct distance measurements:**
 ```python
@@ -738,12 +804,12 @@ def sds_custom_reward(env) -> torch.Tensor:
 
 **ANALYSIS-TO-IMPLEMENTATION BRIDGE EXAMPLES:**
 
-**EXAMPLE A: Environment Shows "13 gaps detected (4 steppable ≤0.30m, 7 jumpable 0.30-0.60m, 2 impassable >0.60m)"**
+**EXAMPLE A: Environment Shows "13 gaps detected (4 steppable, 7 jumpable, 2 impassable)"**
 
 ❌ **GENERIC APPROACH** (FORBIDDEN):
 ```python
 # Generic gap detection - WRONG!
-gap_detected = gap_depth > 0.15
+gap_detected = gap_depth > fixed_threshold
 gap_bonus = gap_detected.float() * 0.3
 ```
 
@@ -751,12 +817,13 @@ gap_bonus = gap_detected.float() * 0.3
 ```python
 # ANALYSIS: 7/13 (54%) jumpable → jumping is PRIMARY challenge
 # STRATEGY: Focus on jumping with stepping backup
-steppable = (gap_depth >= 0.15) & (gap_depth <= 0.30)  # 4 gaps - secondary  
-jumpable = (gap_depth > 0.30) & (gap_depth <= 0.60)    # 7 gaps - PRIMARY
-impossible = gap_depth > 0.60                           # 2 gaps - avoid
+# Extract gap size categories from environmental analysis data
+steppable_gaps = extract_steppable_gaps_from_analysis()   # 4 gaps - secondary  
+jumpable_gaps = extract_jumpable_gaps_from_analysis()     # 7 gaps - PRIMARY
+impassable_gaps = extract_impassable_gaps_from_analysis() # 2 gaps - avoid
 
 # INTELLIGENT WEIGHTING: High for dominant challenge (jumping)
-jumping_reward = torch.any(jumpable, dim=1).float() * 0.5    # HIGH: primary
+jumping_reward = torch.any(jumpable_gaps, dim=1).float() * 0.5    # HIGH: primary
 stepping_reward = torch.any(steppable, dim=1).float() * 0.2  # LOW: secondary
 avoidance_penalty = torch.any(impossible, dim=1).float() * -0.2  # Safety
 ```
@@ -961,8 +1028,8 @@ if torch.any(small_gaps):
     height_sensor = env.scene.sensors["height_scanner"]
     height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
     # Derived from consecutive gap ray points (7.5cm per point)
-gap_width = torch.clamp(gap_width_raw, 0.0, 0.6)  # 0-60cm gap width (ensure gap_width_raw is computed as below)
-    adaptive_stride_target = 0.6 + gap_width * 1.0  # 0.6-1.0m stride based on gap size
+gap_width = torch.clamp(gap_width_raw, 0.0, max_traversable_gap)  # Clamp to traversable range
+adaptive_stride_target = base_stride + gap_width * stride_scaling  # Adaptive stride based on gap size
     
     stride_extension = torch.clamp(foot_separation / adaptive_stride_target, 0.0, 1.0)  # Adaptive stride
     
@@ -1052,8 +1119,8 @@ else:
 # TASK-BASED GAP BEHAVIOR IMPLEMENTATION
 def task_specific_gap_behavior(height_measurements, task_command):
     # Detect gap sizes using sensors
-    small_gaps = (gap_width > 0.0) & (gap_width <= 0.30)  # ≤30cm gaps (research-based: steppable)
-large_gaps = gap_width > 0.30  # >30cm gaps (research-based: require jumping/avoidance)
+    small_gaps = extract_small_gaps_from_analysis()  # Small gaps (steppable)
+large_gaps = extract_large_gaps_from_analysis()  # Large gaps (require jumping/avoidance)
     
     if task_command == "walk":
         # WALK POLICY: Step over small gaps, enhanced stability for large gaps
@@ -1082,9 +1149,9 @@ task_specific_gap_reward = task_specific_gap_behavior(height_measurements, task_
 **TASK-SPECIFIC DESIGN PRINCIPLES:**
 
 **🚶 FOR `task=walk` POLICY:**
-1. **STEPPING (gaps ≤30cm)**: **Sensor-adaptive extended stride** + landing zone targeting + controlled speed
-2. **JUMPING (gaps 30-60cm)**: Dynamic leap + aerial control + landing stabilization + increased clearance  
-3. **ENHANCED STABILITY (gaps >60cm)**: Increased foot placement precision + torso stability + impact damping + height sensor guidance
+1. **STEPPING (small gaps)**: **Sensor-adaptive extended stride** + landing zone targeting + controlled speed
+2. **JUMPING (medium gaps)**: Dynamic leap + aerial control + landing stabilization + increased clearance
+3. **ENHANCED STABILITY (large gaps)**: Increased foot placement precision + torso stability + impact damping + height sensor guidance
 
 **🔧 SENSOR-ADAPTIVE STEP SIZES FOR WALKING:**
 - **Normal steps** (flat terrain): Standard stride length (~0.6m)
@@ -1099,8 +1166,8 @@ task_specific_gap_reward = task_specific_gap_behavior(height_measurements, task_
 
 **🔧 SENSOR-ADAPTIVE JUMPING HEIGHT:**
 - **Default**: Small jumps (~0.1m height) for flat terrain - just enough for forward momentum
-- **Small gaps**: Medium jumps (~0.3m height) for detected small gaps  
-- **Large gaps**: Higher jumps (~0.5m height) for detected large gaps
+- **Small gaps**: Medium jumps (adaptive height) for detected small gaps
+- **Large gaps**: Higher jumps (adaptive height) for detected large gaps
 - **Implementation**: Use height scanner gap detection to scale vertical velocity targets appropriately
 
 **⚠️ CRITICAL: Prevent over-jumping on flat terrain!**
@@ -1583,14 +1650,14 @@ height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_senso
 
 # ✅ G1 BASELINE GAP DETECTION:
 baseline = 0.209  # G1 robot baseline on flat terrain
-gap_threshold = baseline + 0.07  # 0.279m = gap detection threshold
+gap_threshold = baseline + dynamic_threshold  # Dynamic gap detection threshold
 consecutive_gap_points = height_measurements > gap_threshold  # Terrain LOWER than expected
-gap_width_raw = torch.sum(consecutive_gap_points.float(), dim=1) * 0.075  # 7.5cm resolution per ray
+gap_width_raw = torch.sum(consecutive_gap_points.float(), dim=1) * sensor_resolution  # Calculate gap width
 
-# Gap classification based on biomechanics research (≤30cm step, 30-60cm jump, >60cm avoid)
-steppable_gaps = (gap_width_raw > 0.0) & (gap_width_raw <= 0.30)      # ≤30cm: Step over
-jumpable_gaps = (gap_width_raw > 0.30) & (gap_width_raw <= 0.60)      # 30-60cm: Jump required  
-impossible_gaps = gap_width_raw > 0.60                                # >60cm: Must avoid
+# Gap classification based on detected gap analysis from environmental data
+steppable_gaps = extract_steppable_gaps()      # Small gaps: Step over
+jumpable_gaps = extract_jumpable_gaps()       # Medium gaps: Jump required  
+impossible_gaps = extract_impossible_gaps()   # Large gaps: Must avoid
 ```
 
 **🦶 RESEARCH-BASED FOOT PLACEMENT AND LANDING ZONE STRATEGIES:**
@@ -1604,14 +1671,14 @@ current_step_length = torch.norm(foot_pos[:, 0, :] - foot_pos[:, 1, :], dim=1)
 base_stride_length = 0.5  # Human average ~0.5m stride
 gap_adaptive_stride = torch.where(
     steppable_gaps, 
-    torch.clamp(gap_width + 0.2, 0.5, 0.8),  # Extend stride 20cm beyond gap
+    torch.clamp(gap_width + margin, min_stride, max_stride),  # Extend stride beyond gap
     base_stride_length
 )
 
 # Foot clearance based on gap type (biomechanics research)
 clearance_height = torch.where(
-    steppable_gaps, 0.05 + gap_width * 0.1,    # Base 5cm + proportional to gap
-    torch.where(jumpable_gaps, 0.15, 0.03)     # 15cm for jumps, 3cm for normal walking
+    steppable_gaps, base_clearance + gap_width * scaling,    # Base clearance + proportional to gap
+torch.where(jumpable_gaps, jump_clearance, normal_clearance)     # Adaptive clearance based on gap type
 )
 
 # Landing zone targeting: Aim for safe areas beyond gaps

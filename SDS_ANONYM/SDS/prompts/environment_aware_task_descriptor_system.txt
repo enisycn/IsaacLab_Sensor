@@ -62,9 +62,9 @@ If environmental analysis is NOT AVAILABLE (foundation-only mode), focus on basi
    🎯 USING ISAAC LAB STANDARD DETECTION:
      Standard baseline: 0.209m
      Classification threshold: ±0.07m
-     Gap threshold: >0.279m (terrain >0.07m lower)
+     Gap threshold: Above baseline threshold (terrain significantly lower)
      Obstacle threshold: <0.139m (terrain >0.07m higher)
-     Normal range: 0.139m to 0.279m
+     Normal range: Within baseline tolerance
    📊 CORRECTED RAY ANALYSIS (Isaac Lab Standards):
      Total rays: 28350 (from 50 robots)
      Height readings: 0.229m to 0.261m (avg: 0.240m)
@@ -77,10 +77,10 @@ If environmental analysis is NOT AVAILABLE (foundation-only mode), focus on basi
      Count: 0 rays (0.0%)
    🏞️  NORMAL TERRAIN:
      Count: 28350 rays (100.0%)
-     Definition: Terrain between 0.139m and 0.279m
+     Definition: Terrain within baseline tolerance range
      Range: ±0.07m tolerance zone around 0.209m baseline
    🚨 Overall terrain safety: 🟢 SAFE
-     Reason: 0.0% gaps (limit: 10.0%), 0.0% obstacles (limit: 30.0%)
+     Reason: No gaps detected (limit: 10.0%), No obstacles detected (limit: 30.0%)
 
 📸 VISUAL ANALYSIS INSIGHTS:
    Environment Type: Flat terrain with gentle variations

@@ -83,6 +83,8 @@ class MySceneCfg(InteractiveSceneCfg):
     contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*_ankle_roll_link", history_length=3, track_air_time=True, force_threshold=50.0)
     # Separate contact sensor for torso/body contact detection
     torso_contact = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/torso_link", history_length=3, track_air_time=False)
+    # Comprehensive collision sensor for obstacle detection (monitors all robot bodies)
+    collision_sensor = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*", history_length=3, track_air_time=False, force_threshold=15.0)
     # IMU sensor for backflip orientation tracking
     imu = ImuCfg(prim_path="{ENV_REGEX_NS}/Robot/torso_link", update_period=0.02, gravity_bias=(0.0, 0.0, 9.81), debug_vis=False)  # Disable RED arrows
     # lights

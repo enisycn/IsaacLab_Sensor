@@ -213,10 +213,10 @@ def main():
                     # ✅ USE ISAAC LAB STANDARD BASELINE (same as reward function)
                     baseline_height_standard = 0.209  # Standard G1 baseline from Isaac Lab guide
                     
-                    # ✅ USE SYMMETRIC ±7CM THRESHOLDS (same as reward function)
-                    baseline_threshold = 0.07         # ±7cm threshold for balanced detection
-                    gap_threshold = baseline_threshold      # 7cm above baseline = gaps
-                    obstacle_threshold = baseline_threshold # 7cm below baseline = obstacles
+                    # ✅ USE DYNAMIC THRESHOLDS (adaptable based on analysis)
+                    baseline_threshold = 0.07         # Default threshold for balanced detection
+                    gap_threshold = baseline_threshold      # Above baseline = gaps
+                    obstacle_threshold = baseline_threshold # Below baseline = obstacles
                     
                     print(f"   🎯 USING ISAAC LAB STANDARD DETECTION:")
                     print(f"     Standard baseline: {baseline_height_standard:.3f}m")
@@ -299,6 +299,57 @@ def main():
                     print(f"     Count: {normal_count} rays ({normal_pct:.1f}%)")
                     print(f"     Definition: Terrain between {baseline_height_standard - obstacle_threshold:.3f}m and {baseline_height_standard + gap_threshold:.3f}m")
                     print(f"     Range: ±{baseline_threshold:.2f}m tolerance zone around {baseline_height_standard:.3f}m baseline")
+                    
+                    # 🌊 TERRAIN ROUGHNESS ANALYSIS (within ±0.07m normal range)
+                    if normal_count > 0:
+                        normal_readings = all_height_readings[normal]
+                        
+                        # Calculate terrain height variations within normal range
+                        terrain_std = normal_readings.std().item()
+                        terrain_variance = normal_readings.var().item()
+                        terrain_range = normal_readings.max().item() - normal_readings.min().item()
+                        
+                        # Calculate roughness relative to baseline
+                        baseline_deviations = torch.abs(normal_readings - baseline_height_standard)
+                        avg_deviation = baseline_deviations.mean().item()
+                        max_deviation = baseline_deviations.max().item()
+                        
+                        # Roughness classification
+                        if terrain_std < 0.01:  # < 1cm variation
+                            roughness_level = "🟢 SMOOTH"
+                        elif terrain_std < 0.025:  # < 2.5cm variation
+                            roughness_level = "🟡 MODERATE"
+                        elif terrain_std < 0.05:  # < 5cm variation
+                            roughness_level = "🟠 ROUGH"
+                        else:  # >= 5cm variation
+                            roughness_level = "🔴 VERY ROUGH"
+                        
+                        print(f"   🌊 TERRAIN ROUGHNESS (within normal range):")
+                        print(f"     Height variation (std): {terrain_std:.3f}m ({terrain_std*100:.1f}cm)")
+                        print(f"     Total height range: {terrain_range:.3f}m ({terrain_range*100:.1f}cm)")
+                        print(f"     Average deviation from baseline: {avg_deviation:.3f}m ({avg_deviation*100:.1f}cm)")
+                        print(f"     Maximum deviation from baseline: {max_deviation:.3f}m ({max_deviation*100:.1f}cm)")
+                        print(f"     Roughness classification: {roughness_level}")
+                        print(f"     Terrain variance: {terrain_variance:.6f}m²")
+                        
+                        # Roughness distribution analysis
+                        smooth_readings = baseline_deviations < 0.01  # < 1cm deviation
+                        moderate_readings = (baseline_deviations >= 0.01) & (baseline_deviations < 0.03)  # 1-3cm
+                        rough_readings = (baseline_deviations >= 0.03) & (baseline_deviations < 0.05)  # 3-5cm
+                        very_rough_readings = baseline_deviations >= 0.05  # > 5cm
+                        
+                        smooth_pct = (smooth_readings.sum().item() / len(normal_readings)) * 100
+                        moderate_pct = (moderate_readings.sum().item() / len(normal_readings)) * 100
+                        rough_pct = (rough_readings.sum().item() / len(normal_readings)) * 100
+                        very_rough_pct = (very_rough_readings.sum().item() / len(normal_readings)) * 100
+                        
+                        print(f"     Roughness distribution:")
+                        print(f"       Smooth (<1cm): {smooth_pct:.1f}% of normal terrain")
+                        print(f"       Moderate (1-3cm): {moderate_pct:.1f}% of normal terrain")
+                        print(f"       Rough (3-5cm): {rough_pct:.1f}% of normal terrain")
+                        print(f"       Very rough (>5cm): {very_rough_pct:.1f}% of normal terrain")
+                    else:
+                        print(f"   🌊 TERRAIN ROUGHNESS: No normal terrain data available for analysis")
                     
                     # Safety assessment with corrected thresholds
                     if gap_pct > 10.0 or obstacle_pct > 30.0:

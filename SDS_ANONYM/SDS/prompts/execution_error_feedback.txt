@@ -130,7 +130,7 @@ gaps = height_readings > 0.3       # Wrong threshold reference!
 # ✅ CORRECT: Use G1 robot baseline (0.209m) with relative thresholds  
 baseline = 0.209  # G1 robot on flat terrain
 obstacles = height_readings < (baseline - 0.07)  # < 0.139m = obstacles
-gaps = height_readings > (baseline + 0.07)       # > 0.279m = gaps
+gaps = height_readings > (baseline + gap_threshold)       # Above baseline = gaps
 ```
 
 🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
@@ -164,11 +164,11 @@ height_measurements = torch.where(torch.isfinite(height_measurements), height_me
 # Terrain classification using relative thresholds
 baseline = 0.209  # G1 robot baseline
 obstacle_threshold = 0.07  # 7cm threshold for obstacles  
-gap_threshold = 0.07       # 7cm threshold for gaps
+gap_threshold = dynamic_threshold       # Dynamic threshold for gaps
 
 obstacles = height_measurements < (baseline - obstacle_threshold)  # < 0.139m
-gaps = height_measurements > (baseline + gap_threshold)            # > 0.279m
-normal_terrain = ~obstacles & ~gaps                               # 0.139-0.279m
+gaps = height_measurements > (baseline + gap_threshold)            # Above baseline threshold
+normal_terrain = ~obstacles & ~gaps                               # Within baseline tolerance
 
 # Count terrain features for terrain-adaptive behavior
 total_rays = height_measurements.shape[-1]  # 567 rays

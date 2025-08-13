@@ -40,7 +40,7 @@ from .rough_env_cfg import SDSG1RoughEnvCfg, SIMPLE_LEARNING_TERRAIN_CFG  # Impo
 # 1: Gaps terrain (mixed flat + gaps: 30% flat areas, 35% easy gaps 15-25cm, 35% medium gaps 25-35cm, depth 30-40cm)
 # 2: Obstacles terrain (discrete obstacle avoidance)
 # 3: Stairs terrain (stair climbing and steps)
-TERRAIN_TYPE = 0  # Default to SIMPLE for baseline training
+TERRAIN_TYPE = 20 # Default to SIMPLE for baseline training
 
 # 🔧 SENSORS CONTROL: Toggle environmental sensing capabilities
 # SENSORS_ENABLED = True:  Full environmental sensing (height scanner + lidar + sensor observations)
@@ -101,39 +101,47 @@ GAPS_TERRAIN_CFG = TerrainGeneratorCfg(
 )
 
 # 🚧 OBSTACLES TERRAIN: Discrete obstacle avoidance terrain (Type 2)
+# ENHANCED: Height variations from 0.2cm to 1.7m with increased obstacle density
 OBSTACLES_TERRAIN_CFG = TerrainGeneratorCfg(
     size=(8.0, 8.0),
     border_width=20.0,
-    num_rows=5,     
-    num_cols=8,     
+    num_rows=8,     # Increased from 5 to 8 for more terrain variety
+    num_cols=10,    # Increased from 8 to 10 for more terrain variety     
     horizontal_scale=0.1,
     vertical_scale=0.005,
     slope_threshold=0.75,
     use_cache=False,
     curriculum=True,  # Enable curriculum for progressive difficulty
     sub_terrains={
-        # 30% FLAT CORRIDORS: Clear paths for normal walking
-        "flat_corridors": terrain_gen.MeshPlaneTerrainCfg(
-            proportion=0.3,  # 30% flat - baseline walking
+        # 🚧 RANDOM MIXED OBSTACLES - All heights in single terrain (100% proportion)
+        "random_mixed_obstacles": terrain_gen.HfDiscreteObstaclesTerrainCfg(
+            proportion=1.0,  # 100% - single terrain with all obstacle heights
+            
+            # RANDOM MIXED OBSTACLE SETTINGS (ALL HEIGHTS TOGETHER)
+            obstacle_height_mode="fixed",       # Fixed mode for consistent obstacle generation
+            obstacle_width_range=(0.4, 0.8),   # 10cm-1.2m RANDOM obstacle sizes (small to large)
+            obstacle_height_range=(0.2, 0.8), # POSITIVE = All obstacles 0.2cm-1.7m high (above ground)
+            num_obstacles=25,                   # Total obstacles distributed across terrain
+            platform_width=1.8,                # 1m central platform for robot spawning
+            
+            # This creates:
+            # - Central flat platform (1.8m x 1.8m) for robot spawning  
+            # - Random obstacle heights from 30cm to 1.2m naturally distributed
+            # - Flat base terrain ensures no gaps (robot walks on ground level)
+            # - Natural mix: micro obstacles, step-over obstacles, tall barriers, extreme obstacles
+            # - No predictable patterns - truly random distribution
+            # - Robot encounters obstacles everywhere while walking on flat terrain
+            # - Robot learns adaptive navigation based on real-time obstacle height detection
         ),
         
-        # 40% LOW OBSTACLES: Small obstacles requiring step-over (5-15cm)
-        "low_obstacles": terrain_gen.HfDiscreteObstaclesTerrainCfg(
-            proportion=0.4,
-            obstacle_height_range=(0.05, 0.15),  # 5-15cm - step-over height
-            obstacle_width_range=(0.2, 0.5),     # 20-50cm wide - clear obstacles
-            num_obstacles=5,                     # 5 obstacles per terrain
-            platform_width=1.5,                 # 1.5m platform
-        ),
-        
-        # 30% MEDIUM OBSTACLES: Higher obstacles requiring careful navigation (10-25cm)
-        "medium_obstacles": terrain_gen.HfDiscreteObstaclesTerrainCfg(
-            proportion=0.3,
-            obstacle_height_range=(0.10, 0.25),  # 10-25cm - challenging height
-            obstacle_width_range=(0.3, 0.7),     # 30-70cm wide - various sizes
-            num_obstacles=7,                     # 7 obstacles - denser field
-            platform_width=1.2,                 # 1.2m platform - tighter navigation
-        ),
+        # 🎯 EXPECTED RESULT: NATURAL RANDOM OBSTACLE DISTRIBUTION!
+        # - Flat base terrain for normal walking (no gaps or holes)
+        # - Random obstacle heights (30cm-1.2m) naturally distributed across entire environment
+        # - No flat safe areas - realistic mixed obstacle field
+        # - Full height range (30cm-1.2m) for comprehensive navigation challenge
+        # - Complete obstacle navigation: varied heights with consistent ground level
+        # - Perfect for comprehensive upper body collision testing
+        # - Robot develops adaptive strategies for unpredictable obstacle patterns
     },
 )
 

@@ -3,13 +3,13 @@
 Comprehensive Metrics Comparison Plotting Tool
 ==============================================
 
-Generates publication-ready comparison plots for ALL 8 STANDARDIZED METRICS between 
+Generates publication-ready comparison plots for ALL 7 STANDARDIZED METRICS between 
 environment-aware and foundation-only modes with enhanced visualizations.
 
 Metrics Coverage:
 - 5 Smaller-is-Better: height_deviation, velocity_tracking_error, disturbance_resistance, 
   contact_termination_rate, obstacle_collision_count
-- 3 Higher-is-Better: balance_stability_score, gait_smoothness_score, locomotion_efficiency_score
+- 2 Higher-is-Better: balance_stability_score, gait_smoothness_score
 
 All terrain types (0,1,2,3) now have identical metric sets for fair comparison.
 """
@@ -85,11 +85,11 @@ def get_metric_description(category: str, metric: str) -> str:
         
         # LOCOMOTION QUALITY METRICS (higher is better)
         "balance_stability_score": "Body stability score - Higher is Better",
-        "gait_smoothness_score": "Joint movement smoothness - Higher is Better", 
-        "locomotion_efficiency_score": "Forward progress efficiency - Higher is Better",
+        "gait_smoothness_score": "Joint movement smoothness - Higher is Better",
         
-        # TERRAIN-SPECIFIC METRIC (smaller is better)
-        "obstacle_collision_count": "Upper body collision count - Smaller is Better",
+        # TERRAIN-SPECIFIC METRICS
+        "obstacle_collision_count": "Upper body collision count - Smaller is Better",  # Smaller is better
+        "stair_climbing_performance": "Stair ascending performance - Higher is Better",  # Higher is better
         
         # Summary Metrics
         "total_steps": "Total simulation steps",
@@ -104,8 +104,8 @@ def is_higher_better_metric(metric: str) -> bool:
     """Determine if higher values are better for this metric."""
     higher_better_metrics = {
         "balance_stability_score",
-        "gait_smoothness_score", 
-        "locomotion_efficiency_score"
+        "gait_smoothness_score",
+        "stair_climbing_performance"
     }
     return metric in higher_better_metrics
 
@@ -504,23 +504,22 @@ def main():
     # Modern color palette
     modern_colors = ['#3498DB', '#E74C3C']  # Modern blue and red
     
-    # Plot all 8 standardized metrics
+    # Plot all 7 standardized metrics
     standardized_metrics = [
-        # UNIVERSAL 7 METRICS
+        # UNIVERSAL 6 METRICS
         'height_deviation',
         'velocity_tracking_error', 
         'disturbance_resistance',
         'contact_termination_rate',
         'balance_stability_score',
         'gait_smoothness_score',
-        'locomotion_efficiency_score',
         # TERRAIN-SPECIFIC METRIC
         'obstacle_collision_count'
     ]
     
     # Create plots with enhanced styling
     plot_count = 0
-    pdf_path = outdir / "comprehensive_8metrics_comparison.pdf"
+    pdf_path = outdir / "comprehensive_7metrics_comparison.pdf"
     
     with PdfPages(pdf_path) as pdf:
         for metric in standardized_metrics:
@@ -538,7 +537,7 @@ def main():
                 # Apply additional modern styling
                 fig.suptitle("Performance Comparison Study", 
                            fontsize=16, fontweight='bold', color='#2C3E50', y=0.95)
-                
+        
                 # Add subtle border around the plot
                 for spine in ax.spines.values():
                     spine.set_visible(True)
@@ -558,10 +557,8 @@ def main():
                 
                 print(f"✅ Generated: {metric}")
                 plot_count += 1
-            else:
-                print(f"❌ Failed to plot: {metric}")
-            
-            plt.close(fig)
+                
+                plt.close(fig)
         
         # Plot summary metrics with same enhanced styling
         summary_metrics = ['collection_time', 'mean_reward', 'total_reward', 'total_steps']
@@ -569,13 +566,13 @@ def main():
         for metric in summary_metrics:
             fig, ax = plt.subplots(figsize=(10, 7), dpi=150)
             fig.patch.set_facecolor('white')
-            
+                
             success = plot_numeric_comparison(
                 ax, args.env_aware_label, args.foundation_only_label,
                 env_aware_data, foundation_only_data, 
                 "summary", metric, modern_colors
             )
-            
+                
             if success:
                 fig.suptitle("Performance Comparison Study", 
                            fontsize=16, fontweight='bold', color='#2C3E50', y=0.95)
@@ -596,8 +593,8 @@ def main():
                 
                 print(f"✅ Generated: Summary • {metric}")
                 plot_count += 1
-            
-            plt.close(fig)
+                
+                plt.close(fig)
     
     # Enhanced final summary
     print(f"\n🎉 Generated {plot_count} comprehensive comparison plots!")
@@ -617,7 +614,7 @@ def main():
     print(f"      • Locomotion Efficiency Score: Forward progress (higher = more efficient)")
     print(f"\n   🎯 All terrain types now have identical 8-metric sets for fair comparison!")
     print(f"\n   ✨ Enhanced with modern visual aesthetics and professional styling!")
-
+    
 
 if __name__ == "__main__":
     main() 

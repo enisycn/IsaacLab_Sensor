@@ -160,7 +160,7 @@ class TerrainAwareMetricsCollector:
     
     def _initialize_terrain_metrics(self):
         """Initialize metrics based on terrain type."""
-        # UNIVERSAL METRICS SET: All terrain types now use the same comprehensive 7 metrics
+        # UNIVERSAL METRICS SET: All terrain types now use the same comprehensive 6 metrics
         universal_metrics = {
             # ORIGINAL 4 METRICS (smaller is better)
             'height_deviation': [],           # Smaller is better - stability
@@ -171,7 +171,6 @@ class TerrainAwareMetricsCollector:
             # LOCOMOTION QUALITY METRICS (higher is better)
             'balance_stability_score': [],    # Higher is better - body stability
             'gait_smoothness_score': [],      # Higher is better - smooth joint movements
-            'locomotion_efficiency_score': [], # Higher is better - forward progress efficiency
         }
         
         if self.terrain_type == 0:
@@ -210,13 +209,19 @@ class TerrainAwareMetricsCollector:
         elif self.terrain_type == 3:
             # TERRAIN TYPE 3: Stair climbing terrain
             self.metrics = universal_metrics.copy()
-            # ADD TERRAIN-SPECIFIC METRIC: Obstacle collision detection
+            # ADD TERRAIN-SPECIFIC METRICS: Obstacle collision detection + Stair climbing performance
             self.metrics['obstacle_collision_count'] = []  # Smaller is better - fewer collisions
-            print(f"🪜 TERRAIN 3 METRICS: Stair climbing with 7 comprehensive metrics + obstacle collision count")
+            self.metrics['stair_climbing_performance'] = []  # Higher is better - ascending progress
+            print(f"🪜 TERRAIN 3 METRICS: Stair climbing with 8 comprehensive metrics + obstacle collision count + stair performance")
             
             # Initialize obstacle collision tracking
             self.total_obstacle_collisions = 0
             self.collision_threshold = 300.0  # Minimum contact force to count as collision (N)
+            
+            # Initialize stair climbing tracking
+            self.stair_baseline_height = 0.209  # G1 robot baseline height (m)
+            self.previous_height = None  # Track height progress
+            self.cumulative_ascent = 0.0  # Track total upward progress
             
         else:
             # Fallback for unknown terrain types
@@ -369,7 +374,7 @@ class TerrainAwareMetricsCollector:
     
     def _update_terrain_0_metrics(self, robot_state, commands, obs, terminated, truncated):
         """Update metrics for Terrain Type 0: Simple/Flat terrain."""
-        # ALL 7 COMPREHENSIVE METRICS
+        # ALL 6 COMPREHENSIVE METRICS
         self._update_height_deviation(robot_state)
         self._update_velocity_tracking_error(robot_state, commands)
         self._update_disturbance_resistance(robot_state)
@@ -378,14 +383,13 @@ class TerrainAwareMetricsCollector:
         # LOCOMOTION QUALITY METRICS
         self._update_balance_stability_score(robot_state)
         self._update_gait_smoothness_score(robot_state)
-        self._update_locomotion_efficiency_score(robot_state, commands)
         
         # TERRAIN-SPECIFIC METRIC: Obstacle collision detection (should be 0 on flat terrain)
         self._update_obstacle_collision_count()
     
     def _update_terrain_1_metrics(self, robot_state, commands, obs, terminated, truncated):
         """Update metrics for Terrain Type 1: Gap navigation terrain."""
-        # ALL 7 COMPREHENSIVE METRICS (same as all other terrains)
+        # ALL 6 COMPREHENSIVE METRICS (same as all other terrains)
         self._update_height_deviation(robot_state)
         self._update_velocity_tracking_error(robot_state, commands)
         self._update_disturbance_resistance(robot_state)
@@ -394,14 +398,13 @@ class TerrainAwareMetricsCollector:
         # LOCOMOTION QUALITY METRICS
         self._update_balance_stability_score(robot_state)
         self._update_gait_smoothness_score(robot_state)
-        self._update_locomotion_efficiency_score(robot_state, commands)
         
         # TERRAIN-SPECIFIC METRIC: Obstacle collision detection
         self._update_obstacle_collision_count()
     
     def _update_terrain_2_metrics(self, robot_state, commands, obs, terminated, truncated):
         """Update metrics for Terrain Type 2: Obstacle avoidance terrain."""
-        # ALL 7 COMPREHENSIVE METRICS
+        # ALL 6 COMPREHENSIVE METRICS
         self._update_height_deviation(robot_state)
         self._update_velocity_tracking_error(robot_state, commands)
         self._update_disturbance_resistance(robot_state)
@@ -410,14 +413,13 @@ class TerrainAwareMetricsCollector:
         # LOCOMOTION QUALITY METRICS
         self._update_balance_stability_score(robot_state)
         self._update_gait_smoothness_score(robot_state)
-        self._update_locomotion_efficiency_score(robot_state, commands)
         
         # TERRAIN-SPECIFIC METRIC: Obstacle collision detection
         self._update_obstacle_collision_count()
     
     def _update_terrain_3_metrics(self, robot_state, commands, obs, terminated, truncated):
         """Update metrics for Terrain Type 3: Stair climbing terrain."""
-        # ALL 7 COMPREHENSIVE METRICS
+        # ALL 6 COMPREHENSIVE METRICS
         self._update_height_deviation(robot_state)
         self._update_velocity_tracking_error(robot_state, commands)
         self._update_disturbance_resistance(robot_state)
@@ -426,10 +428,10 @@ class TerrainAwareMetricsCollector:
         # LOCOMOTION QUALITY METRICS
         self._update_balance_stability_score(robot_state)
         self._update_gait_smoothness_score(robot_state)
-        self._update_locomotion_efficiency_score(robot_state, commands)
         
-        # TERRAIN-SPECIFIC METRIC: Obstacle collision detection
+        # TERRAIN-SPECIFIC METRICS: Obstacle collision detection + Stair climbing performance
         self._update_obstacle_collision_count()
+        self._update_stair_climbing_performance(robot_state)
     
     def _get_robot_state(self):
         """Get robot state data using proper Isaac Lab access patterns."""
@@ -484,17 +486,32 @@ class TerrainAwareMetricsCollector:
         self._prev_terminated = terminated.clone() if hasattr(terminated, 'clone') else terminated.copy()
     
     def _update_height_deviation(self, robot_state):
-        """Update height deviation metric (smaller is better)."""
-        base_pos = robot_state['base_pos']
-        height_deviation = np.abs(base_pos[:, 2] - self.nominal_height)
+        """Update height deviation metric with terrain-specific calculation (smaller is better)."""
+        
+        if self.terrain_type in [0, 1, 2]:  # Simple, Gaps, Obstacles
+            # ABSOLUTE HEIGHT: Maintain consistent body clearance above world origin
+            # Use absolute robot position for consistent behavior on flat/gap/obstacle terrain
+            absolute_height = self.robot.data.root_pos_w[:, 2].cpu().numpy()
+            height_deviation = np.abs(absolute_height - self.nominal_height)
+            
+        elif self.terrain_type == 3:  # Stairs
+            # RELATIVE HEIGHT: Adapt to terrain changes using relative position
+            # Use relative position (already calculated with env_origins) for stair adaptation
+            base_pos = robot_state['base_pos']  # Already relative to env_origins
+            height_deviation = np.abs(base_pos[:, 2] - self.nominal_height)
+        
+        else:
+            # Fallback: Use relative height for unknown terrain types
+            base_pos = robot_state['base_pos']
+            height_deviation = np.abs(base_pos[:, 2] - self.nominal_height)
         
         # Store per-environment deviations
         self.metrics['height_deviation'].extend(height_deviation.tolist())
     
     def _update_velocity_tracking_error(self, robot_state, commands):
-        """Update velocity tracking error metric (smaller is better)."""
+        """Update velocity tracking error metric (smaller is better) using REAL robot velocity and command data only."""
         if commands is None or len(commands) == 0:
-            return
+            raise RuntimeError("❌ Command data required for velocity tracking error calculation - no fallback data allowed")
             
         base_lin_vel = robot_state['base_lin_vel']
         base_quat = robot_state['base_quat']
@@ -673,102 +690,99 @@ class TerrainAwareMetricsCollector:
                 print(f"🔄 Recovery started: measuring trajectory return (deviation: {np.mean(recovery_trajectory_deviation):.3f}m)")
     
     def _update_balance_stability_score(self, robot_state):
-        """Update balance stability score (higher is better) - body stability on gap terrain."""
-        try:
-            import torch
-            import isaaclab.utils.math as math_utils
-            
-            base_quat = robot_state['base_quat']
-            base_ang_vel = robot_state['base_ang_vel']
-            
-            # Convert to torch for Isaac Lab math operations
-            base_quat_torch = torch.tensor(base_quat, device=self.env.unwrapped.device)
-            
-            # Calculate roll and pitch deviations (body orientation stability)
-            roll, pitch, yaw = math_utils.euler_xyz_from_quat(base_quat_torch)
-            orientation_deviation = torch.abs(roll) + torch.abs(pitch)
-            
-            # Calculate angular velocity magnitude (rotational stability)
-            angular_velocity_magnitude = np.linalg.norm(base_ang_vel, axis=1)
-            
-            # Combine orientation and rotational stability
-            # Higher score = more stable (lower deviations)
-            balance_stability = 1.0 / (1.0 + orientation_deviation.cpu().numpy() + angular_velocity_magnitude * 0.1)
-            
-            self.metrics['balance_stability_score'].extend(balance_stability.tolist())
-            
-        except Exception as e:
-            print(f"⚠️ Error calculating balance stability: {e}")
-            # Fallback score
-            self.metrics['balance_stability_score'].extend([0.5] * self.num_envs)
+        """Update balance stability score (higher is better) - body stability using REAL robot orientation and angular velocity data only."""
+        import torch
+        import isaaclab.utils.math as math_utils
+        
+        base_quat = robot_state['base_quat']
+        base_ang_vel = robot_state['base_ang_vel']
+        
+        # Convert to torch for Isaac Lab math operations
+        base_quat_torch = torch.tensor(base_quat, device=self.env.unwrapped.device)
+        
+        # Calculate roll and pitch deviations (body orientation stability)
+        roll, pitch, yaw = math_utils.euler_xyz_from_quat(base_quat_torch)
+        orientation_deviation = torch.abs(roll) + torch.abs(pitch)
+        
+        # Calculate angular velocity magnitude (rotational stability)
+        angular_velocity_magnitude = np.linalg.norm(base_ang_vel, axis=1)
+        
+        # Combine orientation and rotational stability
+        # Higher score = more stable (lower deviations)
+        balance_stability = 1.0 / (1.0 + orientation_deviation.cpu().numpy() + angular_velocity_magnitude * 0.1)
+        
+        self.metrics['balance_stability_score'].extend(balance_stability.tolist())
     
     def _update_gait_smoothness_score(self, robot_state):
-        """Update gait smoothness score (higher is better) - smooth joint movements."""
-        try:
-            if self.robot is None:
-                self.metrics['gait_smoothness_score'].extend([0.5] * self.num_envs)
-                return
-            
-            # Get joint velocities and calculate smoothness
-            joint_velocities = self.robot.data.joint_vel.cpu().numpy()
-            
-            # Calculate velocity variation (lower variation = smoother gait)
-            joint_vel_magnitude = np.linalg.norm(joint_velocities, axis=1)
-            
-            # Calculate smoothness score (higher = smoother)
-            # Use exponential decay to convert velocity magnitude to smoothness score
-            max_reasonable_vel = 10.0  # Maximum reasonable joint velocity magnitude
-            smoothness_score = np.exp(-joint_vel_magnitude / max_reasonable_vel)
-            
-            self.metrics['gait_smoothness_score'].extend(smoothness_score.tolist())
-            
-        except Exception as e:
-            print(f"⚠️ Error calculating gait smoothness: {e}")
-            # Fallback score
-            self.metrics['gait_smoothness_score'].extend([0.5] * self.num_envs)
+        """Update gait smoothness score (higher is better) - smooth joint movements using REAL joint velocity data only."""
+        # REQUIRE valid robot reference - no fallbacks
+        if self.robot is None:
+            raise RuntimeError("❌ Robot reference required for gait smoothness calculation - no fallback data allowed")
+        
+        # Get joint velocities and calculate smoothness
+        joint_velocities = self.robot.data.joint_vel.cpu().numpy()
+        
+        # Calculate velocity variation (lower variation = smoother gait)
+        joint_vel_magnitude = np.linalg.norm(joint_velocities, axis=1)
+        
+        # Calculate smoothness score (higher = smoother)
+        # Use exponential decay to convert velocity magnitude to smoothness score
+        max_reasonable_vel = 10.0  # Maximum reasonable joint velocity magnitude
+        smoothness_score = np.exp(-joint_vel_magnitude / max_reasonable_vel)
+        
+        self.metrics['gait_smoothness_score'].extend(smoothness_score.tolist())
     
-    def _update_locomotion_efficiency_score(self, robot_state, commands):
-        """Update locomotion efficiency score (higher is better) - forward progress efficiency."""
-        try:
-            if commands is None or len(commands) == 0:
-                self.metrics['locomotion_efficiency_score'].extend([0.5] * self.num_envs)
-                return
-            
-            base_lin_vel = robot_state['base_lin_vel']
-            base_quat = robot_state['base_quat']
-            
-            # Convert to torch for Isaac Lab math operations
-            import torch
-            import isaaclab.utils.math as math_utils
-            
-            base_lin_vel_torch = torch.tensor(base_lin_vel, device=self.env.unwrapped.device)
-            base_quat_torch = torch.tensor(base_quat, device=self.env.unwrapped.device)
-            
-            # Get velocity in yaw-aligned frame (robot's local frame)
-            yaw_quat = math_utils.yaw_quat(base_quat_torch)
-            base_lin_vel_yaw = math_utils.quat_apply_inverse(yaw_quat, base_lin_vel_torch[:, :3])
-            
-            # Calculate locomotion efficiency
-            if commands.shape[-1] >= 1:
-                commanded_vel_x = commands[:, 0] if commands.ndim > 1 else commands[0]
-                actual_vel_x = base_lin_vel_yaw[:, 0].cpu().numpy()
-                
-                # Efficiency = how well robot achieves commanded forward velocity
-                # Avoid division by zero
-                efficiency_ratio = actual_vel_x / np.maximum(np.abs(commanded_vel_x), 0.1)
-                
-                # Clip to reasonable range and convert to score (higher = more efficient)
-                efficiency_score = np.clip(efficiency_ratio, 0.0, 1.0)
-                
-                self.metrics['locomotion_efficiency_score'].extend(efficiency_score.tolist())
-            else:
-                self.metrics['locomotion_efficiency_score'].extend([0.5] * self.num_envs)
-                
-        except Exception as e:
-            print(f"⚠️ Error calculating locomotion efficiency: {e}")
-            # Fallback score
-            self.metrics['locomotion_efficiency_score'].extend([0.5] * self.num_envs)
-    
+    def _update_stair_climbing_performance(self, robot_state):
+        """Update stair climbing performance score (higher is better) - measures ascending progress and stability."""
+        # Get current robot height (absolute position for consistent stair measurement)
+        current_height = self.robot.data.root_pos_w[:, 2].cpu().numpy()
+        
+        # Initialize previous height tracking if needed
+        if self.previous_height is None:
+            self.previous_height = current_height.copy()
+            self.cumulative_ascent = np.zeros(self.num_envs)
+        
+        # Calculate height change (positive = ascent, negative = descent)
+        height_change = current_height - self.previous_height
+        
+        # Track cumulative ascent (only positive gains)
+        positive_ascent = np.maximum(height_change, 0.0)
+        self.cumulative_ascent += positive_ascent
+        
+        # Calculate stair climbing performance score
+        # Component 1: Height Progress (40%) - Reward upward movement
+        ascent_progress = positive_ascent / 0.10  # Normalize by 10cm step height
+        ascent_score = np.clip(ascent_progress, 0.0, 1.0)
+        
+        # Component 2: Height Stability (30%) - Maintain appropriate height relative to steps
+        target_height = self.stair_baseline_height + self.cumulative_ascent
+        height_deviation = np.abs(current_height - target_height)
+        stability_score = np.exp(-height_deviation / 0.15)  # 15cm tolerance
+        
+        # Component 3: Consistent Progress (30%) - Reward steady climbing
+        if len(self.metrics['stair_climbing_performance']) > 5:
+            # Look at recent progress to encourage consistency
+            recent_ascent = self.cumulative_ascent / max(len(self.metrics['stair_climbing_performance']) * self.dt, 1.0)
+            progress_score = np.minimum(recent_ascent / 0.02, 1.0)  # Target 2cm/second ascent
+        else:
+            progress_score = np.ones(self.num_envs) * 0.5  # Neutral score initially
+        
+        # Combined performance score (higher is better)
+        performance_score = (0.4 * ascent_score + 
+                           0.3 * stability_score + 
+                           0.3 * progress_score)
+        
+        # Store the metric
+        self.metrics['stair_climbing_performance'].extend(performance_score.tolist())
+        
+        # Update tracking
+        self.previous_height = current_height.copy()
+        
+        # Report significant ascent
+        total_ascent = np.sum(positive_ascent)
+        if total_ascent > 0.01:  # Report if any robot climbed more than 1cm
+            print(f"🪜 STAIR ASCENT: {total_ascent:.3f}m total progress, avg performance: {np.mean(performance_score):.3f}")
+
     def _update_obstacle_collision_count(self):
         """Update obstacle collision count (smaller is better) - counts 2*N upper body G1 humanoid contacts with terrain elevation/obstacles (torso, arms, shoulders only - excludes legs)."""
         try:
@@ -852,7 +866,7 @@ class TerrainAwareMetricsCollector:
                                     collision_body_names.extend(found_names)
                         except:
                             continue
-                    
+                        
                     # Remove duplicates and convert to tensor
                     collision_body_ids = list(set(collision_body_ids))
                     undesired_body_ids = torch.tensor(collision_body_ids, device=peak_forces.device)

@@ -11,7 +11,7 @@ without using sensors, accessing robot articulation data directly.
 .. code-block:: bash
 
     # Usage
-    ./isaaclab.sh -p read_torso_height.py --task Isaac-SDS-Velocity-Flat-G1-Enhanced-v0 --checkpoint logs/rsl_rl/g1_enhanced/model_500.pt
+    ./isaaclab.sh -p read_torso_height.py --task Isaac-SDS-Velocity-Flat-G1-Enhanced-v0 --checkpoint logs/rsl_rl/g1_enhanced/2025-08-14_00-40-58/model_700.pt
 
 """
 

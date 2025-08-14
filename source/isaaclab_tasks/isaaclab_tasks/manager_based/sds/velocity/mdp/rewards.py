@@ -126,159 +126,129 @@ def track_ang_vel_z_world_exp(
 
 def sds_custom_reward(env) -> torch.Tensor:
     """
-    🔍 FEEDBACK ANALYSIS (WALKING SPECIALIST • FOUNDATION-ONLY MODE):
-    - TERRAIN_CLASS: 0 (Flat). Rationale: Height scanner summary shows 28350/28350 rays normal, 0 gaps, 0 obstacles; visual context is an open, uniform floor.
-    - Prior policy trends indicate adequate forward walking but weak heading control and occasional instability:
-      • velocity_error_yaw Mean=1.99 (Max=3.23) is large → robot drifts/oscillates in yaw.
-      • velocity_error_xy Mean=0.46 is moderate but improvable.
-      • termination_base_contact Mean=10.41% (Max=84.88%) → falls and non‑foot contacts present.
-      • reward_sds_custom Mean=2.65 (Max=4.59) under a 0–5 clamp → headroom remains.
-      • episode length Mean=918.25 (Max=1497.57) shows progress but instability spikes remain.
-    - Exploration is healthy (entropy_loss Mean=41.15; action_noise_std Mean=1.50), training stable (value_function_loss Mean=0.09; surrogate_loss ≈0).
+    🔍 COMPREHENSIVE ENVIRONMENT ANALYSIS (FOUNDATION-ONLY MODE):
 
-    📊 PERFORMANCE METRICS (observed during training):
-    - reward: Max=135.82, Mean=79.30, Min=1.12
-    - episode length: Max=1497.57, Mean=918.25, Min=14.31
-    - reward_sds_custom: Max=4.59, Mean=2.65, Min=0.03
-    - velocity_error_xy: Max=0.72, Mean=0.46, Min=0.01
-    - velocity_error_yaw: Max=3.23, Mean=1.99, Min=0.02
-    - termination_base_contact: Max=84.88, Mean=10.41, Min=0.00
+    📊 NUMERICAL ANALYSIS RESULTS:
+    - Gaps Detected: N/A gaps
+    - Obstacles Detected: N/A large obstacles
+    - Terrain Roughness: N/A cm
+    - Safety Score: N/A% traversable terrain
 
-    🌍 ENVIRONMENTAL CONTEXT (from SUS – used only for feedback, not for sensors in reward):
-    - Total rays: 28350 (from 50 robots)
-    - Height readings: 0.189–0.278 m (avg: 0.242 m)
-    - Gaps Detected: 0 gaps; Obstacles Detected: 0; Normal terrain: 100.0%
-    - Terrain Roughness: N/Acm; Safety Score: 100.0% traversable terrain
-    - Decision: Foundation-only shaping (no height_scanner/lidar in reward).
+    📸 VISUAL ANALYSIS INSIGHTS (foundation-only summary):
+    - Primary terrain type: Flat, featureless studio floor (demonstration of steady heel-to-toe walking)
+    - Visual environment features: Smooth cadence, minimal vertical excursion, clear left–right alternation
+    - Movement challenges observed: Maintain stance>swing (~60:40), brief double support (~20%), consistent step length/cadence
+    - Navigation requirements: None (terrain-agnostic locomotion mechanics only)
 
-    🎯 SOLUTION STRATEGY:
-    - Strengthen heading regulation and lateral-path discipline on flat ground.
-    - Shape cadence to discourage rapid micro-steps (short swing/stance) and reduce flight phases (walking only).
-    - Increase stability via gentle height/posture tracking and stance slip reduction.
-    - Keep rewards dense, additive, and bounded to maintain PPO stability.
+    🎯 REWARD STRATEGY DECISION:
+    - PRIMARY SCENARIO: FLAT / SIMPLE (TERRAIN_CLASS: 0) — environmental sensing NOT_NEEDED
+    - Environmental sensing: NOT_NEEDED (no height scanner/LiDAR; foundation-only gait/posture control)
+    - Component priorities:
+        1) Velocity tracking (xy) in yaw-aligned frame (primary)
+        2) Biped gait quality with single-stance dominance (feet air/contact timing)
+        3) Uprightness and base height stability
+        4) Yaw-rate tracking for heading control
+        5) Contact quality (minimize foot sliding), smooth joint motion and natural joint poses
+    - Expected robot behavior:
+        • Track commanded planar velocity smoothly without lateral drift
+        • Alternate feet with ≈180° phase offset; stance fraction > swing with brief double support
+        • Maintain upright torso (small roll/pitch), slight forward pitch allowed
+        • Heel-to-toe like progression emergent via contact timing and sliding minimization
+        • Smooth, non-jerky joint motions with conservative joint excursions
 
-    📋 IMPLEMENTATION COMPONENTS (weights chosen from feedback trends):
-    - Proven components (Isaac Lab):
-      1) track_lin_vel_xy_yaw_frame_exp(std=0.6) → strong XY tracking (weight 3.2)
-      2) track_ang_vel_z_world_exp(std=0.6) → sharper yaw control vs previous (weight 1.5; lower std for sensitivity)
-      3) feet_air_time_positive_biped(threshold=0.6 s) → stable single‑stance rhythm (weight 2.2)
-      4) feet_slide() → stance-slip penalty (weight −0.6)
-    - Additional flat-ground shapers:
-      • Absolute height maintenance around 0.74 m (weight 1.6)
-      • Roll/pitch angular‑rate damping (weight 1.2)
-      • Lateral drift penalty when command vy≈0 (weight −0.6)
-      • Anti‑micro‑step penalty (hinge on very short swing/stance) (weight −0.4)
-      • Flight-phase penalty (both feet airborne) for walk (weight −0.3)
-      • Smoothness: small joint-velocity L2 (weight −0.02)
-    - Baseline bonus: +0.2
-    - Final clamp: [0.0, 5.0]
+    📋 IMPLEMENTATION COMPONENTS (FOUNDATION-ONLY):
+    - Foundation (Isaac Lab proven):
+        • track_lin_vel_xy_yaw_frame_exp(std=0.6)
+        • track_ang_vel_z_world_exp(std=0.6)
+        • feet_air_time_positive_biped(threshold=0.50s, contact bodies=".*_ankle_roll_link")
+        • feet_slide(sensor_cfg/asset_cfg body_names identical: ".*_ankle_roll_link")
+    - Additional posture/quality (terrain-agnostic, proprioceptive only):
+        • Base height maintenance around 0.74 m (absolute, flat-terrain nominal)
+        • Uprightness via projected gravity (minimize roll/pitch)
+        • Joint deviation L1 (small penalty toward neutral pose)
+        • Smoothness via joint velocity L2 (small penalty)
+    - Weights (additive, stable):
+        • Velocity: 3.0, Yaw: 1.0, Gait: 2.0, Height: 1.5, Upright: 1.5
+        • Slide penalty: -0.3, Joint deviation: -0.05, Smoothness: -0.05
+        • Baseline: +0.2, Final clamp: [0.0, 5.0]
 
-    Expected outcome:
-    - Lower velocity_error_yaw via tighter yaw tracking and lateral drift control.
-    - Reduced termination_base_contact via shorter-flight discouragement, height/posture shaping, and slip penalty.
-    - Higher reward_sds_custom mean with denser, cadence-aware feedback while staying PPO-stable.
-
-    NOTE: FOUNDATION-ONLY MODE — no usage of height_scanner/lidar; contact sensor is used for gait/slide shaping only.
+    Notes:
+    - Foundation-only mode: no use of height_scanner/lidar/terrain-specific rewards.
+    - Contact quality uses the contact sensor with G1 ankle roll links only (validated pattern).
+    - All components combined additively with moderate scales and final clamp for PPO stability.
     """
-    import torch
-
+    # Short aliases
     robot = env.scene["robot"]
+    device = env.device
+
+    # === Commands ===
     commands = env.command_manager.get_command("base_velocity")
-    cmd_xy = commands[:, :2]
-    cmd_mag = torch.norm(cmd_xy, dim=1)
-    is_moving = (cmd_mag > 0.1).float()
+    cmd_xy_mag = torch.norm(commands[:, :2], dim=1)
 
-    # === 1) Proven velocity tracking (XY in yaw-aligned frame) and yaw tracking ===
-    # Stronger XY tracking; keep std moderate for stability
+    # === 1) Proven velocity tracking (yaw-aligned xy) ===
+    # Moderate std keeps gradients smooth without saturation
     vel_reward = track_lin_vel_xy_yaw_frame_exp(env, std=0.6, command_name="base_velocity")
-    # Sharper yaw control (smaller std than before to reduce yaw error ~2.0)
-    ang_reward = track_ang_vel_z_world_exp(env, command_name="base_velocity", std=0.6)
+    # gate velocity reward when command is effectively zero to avoid stationary exploitation
+    vel_reward = vel_reward * (cmd_xy_mag > 0.1).float()
 
-    # === 2) Proven gait shaping: single-stance rhythm for walking ===
-    feet_cfg = SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link")
+    # === 2) Proven yaw-rate tracking (world frame z) ===
+    yaw_reward = track_ang_vel_z_world_exp(env, command_name="base_velocity", std=0.6)
+
+    # === 3) Gait quality: single-stance dominance & clear swing (proven biped pattern) ===
     gait_reward = feet_air_time_positive_biped(
         env,
         command_name="base_velocity",
-        threshold=0.6,  # promote ~0.35–0.55 s swing; cap to avoid high-knee tapping
-        sensor_cfg=feet_cfg,
+        threshold=0.50,  # cap air/contact time at 0.5s to bias walk (not hop/run)
+        sensor_cfg=SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
     )
 
-    # === 3) Proven stance slip penalty ===
+    # === 4) Postural stability: base height around flat-terrain nominal ===
+    # Absolute target is appropriate for SIMPLE terrain; shaped linearly and clamped
+    height_err = torch.abs(robot.data.root_pos_w[:, 2] - 0.74)
+    height_reward = torch.clamp(1.0 - (height_err / 0.25), 0.0, 1.0)
+
+    # === 5) Uprightness: minimize roll/pitch using projected gravity in body frame ===
+    # projected_gravity_b[:, :2] ≈ 0 when upright; reward larger when closer to 0
+    gravity_proj_xy = robot.data.projected_gravity_b[:, :2]  # [N,2]
+    lean_mag = torch.norm(gravity_proj_xy, dim=1)            # 0 is best (upright)
+    upright_reward = torch.clamp(1.0 - lean_mag, 0.0, 1.0)
+
+    # === 6) Contact quality: minimize stance-phase foot sliding (force-gated) ===
     slide_penalty = feet_slide(
         env,
         sensor_cfg=SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-        asset_cfg=SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
+        asset_cfg=SceneEntityCfg("robot",           body_names=".*_ankle_roll_link"),
+    )
+    # Bound penalty scale
+    slide_penalty = torch.clamp(slide_penalty, 0.0, 2.0)
+
+    # === 7) Natural joint posture (small L1 penalty to neutral) ===
+    # Keep small to avoid fighting tracking; terrain-agnostic proprioceptive prior
+    joint_pos = robot.data.joint_pos  # [N, n_joints]
+    joint_dev = torch.mean(torch.abs(joint_pos), dim=1)  # L1 mean per env
+    joint_dev_pen = torch.clamp(joint_dev, 0.0, 2.0)
+
+    # === 8) Smoothness (use joint velocities as a proxy for action rate) ===
+    joint_vel = robot.data.joint_vel  # [N, n_joints]
+    smooth_pen = torch.mean(joint_vel * joint_vel, dim=1)  # L2 per env
+    smooth_pen = torch.clamp(smooth_pen, 0.0, 5.0)
+
+    # === Weighted additive combination ===
+    reward = (
+        vel_reward * 3.0 +
+        yaw_reward * 1.0 +
+        gait_reward * 2.0 +
+        height_reward * 1.5 +
+        upright_reward * 1.5 +
+        (-slide_penalty) * 0.3 +
+        (-joint_dev_pen) * 0.05 +
+        (-smooth_pen) * 0.05 +
+        0.2  # small baseline to keep gradients alive early
     )
 
-    # === 4) Flat-ground posture: gentle absolute height tracking around nominal 0.74 m ===
-    height_err = (robot.data.root_pos_w[:, 2] - 0.74).abs()
-    height_reward = torch.clamp(1.0 - height_err / 0.20, 0.0, 1.0)  # slightly tighter than before
-
-    # === 5) Upright stability: roll/pitch angular-rate damping (world frame) ===
-    if hasattr(robot.data, "root_ang_vel_w") and robot.data.root_ang_vel_w is not None:
-        pr_rate = torch.norm(robot.data.root_ang_vel_w[:, :2], dim=1)
-    else:
-        pr_rate = torch.zeros(env.num_envs, dtype=torch.float32, device=env.device)
-    stability_reward = torch.clamp(1.0 - pr_rate / 3.0, 0.0, 1.0)
-
-    # === 6) Lateral drift penalty when lateral command is ~0 (keep straight path) ===
-    # Recompute yaw-aligned velocity to read lateral component safely
-    vel_yaw = quat_apply_inverse(yaw_quat(robot.data.root_quat_w), robot.data.root_lin_vel_w[:, :3])
-    lateral_mask = (torch.abs(commands[:, 1]) < 0.05).float()
-    lateral_drift_penalty = torch.clamp(torch.abs(vel_yaw[:, 1]), 0.0, 1.5) * lateral_mask * is_moving
-
-    # === 7) Cadence hygiene: discourage ultra-short swing/stance and flight (walking only) ===
-    contact_sensor = env.scene.sensors["contact_forces"]
-    foot_ids, _ = contact_sensor.find_bodies(".*_ankle_roll_link")
-    foot_ids = torch.tensor(foot_ids, dtype=torch.long, device=env.device)
-    # Guard for unexpected matches
-    if foot_ids.numel() > 2:
-        foot_ids = foot_ids[:2]
-    elif foot_ids.numel() == 1:
-        foot_ids = torch.stack([foot_ids[0], foot_ids[0]])
-
-    # Current phase times (clamped to non-negative)
-    air_t = contact_sensor.data.current_air_time[:, foot_ids]
-    con_t = contact_sensor.data.current_contact_time[:, foot_ids]
-    air_t = torch.clamp(air_t, min=0.0)
-    con_t = torch.clamp(con_t, min=0.0)
-
-    # Penalize very short swing (<0.15 s) and very short stance (<0.20 s)
-    short_swing = torch.clamp(0.15 - air_t, min=0.0) / 0.15
-    short_stance = torch.clamp(0.20 - con_t, min=0.0) / 0.20
-    short_phase_penalty = (short_swing + short_stance).mean(dim=1) * is_moving
-    short_phase_penalty = torch.clamp(short_phase_penalty, 0.0, 2.0)
-
-    # Discourage flight (both feet off ground) for walking tasks
-    in_contact = con_t > 0.0
-    feet_in_contact = torch.sum(in_contact.int(), dim=1)
-    flight_phase = (feet_in_contact == 0).float() * is_moving
-    flight_penalty = flight_phase  # already 0/1; scaled later
-
-    # === 8) Smoothness: small joint-velocity L2 penalty ===
-    if hasattr(robot.data, "joint_vel") and robot.data.joint_vel is not None:
-        joint_vel_l2 = torch.mean(torch.square(robot.data.joint_vel), dim=1)
-    else:
-        joint_vel_l2 = torch.zeros(env.num_envs, dtype=torch.float32, device=env.device)
-
-    # === 9) Assemble additive reward (foundation-dominant) ===
-    baseline = 0.2
-    total = (
-        vel_reward * 3.2
-        + ang_reward * 1.5
-        + gait_reward * 2.2
-        + height_reward * 1.6
-        + stability_reward * 1.2
-        - slide_penalty * 0.6
-        - lateral_drift_penalty * 0.6
-        - short_phase_penalty * 0.4
-        - flight_penalty * 0.3
-        - joint_vel_l2 * 0.02
-        + baseline
-    )
-
-    # PPO-safe clamp
-    return torch.clamp(total, min=0.0, max=5.0)
+    # === Final clamp for PPO stability ===
+    reward = torch.where(torch.isfinite(reward), reward, torch.zeros_like(reward))
+    return reward.clamp(min=0.0, max=5.0)
 
 
 

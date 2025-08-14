@@ -373,7 +373,7 @@ class EnvironmentAwareTaskDescriptor(Agent):
             self.logger.info("Activated Agent EnvironmentAnalyzer")
             
             # Predefined RL policy checkpoint (hardcoded for reliable analysis)
-            default_checkpoint = "logs/rsl_rl/g1_enhanced/2025-08-12_15-16-58/model_500.pt"
+            default_checkpoint = "logs/rsl_rl/g1_enhanced/2025-08-14_00-40-58/model_700.pt"
             
             # Change to IsaacLab directory and run analysis
             isaac_lab_path = "/home/enis/IsaacLab"

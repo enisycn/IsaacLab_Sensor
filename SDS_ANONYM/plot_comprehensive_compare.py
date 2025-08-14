@@ -3,8 +3,15 @@
 Comprehensive Metrics Comparison Plotting Tool
 ==============================================
 
-Generates publication-ready comparison plots for ALL metrics between 
+Generates publication-ready comparison plots for ALL 8 STANDARDIZED METRICS between 
 environment-aware and foundation-only modes with enhanced visualizations.
+
+Metrics Coverage:
+- 5 Smaller-is-Better: height_deviation, velocity_tracking_error, disturbance_resistance, 
+  contact_termination_rate, obstacle_collision_count
+- 3 Higher-is-Better: balance_stability_score, gait_smoothness_score, locomotion_efficiency_score
+
+All terrain types (0,1,2,3) now have identical metric sets for fair comparison.
 """
 
 import argparse
@@ -68,12 +75,21 @@ def to_title(text: str) -> str:
 
 
 def get_metric_description(category: str, metric: str) -> str:
-    """Get human-readable description for the focused metrics."""
+    """Get human-readable description for all 8 standardized metrics."""
     descriptions = {
-        # Core Performance Metrics (smaller is better for all)
+        # UNIVERSAL 7 METRICS (smaller is better)
         "height_deviation": "Height deviation from nominal (m) - Smaller is Better",
         "velocity_tracking_error": "Velocity tracking error (m/s) - Smaller is Better", 
         "disturbance_resistance": "External disturbance resistance - Smaller is Better",
+        "contact_termination_rate": "Fall/contact failure rate - Smaller is Better",
+        
+        # LOCOMOTION QUALITY METRICS (higher is better)
+        "balance_stability_score": "Body stability score - Higher is Better",
+        "gait_smoothness_score": "Joint movement smoothness - Higher is Better", 
+        "locomotion_efficiency_score": "Forward progress efficiency - Higher is Better",
+        
+        # TERRAIN-SPECIFIC METRIC (smaller is better)
+        "obstacle_collision_count": "Upper body collision count - Smaller is Better",
         
         # Summary Metrics
         "total_steps": "Total simulation steps",
@@ -84,15 +100,35 @@ def get_metric_description(category: str, metric: str) -> str:
     return descriptions.get(metric, f"{to_title(metric)} ({to_title(category)})")
 
 
+def is_higher_better_metric(metric: str) -> bool:
+    """Determine if higher values are better for this metric."""
+    higher_better_metrics = {
+        "balance_stability_score",
+        "gait_smoothness_score", 
+        "locomotion_efficiency_score"
+    }
+    return metric in higher_better_metrics
+
+
 def plot_numeric_comparison(ax, env_name_a: str, env_name_b: str, data_a: Dict[str, Any], 
                           data_b: Dict[str, Any], category: str, metric: str, colors: List[str]):
-    """Plot numeric metric comparison with enhanced visuals for focused metrics."""
+    """Plot numeric metric comparison with enhanced modern aesthetics."""
     try:
-        # Handle both old structure (category.metric) and new flat structure
-        if category == "focused":
-            stats_a = data_a.get(metric, {})
-            stats_b = data_b.get(metric, {})
+        # Handle correct data structure: metrics are under 'metrics' key, summary under 'summary' key
+        if category == "standardized":
+            stats_a = data_a.get('metrics', {}).get(metric, {})
+            stats_b = data_b.get('metrics', {}).get(metric, {})
+        elif category == "summary":
+            stats_a = data_a.get('summary', {})
+            stats_b = data_b.get('summary', {})
+            # For summary metrics, we need to create the stats dict format
+            if metric in stats_a and metric in stats_b:
+                stats_a = {'mean': float(stats_a[metric]), 'std': 0.0, 'count': 1}
+                stats_b = {'mean': float(stats_b[metric]), 'std': 0.0, 'count': 1}
+            else:
+                return False
         else:
+            # Legacy structure fallback
             stats_a = data_a.get(category, {}).get(metric, {})
             stats_b = data_b.get(category, {}).get(metric, {})
         
@@ -107,49 +143,145 @@ def plot_numeric_comparison(ax, env_name_a: str, env_name_b: str, data_a: Dict[s
         mean_b, std_b = float(stats_b.get("mean", 0)), float(stats_b.get("std", 0))
         count_a, count_b = int(stats_a.get("count", 0)), int(stats_b.get("count", 0))
         
-        # Bar plot with error bars
-        x = [0, 1]
-        means = [mean_a, mean_b]
-        stds = [std_a, std_b]
+        # Determine winner based on metric type (needed for direction indicator)
+        higher_is_better = is_higher_better_metric(metric)
+        
+        # Enhanced color scheme with gradients
+        if higher_is_better:
+            # Blue to green gradient for higher-is-better metrics
+            color_a = '#2E86AB'  # Deep blue
+            color_b = '#A23B72'  # Deep pink/purple
+            gradient_color_a = '#74C69D'  # Light green
+            gradient_color_b = '#F4A261'  # Warm orange
+        else:
+            # Orange to teal gradient for smaller-is-better metrics  
+            color_a = '#E76F51'  # Warm red-orange
+            color_b = '#2A9D8F'  # Teal
+            gradient_color_a = '#F4A261'  # Warm orange
+            gradient_color_b = '#74C69D'  # Light green
+        
+        # Modern bar plot with enhanced styling
+        x = np.array([0, 1])
+        means = np.array([mean_a, mean_b])
+        stds = np.array([std_a, std_b])
         labels = [env_name_a, env_name_b]
+        bar_colors = [color_a, color_b]
         
-        bars = ax.bar(x, means, yerr=stds, color=colors, capsize=6, alpha=0.8, 
-                     edgecolor='black', linewidth=0.8)
+        # Create bars with modern styling
+        width = 0.6
+        bars = ax.bar(x, means, width=width, yerr=stds, 
+                     color=bar_colors, capsize=8,
+                     alpha=0.85, edgecolor='white', linewidth=2.5,
+                     error_kw={'elinewidth': 2, 'capsize': 8, 'alpha': 0.7})
         
-        # Add value labels on bars
+        # Add subtle gradient effect using patches
+        from matplotlib.patches import Rectangle
+        import matplotlib.patches as mpatches
+        
+        for i, (bar, color, grad_color) in enumerate(zip(bars, bar_colors, [gradient_color_a, gradient_color_b])):
+            # Create gradient effect
+            height = bar.get_height()
+            if height > 0:
+                # Add gradient overlay
+                gradient_rect = Rectangle((bar.get_x(), 0), bar.get_width(), height * 0.3,
+                                        facecolor=grad_color, alpha=0.3, zorder=3)
+                ax.add_patch(gradient_rect)
+        
+        # Enhanced value labels with better typography and spacing
+        max_error = [std_a, std_b]
+        max_height = max(means) if max(means) > 0 else max(stds)
+        
         for i, (bar, mean, std, count) in enumerate(zip(bars, means, stds, [count_a, count_b])):
             height = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2., height + std + 0.02*max(means),
-                   f'{mean:.4f}±{std:.4f}\n(n={count})',
-                   ha='center', va='bottom', fontsize=8, weight='bold')
+            
+            # Main value label - positioned higher to avoid overlap
+            label_y = height + max_error[i] + 0.06 * max_height
+            ax.text(bar.get_x() + bar.get_width()/2., label_y,
+                   f'{mean:.4f}', ha='center', va='bottom', 
+                   fontsize=11, fontweight='bold', color='#2C3E50')
         
-        # Styling
+        # Enhanced styling with modern design
         ax.set_xticks(x)
-        ax.set_xticklabels(labels, fontweight='bold')
-        ax.set_ylabel(get_metric_description(category, metric), fontweight='bold')
-        ax.set_title(f"Performance Comparison\n{to_title(metric)}", fontweight='bold', pad=20)
-        ax.grid(True, axis='y', alpha=0.3, linestyle='--')
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
+        ax.set_xticklabels(labels, fontweight='bold', fontsize=12, color='#2C3E50')
         
-        # Add difference annotation and winner indication
+        # Improved y-axis label
+        metric_desc = get_metric_description(category, metric)
+        ax.set_ylabel(metric_desc, fontweight='bold', fontsize=11, color='#34495E')
+        
+        # Modern title with better spacing
+        title_text = f"{to_title(metric)}"
+        ax.set_title(title_text, fontweight='bold', fontsize=14, color='#2C3E50', pad=30)
+        
+        # Enhanced grid
+        ax.grid(True, axis='y', alpha=0.3, linestyle='--', linewidth=0.8, color='#BDC3C7')
+        ax.set_axisbelow(True)
+        
+        # Modern spines
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+        
+        # Add subtle background color
+        ax.set_facecolor('#FAFAFA')
+        
+        # Calculate difference and winner
         diff = mean_a - mean_b
         diff_pct = (diff / max(abs(mean_b), 1e-6)) * 100
         
-        # Determine winner (smaller is better for our metrics)
-        if mean_a < mean_b:
-            winner_text = f"{env_name_a} WINS"
-            winner_color = 'lightgreen'
-        elif mean_b < mean_a:
-            winner_text = f"{env_name_b} WINS"
-            winner_color = 'lightgreen'
+        if higher_is_better:
+            # For higher-is-better metrics
+            if mean_a > mean_b:
+                winner_text = f"{env_name_a} WINS"
+                winner_color = '#27AE60'
+                winner_icon = "🏆"
+            elif mean_b > mean_a:
+                winner_text = f"{env_name_b} WINS"
+                winner_color = '#27AE60'
+                winner_icon = "🏆"
+            else:
+                winner_text = "TIE"
+                winner_color = '#F39C12'
+                winner_icon = "⚖️"
         else:
-            winner_text = "TIE"
-            winner_color = 'lightblue'
-            
-        ax.text(0.5, max(means) * 0.1, f'{winner_text}\nΔ = {diff:+.4f} ({diff_pct:+.1f}%)', 
-                ha='center', va='bottom', fontsize=9, 
-                bbox=dict(boxstyle="round,pad=0.3", facecolor=winner_color, alpha=0.7))
+            # For smaller-is-better metrics
+            if mean_a < mean_b:
+                winner_text = f"{env_name_a} WINS"
+                winner_color = '#27AE60'
+                winner_icon = "🏆"
+            elif mean_b > mean_a:
+                winner_text = f"{env_name_b} WINS"
+                winner_color = '#27AE60'
+                winner_icon = "🏆"
+            else:
+                winner_text = "TIE"
+                winner_color = '#F39C12'
+                winner_icon = "⚖️"
+        
+        # Enhanced winner annotation positioned at the top of the plot
+        ax.text(0.5, 0.95, f'{winner_icon} {winner_text}', transform=ax.transAxes,
+                ha='center', va='top', fontsize=12, fontweight='bold',
+                bbox=dict(boxstyle="round,pad=0.5", facecolor=winner_color, 
+                         alpha=0.2, edgecolor=winner_color, linewidth=2))
+        
+        # Difference annotation positioned slightly below winner text
+        diff_text = f'Δ = {diff:+.4f} ({diff_pct:+.1f}%)'
+        ax.text(0.5, 0.88, diff_text, transform=ax.transAxes,
+                ha='center', va='top', fontsize=9, color='#34495E',
+                bbox=dict(boxstyle="round,pad=0.3", facecolor='white', 
+                         alpha=0.8, edgecolor='#BDC3C7', linewidth=1))
+        
+        # Add direction indicator badge - repositioned to avoid overlap
+        direction_text = "📈 Higher = Better" if higher_is_better else "📉 Smaller = Better"
+        direction_color = '#E8F5E8' if higher_is_better else '#FFF2E8'
+        badge_edge_color = '#27AE60' if higher_is_better else '#E67E22'
+        
+        ax.text(0.02, 0.95, direction_text, transform=ax.transAxes, 
+                ha='left', va='top', fontsize=9, fontweight='bold', color='#2C3E50',
+                bbox=dict(boxstyle="round,pad=0.4", facecolor=direction_color, 
+                         alpha=0.9, edgecolor=badge_edge_color, linewidth=1.5))
+        
+        # Set y-axis limits with better padding to accommodate all text
+        y_max = max_height + max(stds) + 0.15 * max_height  # More padding for labels
+        ax.set_ylim(0, y_max * 1.3)  # Extra space at top
         
         return True
         
@@ -324,95 +456,168 @@ Key Insights:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Focused metrics comparison with enhanced visualizations.")
-    parser.add_argument("--env_aware", required=True, help="Path to env-aware results (.json or .pkl)")
-    parser.add_argument("--foundation_only", required=True, help="Path to foundation-only results (.json or .pkl)")
-    parser.add_argument("--outdir", default="plots_focused", help="Output directory for plots")
-    parser.add_argument("--env_aware_label", default="Environment-Aware", help="Label for env-aware mode")
-    parser.add_argument("--foundation_only_label", default="Foundation-Only", help="Label for foundation-only mode")
+    """Generate comprehensive comparison plots with enhanced aesthetics."""
+    parser = argparse.ArgumentParser(description="Generate comprehensive metric comparison plots")
+    parser.add_argument("--env_aware", required=True, help="Path to environment-aware data file")
+    parser.add_argument("--foundation_only", required=True, help="Path to foundation-only data file")
+    parser.add_argument("--outdir", default="plots_comprehensive", help="Output directory")
+    parser.add_argument("--env_aware_label", default="Environment-Aware", help="Label for environment-aware data")
+    parser.add_argument("--foundation_only_label", default="Foundation-Only", help="Label for foundation-only data")
+    
     args = parser.parse_args()
-
-    outdir = ensure_outdir(args.outdir)
     
     # Load data
-    data_a = load_results(args.env_aware)
-    data_b = load_results(args.foundation_only)
+    print(f"Loading data from {args.env_aware} and {args.foundation_only}")
     
-    colors = ["#1f77b4", "#ff7f0e"]  # Blue for env-aware, orange for foundation-only
+    with open(args.env_aware, 'rb') as f:
+        env_aware_data = pickle.load(f)
     
-    pdf_path = os.path.join(outdir, "focused_comparison.pdf")
+    with open(args.foundation_only, 'rb') as f:
+        foundation_only_data = pickle.load(f)
+    
+    # Create output directory
+    outdir = Path(args.outdir)
+    outdir.mkdir(exist_ok=True)
+    
+    # Set up modern matplotlib style
+    plt.style.use('default')  # Start with clean default
+    plt.rcParams.update({
+        'font.family': 'DejaVu Sans',
+        'font.size': 10,
+        'axes.titlesize': 14,
+        'axes.labelsize': 11,
+        'xtick.labelsize': 10,
+        'ytick.labelsize': 10,
+        'legend.fontsize': 10,
+        'figure.titlesize': 16,
+        'figure.facecolor': 'white',
+        'axes.facecolor': '#FAFAFA',
+        'axes.edgecolor': '#CCCCCC',
+        'grid.color': '#E0E0E0',
+        'grid.linewidth': 0.8,
+        'axes.linewidth': 0.8,
+        'xtick.color': '#333333',
+        'ytick.color': '#333333',
+        'text.color': '#2C3E50'
+    })
+    
+    # Modern color palette
+    modern_colors = ['#3498DB', '#E74C3C']  # Modern blue and red
+    
+    # Plot all 8 standardized metrics
+    standardized_metrics = [
+        # UNIVERSAL 7 METRICS
+        'height_deviation',
+        'velocity_tracking_error', 
+        'disturbance_resistance',
+        'contact_termination_rate',
+        'balance_stability_score',
+        'gait_smoothness_score',
+        'locomotion_efficiency_score',
+        # TERRAIN-SPECIFIC METRIC
+        'obstacle_collision_count'
+    ]
+    
+    # Create plots with enhanced styling
     plot_count = 0
+    pdf_path = outdir / "comprehensive_8metrics_comparison.pdf"
     
     with PdfPages(pdf_path) as pdf:
-        # Summary information page
-        fig = plt.figure(figsize=(8.5, 11))
-        create_summary_info_plot(fig, data_a, data_b, args.env_aware_label, args.foundation_only_label)
-        pdf.savefig(fig, bbox_inches='tight')
-        plt.close(fig)
-        
-        # Plot focused metrics (3 key metrics)
-        focused_metrics = ['height_deviation', 'velocity_tracking_error', 'disturbance_resistance']
-        
-        metrics_a = data_a.get("comprehensive_metrics", {})
-        metrics_b = data_b.get("comprehensive_metrics", {})
-        
-        # Plot the 3 focused metrics
-        for metric in focused_metrics:
-            if metric in metrics_a and metric in metrics_b:
-                fig, ax = plt.subplots(figsize=(8, 6))
+        for metric in standardized_metrics:
+            # Create figure with enhanced size and styling
+            fig, ax = plt.subplots(figsize=(10, 7), dpi=150)
+            fig.patch.set_facecolor('white')
+            
+            success = plot_numeric_comparison(
+                ax, args.env_aware_label, args.foundation_only_label,
+                env_aware_data, foundation_only_data, 
+                "standardized", metric, modern_colors
+            )
+            
+            if success:
+                # Apply additional modern styling
+                fig.suptitle("Performance Comparison Study", 
+                           fontsize=16, fontweight='bold', color='#2C3E50', y=0.95)
                 
-                success = plot_numeric_comparison(ax, args.env_aware_label, args.foundation_only_label,
-                                                metrics_a, metrics_b, "focused", metric, colors)
+                # Add subtle border around the plot
+                for spine in ax.spines.values():
+                    spine.set_visible(True)
+                    spine.set_color('#E0E0E0')
+                    spine.set_linewidth(1)
                 
-                if success:
-                    # Save individual plot
-                    filename = f"focused__{metric}.png"
-                    out_path = os.path.join(outdir, filename)
-                    fig.tight_layout()
-                    fig.savefig(out_path, dpi=200, bbox_inches='tight')
-                    pdf.savefig(fig, bbox_inches='tight')
-                    plot_count += 1
-                    print(f"✅ Generated: {metric}")
-                else:
-                    print(f"❌ Failed to plot: {metric}")
+                # Enhance layout
+                plt.tight_layout(rect=[0, 0, 1, 0.93])
                 
-                plt.close(fig)
+                # Save individual plot with high quality
+                filename = f"metric__{metric}.png"
+                out_path = outdir / filename
+                fig.savefig(out_path, dpi=300, bbox_inches='tight', 
+                           facecolor='white', edgecolor='none',
+                           pad_inches=0.2)
+                pdf.savefig(fig, bbox_inches='tight', facecolor='white')
+                
+                print(f"✅ Generated: {metric}")
+                plot_count += 1
             else:
-                print(f"❌ Missing data for: {metric}")
+                print(f"❌ Failed to plot: {metric}")
+            
+            plt.close(fig)
         
-        # Plot summary metrics
-        summary_a = data_a.get("summary_metrics", {})
-        summary_b = data_b.get("summary_metrics", {})
+        # Plot summary metrics with same enhanced styling
+        summary_metrics = ['collection_time', 'mean_reward', 'total_reward', 'total_steps']
         
-        for metric in sorted(set(summary_a.keys()) & set(summary_b.keys())):
-            if isinstance(summary_a[metric], (int, float)) and isinstance(summary_b[metric], (int, float)):
-                fig, ax = plt.subplots(figsize=(6, 4.5))
+        for metric in summary_metrics:
+            fig, ax = plt.subplots(figsize=(10, 7), dpi=150)
+            fig.patch.set_facecolor('white')
+            
+            success = plot_numeric_comparison(
+                ax, args.env_aware_label, args.foundation_only_label,
+                env_aware_data, foundation_only_data, 
+                "summary", metric, modern_colors
+            )
+            
+            if success:
+                fig.suptitle("Performance Comparison Study", 
+                           fontsize=16, fontweight='bold', color='#2C3E50', y=0.95)
                 
-                success = plot_summary_comparison(ax, args.env_aware_label, args.foundation_only_label,
-                                                data_a, data_b, metric, colors)
+                for spine in ax.spines.values():
+                    spine.set_visible(True)
+                    spine.set_color('#E0E0E0')
+                    spine.set_linewidth(1)
                 
-                if success:
-                    # Save individual plot
-                    filename = f"summary__{metric}.png"
-                    out_path = os.path.join(outdir, filename)
-                    fig.tight_layout()
-                    fig.savefig(out_path, dpi=200, bbox_inches='tight')
-                    pdf.savefig(fig, bbox_inches='tight')
-                    plot_count += 1
-                    print(f"✅ Generated: Summary • {metric}")
+                plt.tight_layout(rect=[0, 0, 1, 0.93])
                 
-                plt.close(fig)
+                filename = f"summary__{metric}.png"
+                out_path = outdir / filename
+                fig.savefig(out_path, dpi=300, bbox_inches='tight',
+                           facecolor='white', edgecolor='none',
+                           pad_inches=0.2)
+                pdf.savefig(fig, bbox_inches='tight', facecolor='white')
+                
+                print(f"✅ Generated: Summary • {metric}")
+                plot_count += 1
+            
+            plt.close(fig)
     
-    print(f"\n🎉 Generated {plot_count} focused comparison plots!")
+    # Enhanced final summary
+    print(f"\n🎉 Generated {plot_count} comprehensive comparison plots!")
     print(f"📁 Output directory: {outdir}")
     print(f"📄 Combined PDF: {pdf_path}")
     print(f"🖼️  Individual PNGs: {plot_count} files")
-    print(f"\n🎯 FOCUSED METRICS ANALYSIS:")
-    print(f"   • Height Deviation: Stability measure (smaller = more stable)")
-    print(f"   • Velocity Tracking Error: Performance measure (smaller = better tracking)")  
-    print(f"   • Disturbance Resistance: Robustness measure (smaller = more robust)")
-    print(f"   • All metrics: SMALLER IS BETTER for performance comparison")
-    
+    print(f"\n🎯 COMPREHENSIVE METRICS ANALYSIS (8 Standardized Metrics):")
+    print(f"\n   📉 SMALLER IS BETTER METRICS:")
+    print(f"      • Height Deviation: Stability measure (smaller = more stable)")
+    print(f"      • Velocity Tracking Error: Performance measure (smaller = better tracking)")  
+    print(f"      • Disturbance Resistance: Robustness measure (smaller = more robust)")
+    print(f"      • Contact Termination Rate: Fall prevention (smaller = fewer falls)")
+    print(f"      • Obstacle Collision Count: Safety measure (smaller = fewer collisions)")
+    print(f"\n   📈 HIGHER IS BETTER METRICS:")
+    print(f"      • Balance Stability Score: Body stability (higher = more stable)")
+    print(f"      • Gait Smoothness Score: Joint coordination (higher = smoother)")
+    print(f"      • Locomotion Efficiency Score: Forward progress (higher = more efficient)")
+    print(f"\n   🎯 All terrain types now have identical 8-metric sets for fair comparison!")
+    print(f"\n   ✨ Enhanced with modern visual aesthetics and professional styling!")
+
 
 if __name__ == "__main__":
     main() 

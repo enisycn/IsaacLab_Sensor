@@ -21,14 +21,14 @@ Terrain Types:
     ./isaaclab.sh -p SDS_ANONYM/collect_policy_data_simple.py \
         --terrain_type 0 \
         --task Isaac-SDS-Velocity-Flat-G1-Enhanced-v0 \
-        --checkpoint logs/rsl_rl/g1_enhanced/model_500.pt \
+        --checkpoint logs/rsl_rl/g1_enhanced/2025-08-14_00-40-58/model_700.pt \
         --num_envs 50 --steps 1000 --output simple_terrain_data.pkl
 
     # Terrain Type 1: Gap navigation (placeholders ready for implementation)
     ./isaaclab.sh -p SDS_ANONYM/collect_policy_data_simple.py \
         --terrain_type 1 \
         --task Isaac-SDS-Velocity-Flat-G1-Enhanced-v0 \
-        --checkpoint logs/rsl_rl/g1_enhanced/model_500.pt \
+        --checkpoint logs/rsl_rl/g1_enhanced/2025-08-14_00-40-58/model_700.pt \
         --num_envs 50 --steps 1000 --output gap_terrain_data.pkl
 
 Note: Before running, manually set TERRAIN_TYPE in flat_with_box_env_cfg.py to match --terrain_type argument.
@@ -188,7 +188,13 @@ class TerrainAwareMetricsCollector:
         elif self.terrain_type == 1:
             # TERRAIN TYPE 1: Gap navigation terrain
             self.metrics = universal_metrics.copy()
-            print(f"🕳️ TERRAIN 1 METRICS: Gap navigation with 7 comprehensive metrics")
+            # ADD TERRAIN-SPECIFIC METRIC: Obstacle collision detection
+            self.metrics['obstacle_collision_count'] = []  # Smaller is better - fewer collisions
+            print(f"🕳️ TERRAIN 1 METRICS: Gap navigation with 7 comprehensive metrics + obstacle collision count")
+            
+            # Initialize obstacle collision tracking
+            self.total_obstacle_collisions = 0
+            self.collision_threshold = 300.0  # Minimum contact force to count as collision (N)
             
         elif self.terrain_type == 2:
             # TERRAIN TYPE 2: Obstacle avoidance terrain
@@ -204,12 +210,24 @@ class TerrainAwareMetricsCollector:
         elif self.terrain_type == 3:
             # TERRAIN TYPE 3: Stair climbing terrain
             self.metrics = universal_metrics.copy()
-            print(f"🪜 TERRAIN 3 METRICS: Stair climbing with 7 comprehensive metrics")
+            # ADD TERRAIN-SPECIFIC METRIC: Obstacle collision detection
+            self.metrics['obstacle_collision_count'] = []  # Smaller is better - fewer collisions
+            print(f"🪜 TERRAIN 3 METRICS: Stair climbing with 7 comprehensive metrics + obstacle collision count")
+            
+            # Initialize obstacle collision tracking
+            self.total_obstacle_collisions = 0
+            self.collision_threshold = 300.0  # Minimum contact force to count as collision (N)
             
         else:
             # Fallback for unknown terrain types
             self.metrics = universal_metrics.copy()
-            print(f"❓ UNKNOWN TERRAIN: Using 7 comprehensive metrics")
+            # ADD TERRAIN-SPECIFIC METRIC: Obstacle collision detection
+            self.metrics['obstacle_collision_count'] = []  # Smaller is better - fewer collisions
+            print(f"❓ UNKNOWN TERRAIN: Using 7 comprehensive metrics + obstacle collision count")
+            
+            # Initialize obstacle collision tracking
+            self.total_obstacle_collisions = 0
+            self.collision_threshold = 300.0  # Minimum contact force to count as collision (N)
     
     def _get_environment_timestep(self):
         """Get timestep from environment with proper error handling."""
@@ -377,6 +395,9 @@ class TerrainAwareMetricsCollector:
         self._update_balance_stability_score(robot_state)
         self._update_gait_smoothness_score(robot_state)
         self._update_locomotion_efficiency_score(robot_state, commands)
+        
+        # TERRAIN-SPECIFIC METRIC: Obstacle collision detection
+        self._update_obstacle_collision_count()
     
     def _update_terrain_2_metrics(self, robot_state, commands, obs, terminated, truncated):
         """Update metrics for Terrain Type 2: Obstacle avoidance terrain."""
@@ -406,6 +427,9 @@ class TerrainAwareMetricsCollector:
         self._update_balance_stability_score(robot_state)
         self._update_gait_smoothness_score(robot_state)
         self._update_locomotion_efficiency_score(robot_state, commands)
+        
+        # TERRAIN-SPECIFIC METRIC: Obstacle collision detection
+        self._update_obstacle_collision_count()
     
     def _get_robot_state(self):
         """Get robot state data using proper Isaac Lab access patterns."""

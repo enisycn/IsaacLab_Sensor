@@ -13,7 +13,7 @@ for comparative analysis between different configurations.
     # Basic data collection
     ./isaaclab.sh -p SDS_ANONYM/collect_policy_data_clean.py \
         --task Isaac-SDS-Velocity-Flat-G1-Enhanced-v0 \
-        --checkpoint logs/rsl_rl/g1_enhanced/model_500.pt \
+        --checkpoint logs/rsl_rl/g1_enhanced/2025-08-14_00-40-58/model_700.pt \
         --num_envs 50 --steps 1000 --output policy_data.pkl
 
 """

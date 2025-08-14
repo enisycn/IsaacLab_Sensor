@@ -62,40 +62,39 @@ If environmental analysis is NOT AVAILABLE (foundation-only mode), focus on basi
    🎯 USING ISAAC LAB STANDARD DETECTION:
      Standard baseline: 0.209m
      Classification threshold: ±0.07m
-     Gap threshold: Above baseline threshold (terrain significantly lower)
+     Gap threshold: >0.279m (terrain >0.07m lower)
      Obstacle threshold: <0.139m (terrain >0.07m higher)
-     Normal range: Within baseline tolerance
+     Normal range: 0.139m to 0.279m
    📊 CORRECTED RAY ANALYSIS (Isaac Lab Standards):
      Total rays: 28350 (from 50 robots)
-     Height readings: 0.229m to 0.261m (avg: 0.240m)
+     Height readings: -0.732m to 0.601m (avg: 0.150m)
      Isaac Lab baseline: 0.209m (standard)
-     Measured baseline: 0.240m (actual terrain average)
+     Measured baseline: 0.150m (actual terrain average)
    ---
    🔺 OBSTACLES:
-     Count: 0 rays (0.0%)
+     Count: 9515 rays (33.6%)
+     Tallest obstacle height above baseline: 0.871m
+       (Obstacle sensor reading: -0.732m)
+       (Isaac Lab baseline: 0.209m)
+       (Threshold: <0.139m)
+       (Physical meaning: Terrain is 0.871m higher than expected)
    🕳️  GAPS:
-     Count: 0 rays (0.0%)
+     Count: 2154 rays (7.6%)
+     Deepest gap depth below baseline: 0.322m
+       (Gap sensor reading: 0.601m)
+       (Isaac Lab baseline: 0.209m)
+       (Threshold: >0.279m)
+       (Physical meaning: Terrain is 0.392m lower than expected)
+     Shallowest gap depth below baseline: 0.014m
+       (Gap sensor reading: 0.293m)
+       (Physical meaning: Terrain is 0.084m lower than expected)
    🏞️  NORMAL TERRAIN:
-     Count: 28350 rays (100.0%)
-     Definition: Terrain within baseline tolerance range
+     Count: 16681 rays (58.8%)
+     Definition: Terrain between 0.139m and 0.279m
      Range: ±0.07m tolerance zone around 0.209m baseline
-   🚨 Overall terrain safety: 🟢 SAFE
-     Reason: No gaps detected (limit: 10.0%), No obstacles detected (limit: 30.0%)
-
-📸 VISUAL ANALYSIS INSIGHTS:
-   Environment Type: Flat terrain with gentle variations
-   Surface Characteristics: Uniform height distribution, stable footing
-   Movement Challenges: None - consistent flat terrain
-   Navigation Requirements: Standard bipedal locomotion without terrain-specific adaptations
-   Visual Scene Documentation: Clean flat environment with minimal height variation (±3cm range)
-   Terrain-Specific Observations: Safe traversal conditions, no environmental hazards detected
-
-🎯 ENVIRONMENT-AWARE GUIDANCE:
-   Mode: Environment-aware locomotion with sensor integration
-   Focus: Flat terrain optimized walking with height scanner feedback
-   Strategy: Use proprioceptive and environmental sensors for stable locomotion
-   Approach: Combine basic movement patterns with terrain height awareness
-   Environmental Context: Flat, safe terrain suitable for standard walking behaviors
+   🌊 TERRAIN ROUGHNESS: 2.3cm variation (🟡 MODERATE)
+   🚨 Overall terrain safety: 🔴 DANGEROUS
+     Reason: 7.6% gaps (limit: 10.0%), 33.6% obstacles (limit: 30.0%)
 <!-- ENVIRONMENT_ANALYSIS_END -->
 
 **🎯 ANALYSIS MODE INSTRUCTIONS:**

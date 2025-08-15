@@ -5,16 +5,16 @@ import os
 import math
 import base64
 
-SIM_CROP_DIM = (200,300)
-VIDEO_RESOLUTION = 16
+SIM_CROP_DIM = (120,180)  # Reduced from (200,300) to lower resolution for GPT processing
+VIDEO_RESOLUTION = 9   # 9 frames (3x3 grid) - good balance between quality and efficiency
 GRID_SIZE = int(math.sqrt(VIDEO_RESOLUTION))
 EPISODE_FRAME_LEN = 1002
 
-def encode_image(image_path, max_size=None, quality=90):
+def encode_image(image_path, max_size=None, quality=60):  # Reduced from quality=90 to 60
   """
   Encode an image file to base64 PNG.
   - max_size: optional (width, height) tuple to constrain max dimensions while preserving aspect ratio
-  - quality: 0-100, mapped to PNG compression (0 = no compression, 9 = max). Higher quality => lower compression
+  - quality: 0-100, mapped to PNG compression (0 = no compression, 9 = max). Lower quality = more compression for GPT
   """
   try:
     img = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
@@ -110,6 +110,34 @@ def crop_to_dim(input,toHeight=SIM_CROP_DIM[0],toWidth=SIM_CROP_DIM[1]):
         
     return frames
 
+def crop_upper_half(input):
+    """
+    Crop to keep only the upper half of frames for better gait analysis.
+    Focuses on torso and upper body movements, removing legs/feet.
+    """
+    is_img = len(input.shape) == 3
+    if is_img:
+        input = input.reshape(1,*input.shape)
+    
+    _,height,width,_ = input.shape
+    
+    # Keep only upper 50% of the image (remove bottom half)
+    crop_height = height // 2
+    
+    # Crop the upper half from each frame
+    cropped_frames = []
+    for frame in input:
+        # Keep upper half only (torso and upper body focus)
+        upper_half = frame[:crop_height, :, :]
+        cropped_frames.append(upper_half)
+    
+    frames = np.array(cropped_frames)
+    
+    if is_img:
+        frames = frames.squeeze()
+        
+    return frames
+
 def crop_robot_focus(input, zoom_factor=1.5):
     """
     Crop to focus on the robot by removing sky area and magnifying.
@@ -176,6 +204,8 @@ def create_grid_image(video_path, grid_size=(GRID_SIZE, GRID_SIZE), margin=10, c
             frames = crop_to_dim(frames,toHeight=h)
         elif crop_option == "RobotFocus":
             frames = crop_robot_focus(frames, zoom_factor=1.5)
+        elif crop_option == "UpperHalf":
+            frames = crop_upper_half(frames)
 
     h, w, _ = frames[0].shape
     grid_h = h * grid_size[0] + margin * (grid_size[0] - 1)
@@ -218,13 +248,13 @@ def gen_placehold_image(grid_size=(GRID_SIZE, GRID_SIZE), margin=10):
     return grid_image 
     
 
-def save_grid_image(image, output_path, quality=85):
-    """Save grid image with compression quality (default 85 for good balance of size/quality)"""
+def save_grid_image(image, output_path, quality=60):  # Reduced from quality=85 to 60
+    """Save grid image with lower compression quality for reduced GPT processing burden"""
     if output_path.endswith('.png'):
-        # For PNG, use compression level (0-9, where 9 is max compression)
-        cv2.imwrite(output_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR), [cv2.IMWRITE_PNG_COMPRESSION, 6])
+        # For PNG, use higher compression level (0-9, where 9 is max compression)
+        cv2.imwrite(output_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR), [cv2.IMWRITE_PNG_COMPRESSION, 8])  # Increased from 6 to 8
     elif output_path.endswith('.jpg') or output_path.endswith('.jpeg'):
-        # For JPEG, use quality (0-100, where 100 is best quality)
+        # For JPEG, use lower quality (0-100, where 100 is best quality)
         cv2.imwrite(output_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR), [cv2.IMWRITE_JPEG_QUALITY, quality])
     else:
         # Default behavior for other formats

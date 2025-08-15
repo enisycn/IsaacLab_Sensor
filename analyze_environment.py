@@ -319,6 +319,100 @@ def main():
                     else:
                         print(f"   🌊 TERRAIN ROUGHNESS: No normal terrain data")
                     
+                    # 📡 LIDAR OBSTACLE ANALYSIS (complementing height scanner)
+                    try:
+                        lidar_sensor = env.unwrapped.scene.sensors.get("lidar")
+                        if lidar_sensor is not None:
+                            # Get LiDAR data using Isaac Lab format
+                            lidar_pos = lidar_sensor.data.pos_w  # [num_envs, 3]
+                            lidar_hits = lidar_sensor.data.ray_hits_w  # [num_envs, num_rays, 3]
+                            
+                            # Calculate distances (Isaac Lab standard)
+                            lidar_distances = torch.norm(lidar_hits - lidar_pos.unsqueeze(1), dim=-1)  # [num_envs, num_rays]
+                            
+                            # Collect all LiDAR data from all robots
+                            all_lidar_distances = []
+                            for env_idx in range(num_envs):
+                                distances = lidar_distances[env_idx]  # All rays for this robot
+                                all_lidar_distances.extend(distances.tolist())
+                            
+                            total_lidar_rays = len(all_lidar_distances)
+                            all_lidar_distances = torch.tensor(all_lidar_distances)
+                            
+                            # Handle infinite values correctly (Isaac Lab LiDAR format)
+                            # inf values = no obstacle detected within sensor range (good for navigation)
+                            # finite values = obstacle detected at that distance
+                            finite_mask = torch.isfinite(all_lidar_distances)
+                            infinite_mask = torch.isinf(all_lidar_distances)
+                            
+                            obstacles_detected = finite_mask.sum().item()
+                            clear_space = infinite_mask.sum().item()
+                            
+                            obstacle_detection_pct = (obstacles_detected / total_lidar_rays) * 100
+                            clear_space_pct = (clear_space / total_lidar_rays) * 100
+                            
+                            print(f"   📡 LIDAR OBSTACLE ANALYSIS:")
+                            print(f"     Total LiDAR rays: {total_lidar_rays} (from {num_envs} robots)")
+                            print(f"     Obstacles detected: {obstacles_detected} rays ({obstacle_detection_pct:.1f}%)")
+                            print(f"     Clear space (inf): {clear_space} rays ({clear_space_pct:.1f}%)")
+                            
+                            if obstacles_detected > 0:
+                                finite_distances = all_lidar_distances[finite_mask]
+                                min_obstacle_dist = finite_distances.min().item()
+                                max_obstacle_dist = finite_distances.max().item()
+                                avg_obstacle_dist = finite_distances.mean().item()
+                                
+                                print(f"     Closest obstacle: {min_obstacle_dist:.3f}m")
+                                print(f"     Farthest obstacle: {max_obstacle_dist:.3f}m")
+                                print(f"     Average obstacle distance: {avg_obstacle_dist:.3f}m")
+                                
+                                # Distance-based obstacle classification (based on LiDAR range)
+                                # Typical LiDAR range: 5-10m, classify as: Near (<2m), Moderate (2-4m), Far (>4m)
+                                lidar_range = 5.0  # Assumed range based on typical Isaac Lab LiDAR configuration
+                                near_threshold = lidar_range * 0.4    # <2.0m for 5m range
+                                moderate_threshold = lidar_range * 0.8  # 2.0-4.0m for 5m range
+                                
+                                # Classify obstacles by distance
+                                near_obstacles = (finite_distances < near_threshold).sum().item()
+                                moderate_obstacles = ((finite_distances >= near_threshold) & 
+                                                    (finite_distances < moderate_threshold)).sum().item()
+                                far_obstacles = (finite_distances >= moderate_threshold).sum().item()
+                                
+                                near_pct = (near_obstacles / total_lidar_rays) * 100
+                                moderate_pct = (moderate_obstacles / total_lidar_rays) * 100
+                                far_pct = (far_obstacles / total_lidar_rays) * 100
+                                
+                                print(f"     📍 Distance classification:")
+                                print(f"       🔴 Near obstacles (<{near_threshold:.1f}m): {near_obstacles} rays ({near_pct:.1f}%)")
+                                print(f"       🟡 Moderate obstacles ({near_threshold:.1f}-{moderate_threshold:.1f}m): {moderate_obstacles} rays ({moderate_pct:.1f}%)")
+                                print(f"       🟢 Far obstacles (>{moderate_threshold:.1f}m): {far_obstacles} rays ({far_pct:.1f}%)")
+                                
+                                # Overall density classification
+                                if obstacle_detection_pct > 60.0:
+                                    density_level = "🔴 DENSE"
+                                elif obstacle_detection_pct > 30.0:
+                                    density_level = "🟡 MODERATE"
+                                else:
+                                    density_level = "🟢 SPARSE"
+                                print(f"     Obstacle density: {density_level}")
+                                
+                                # Navigation impact assessment
+                                if near_pct > 20.0:
+                                    nav_impact = "🚨 HIGH RISK - Many immediate obstacles"
+                                elif near_pct > 10.0 or moderate_pct > 30.0:
+                                    nav_impact = "⚠️ MODERATE RISK - Careful navigation required"
+                                elif far_pct > 20.0:
+                                    nav_impact = "📋 LOW RISK - Distant obstacles detected"
+                                else:
+                                    nav_impact = "✅ MINIMAL RISK - Clear navigation path"
+                                print(f"     Navigation impact: {nav_impact}")
+                            else:
+                                print(f"     No obstacles detected within LiDAR range")
+                        else:
+                            print(f"   📡 LIDAR ANALYSIS: Sensor not available")
+                    except Exception as e:
+                        print(f"   📡 LIDAR ANALYSIS: Error accessing LiDAR data ({e})")
+                    
                     # Safety assessment with corrected thresholds
                     if gap_pct > 10.0 or obstacle_pct > 30.0:
                         safety = "🔴 DANGEROUS"

@@ -212,46 +212,114 @@ SDS_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROOT_DIR = f"{SDS_ROOT_DIR}/.."
 
 def capture_environment_image_automatically(workspace_dir):
-    """Automatically capture environment image before SDS reward generation."""
+    """Use pre-captured terrain images based on TERRAIN_TYPE with quality reduction."""
     try:
-        import subprocess
-        import os
+        import shutil
+        from PIL import Image
         
-        # Find Isaac Lab root
-        isaac_lab_root = find_isaac_lab_root()
+        # Define terrain type to image mapping
+        terrain_images = {
+            0: "/home/enis/IsaacLab/Screenshot from 2025-08-15 19-44-15.png",  # Simple
+            1: "/home/enis/IsaacLab/Screenshot from 2025-08-15 19-47-51.png",  # Gap  
+            2: "/home/enis/IsaacLab/Screenshot from 2025-08-15 19-52-13.png",  # Obstacle
+            3: "/home/enis/IsaacLab/Screenshot from 2025-08-15 19-57-02.png"   # Stairs
+        }
         
-        # Build capture command 
-        capture_script = os.path.join(isaac_lab_root, "source", "isaaclab_tasks", "isaaclab_tasks", 
-                                    "manager_based", "sds", "velocity", "capture_environment_image.py")
+        # Get terrain type from environment configuration
+        # Try to read TERRAIN_TYPE from the environment config file
+        terrain_type = 0  # Default to simple terrain
         
-        if not os.path.exists(capture_script):
-            logging.warning(f"⚠️ Environment image capture script not found: {capture_script}")
-            logging.warning("📝 Continuing SDS without environment image")
-            return False
+        try:
+            # Find Isaac Lab root and use absolute path
+            isaac_lab_root = find_isaac_lab_root()
+            config_path = os.path.join(isaac_lab_root, "source/isaaclab_tasks/isaaclab_tasks/manager_based/sds/velocity/config/g1/flat_with_box_env_cfg.py")
+            with open(config_path, 'r') as f:
+                content = f.read()
+                # Look for TERRAIN_TYPE = X pattern
+                import re
+                match = re.search(r'TERRAIN_TYPE\s*=\s*(\d+)', content)
+                if match:
+                    terrain_type = int(match.group(1))
+                    logging.info(f"📋 Detected TERRAIN_TYPE = {terrain_type} from config: {config_path}")
+        except Exception as e:
+            logging.warning(f"⚠️ Could not read TERRAIN_TYPE from config, using default 0: {e}")
         
-        # Run image capture
-        logging.info("📸 Automatically capturing environment image...")
-        cmd = [
-            os.path.join(isaac_lab_root, "isaaclab.sh"), 
-            "-p", capture_script,
-            "--checkpoint_dir", str(workspace_dir),
-            "--headless", 
-            "--enable_cameras"
-        ]
-        
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, cwd=isaac_lab_root)
-        
-        if result.returncode == 0:
-            logging.info("✅ Environment image captured successfully!")
+        # Get the appropriate pre-captured image
+        if terrain_type in terrain_images:
+            source_image = terrain_images[terrain_type]
+            destination_image = os.path.join(workspace_dir, "environment_image.png")
+            
+            # Check if source image exists
+            if not os.path.exists(source_image):
+                logging.error(f"❌ Pre-captured image not found: {source_image}")
+                return False
+            
+            try:
+                # Load and process the image with quality reduction
+                logging.info(f"🖼️ Processing pre-captured image with quality reduction...")
+                
+                # Open the original image
+                img = Image.open(source_image)
+                
+                # Convert to RGB if necessary (remove alpha channel)
+                if img.mode == 'RGBA':
+                    img = img.convert('RGB')
+                    logging.info("🔄 Converted RGBA to RGB")
+                
+                # Apply quality reduction similar to training footage processing
+                # Resize to reasonable resolution for GPT processing while maintaining quality
+                original_size = img.size
+                target_size = (min(800, original_size[0]), min(600, original_size[1]))
+                
+                if original_size != target_size:
+                    img = img.resize(target_size, Image.Resampling.LANCZOS)
+                    logging.info(f"📏 Resized from {original_size} to {target_size}")
+                
+                # Save with moderate quality reduction (similar to environment image encoding)
+                if destination_image.lower().endswith('.png'):
+                    # For PNG output, compress as JPEG first, then convert back for compatibility
+                    temp_jpg = destination_image.replace('.png', '_temp.jpg')
+                    img.save(temp_jpg, 'JPEG', quality=75, optimize=True)
+                    
+                    # Convert back to PNG
+                    img_compressed = Image.open(temp_jpg)
+                    img_compressed.save(destination_image, 'PNG', optimize=True)
+                    
+                    # Clean up temp file
+                    os.remove(temp_jpg)
+                    logging.info("💾 Saved as PNG with JPEG compression applied")
+                else:
+                    # Direct JPEG save
+                    img.save(destination_image, 'JPEG', quality=75, optimize=True)
+                    logging.info("💾 Saved as JPEG with quality=75")
+                
+                terrain_names = {0: "Simple", 1: "Gap", 2: "Obstacle", 3: "Stairs"}
+                terrain_name = terrain_names.get(terrain_type, "Unknown")
+                
+                logging.info(f"✅ Processed pre-captured {terrain_name} terrain image (Type {terrain_type})")
+                logging.info(f"📸 Source: {source_image}")
+                logging.info(f"📁 Destination: {destination_image}")
+                logging.info(f"🎨 Quality: Optimized for GPT processing with moderate compression")
+                
+            except Exception as img_error:
+                logging.warning(f"⚠️ Image processing failed, falling back to direct copy: {img_error}")
+                # Fallback to direct copy if image processing fails
+                shutil.copy2(source_image, destination_image)
+                
+                terrain_names = {0: "Simple", 1: "Gap", 2: "Obstacle", 3: "Stairs"}
+                terrain_name = terrain_names.get(terrain_type, "Unknown")
+                
+                logging.info(f"✅ Copied pre-captured {terrain_name} terrain image (Type {terrain_type})")
+                logging.info(f"📸 Source: {source_image}")
+                logging.info(f"📁 Destination: {destination_image}")
+            
             return True
         else:
-            logging.warning(f"⚠️ Environment image capture failed: {result.stderr}")
-            logging.warning("📝 Continuing SDS without environment image")
+            logging.error(f"❌ Invalid TERRAIN_TYPE: {terrain_type}. Valid types: 0-3")
             return False
             
     except Exception as e:
-        logging.warning(f"⚠️ Failed to capture environment image: {e}")
-        logging.warning("📝 Continuing SDS without environment image")
+        logging.error(f"❌ Error using pre-captured environment image: {e}")
         return False
 
 @hydra.main(config_path="cfg", config_name="config", version_base="1.1")
@@ -292,7 +360,7 @@ def main(cfg):
         logging.info("🚫 Environment image capture DISABLED (Foundation-only mode)")
         context_dict['ENVIRONMENT_IMAGE'] = 'DISABLED'
     else:
-        logging.info("⏭️ Auto environment image capture disabled by configuration")
+        logging.info(f"ℹ️ Auto environment image capture disabled by configuration")
 
     model = cfg.model
     logging.info(f"Using LLM: {model}")
@@ -332,15 +400,15 @@ def main(cfg):
     
     eval_script_dir = os.path.join(ROOT_DIR,"forward_locomotion_sds/scripts/play.py")
     
-    encoded_gt_frame_grid = encode_image(f'{workspace_dir}/gt_demo.png', max_size=(512, 512), quality=60)
-    
-    # Check for environment image captured by the image capture script
-    # 🎯 CONDITIONAL ENVIRONMENT IMAGE HANDLING
+    # Encode GT demo for analysis
+    encoded_gt_frame_grid = encode_image(f'{workspace_dir}/gt_demo.png', max_size=(256, 256), quality=60)
+
+    # Encode environment image for analysis
     environment_image_path = f'{workspace_dir}/environment_image.png'
     has_environment_image = os.path.exists(environment_image_path) and env_aware
     
     if env_aware and os.path.exists(environment_image_path):
-        encoded_environment_image = encode_image(environment_image_path, max_size=(512, 512), quality=60)
+        encoded_environment_image = encode_image(environment_image_path, max_size=None, quality=85)
         logging.info(f"✅ Found environment image for SUS generation: {environment_image_path}")
         context_dict['ENVIRONMENT_IMAGE'] = 'AVAILABLE'
     elif not env_aware:
@@ -657,17 +725,50 @@ Focus on creating robust, terrain-agnostic locomotion rewards.
             
             logging.info(f"Running Isaac Lab training: {' '.join(command)}")
             
-            # SIMPLE RETRY MECHANISM: Try up to 3 times per sample
+            # ENHANCED RETRY MECHANISM: Incorporate traceback feedback for targeted fixes
             training_successful = False
             max_retries = 2  # 3 total attempts (original + 2 retries)
             
             for retry_attempt in range(max_retries + 1):
-                # Generate new reward function on retry
+                # Generate new reward function on retry WITH TRACEBACK FEEDBACK
                 if retry_attempt > 0:
-                    logging.info(f"Sample {response_id} failed, generating new reward function (retry {retry_attempt}/{max_retries})")
+                    logging.info(f"Sample {response_id} failed, generating new reward function with error feedback (retry {retry_attempt}/{max_retries})")
                     try:
-                        # Generate new reward function from GPT
-                        new_responses, _, _, _ = gpt_query(1, reward_query_messages, cfg.temperature, cfg.model)
+                        # Read the error log from the previous failed attempt
+                        error_content = ""
+                        traceback_feedback = ""
+                        
+                        if os.path.exists(rl_filepath):
+                            with open(rl_filepath, 'r') as f:
+                                error_content = f.read()
+                            
+                            # Extract traceback information for GPT feedback
+                            traceback_feedback = filter_traceback(error_content)
+                            if traceback_feedback:
+                                logging.info(f"Extracted traceback for sample {response_id}: {traceback_feedback[:200]}...")
+                            else:
+                                # If no specific traceback, use general error info
+                                traceback_feedback = f"Training failed with return code {process.returncode}. Last 500 chars of output: {error_content[-500:]}"
+                        else:
+                            traceback_feedback = "Training failed - no error log available"
+                        
+                        # Create enhanced query messages with error feedback
+                        retry_query_messages = reward_query_messages.copy()
+                        
+                        # Add error feedback to the query
+                        error_feedback_content = execution_error_feedback.format(traceback_msg=traceback_feedback)
+                        error_feedback_content += "\n\n" + code_output_tip
+                        
+                        # Append error feedback as additional context
+                        retry_query_messages.append({
+                            "role": "user", 
+                            "content": f"The previous reward function failed with the following error. Please analyze the error and generate a corrected reward function:\n\n{error_feedback_content}"
+                        })
+                        
+                        logging.info(f"Sending traceback feedback to GPT for sample {response_id} retry {retry_attempt}")
+                        
+                        # Generate new reward function from GPT WITH ERROR CONTEXT
+                        new_responses, _, _, _ = gpt_query(1, retry_query_messages, cfg.temperature, cfg.model)
                         new_response_cur = new_responses[0]["message"]["content"]
                         
                         # Extract and process new code the same way as original
@@ -725,19 +826,19 @@ Focus on creating robust, terrain-agnostic locomotion rewards.
                                 after = task_rew_code_string[start_idx + end_idx:]
                                 cur_task_rew_code_string = before + new_code_string.strip() + '\n\n' + after
                         
-                        # Save new environment code
+                        # Save new environment code with retry suffix
                         with open(output_file, 'w') as file:
                             file.writelines(cur_task_rew_code_string + '\n')
                         
-                        with open(f"env_iter{iter}_response{response_id}_rewardonly.py", 'w') as file:
+                        with open(f"env_iter{iter}_response{response_id}_rewardonly_retry{retry_attempt}.py", 'w') as file:
                             file.writelines(new_code_string + '\n')
                         
-                        shutil.copy(output_file, f"env_iter{iter}_response{response_id}.py")
+                        shutil.copy(output_file, f"env_iter{iter}_response{response_id}_retry{retry_attempt}.py")
                         
-                        logging.info(f"Generated new reward function for sample {response_id} retry {retry_attempt}")
+                        logging.info(f"Generated new reward function with error feedback for sample {response_id} retry {retry_attempt}")
                     
                     except Exception as e:
-                        logging.error(f"Failed to generate new reward function for sample {response_id}: {e}")
+                        logging.error(f"Failed to generate new reward function with error feedback for sample {response_id}: {e}")
                         break  # Skip this sample if we can't generate new code
                 
                 # Try training with current reward function
@@ -745,9 +846,15 @@ Focus on creating robust, terrain-agnostic locomotion rewards.
                 training_env = os.environ.copy()
                 training_env['HYDRA_FULL_ERROR'] = '1'
                 
-                with open(rl_filepath, 'w') as f:
+                # Update the output file name for retries to track attempts
+                retry_rl_filepath = f"env_iter{iter}_response{response_id}" + (f"_retry{retry_attempt}" if retry_attempt > 0 else "") + ".txt"
+                
+                with open(retry_rl_filepath, 'w') as f:
                     process = subprocess.run(command, stdout=f, stderr=f, cwd=isaac_lab_root, env=training_env)
                 
+                # Use the retry-specific log file for error checking
+                rl_filepath = retry_rl_filepath
+
                 if process.returncode == 0:
                     # Training succeeded
                     training_successful = True
@@ -840,7 +947,7 @@ Focus on creating robust, terrain-agnostic locomotion rewards.
                     f"{isaac_lab_root}/isaaclab.sh",
                     "-p", "scripts/reinforcement_learning/rsl_rl/play.py",
                     "--task=Isaac-SDS-Velocity-Flat-G1-Enhanced-Play-v0",
-                    "--num_envs=200",
+                    "--num_envs=1",
                     f"--checkpoint={latest_checkpoint}",
                     "--video",
                     f"--video_length={cfg.video_length}",
@@ -1113,7 +1220,8 @@ Focus on creating robust, terrain-agnostic locomotion rewards.
             
             for footage_dir in footage_grids_dir:
                 
-                encoded_footage = encode_image(footage_dir, max_size=(512, 512), quality=60)
+                # Create encoded footage for GPT analysis 
+                encoded_footage = encode_image(footage_dir, max_size=(256, 256), quality=60)
             
                 evaluator_query_content.append(
                     {
@@ -1135,8 +1243,8 @@ Focus on creating robust, terrain-agnostic locomotion rewards.
             
             for contact_dir in contact_pattern_dirs:
                 
-                encoded_contact = encode_image(contact_dir, max_size=(512, 512), quality=60)
-            
+                encoded_contact = encode_image(contact_dir, max_size=(256, 256), quality=60)
+                
                 contact_evaluator_query_content.append(
                     {
                     "type": "image_url",
@@ -1202,9 +1310,9 @@ Focus on creating robust, terrain-agnostic locomotion rewards.
                 })
             
             if cfg.task.use_annotation:
-                encoded_gt_frame_grid = encode_image(f'{workspace_dir}/gt_demo_annotated.png', max_size=(512, 512), quality=60)
+                encoded_gt_frame_grid = encode_image(f'{workspace_dir}/gt_demo_annotated.png', max_size=(256, 256), quality=60)
             else:
-                encoded_gt_frame_grid = encode_image(f'{workspace_dir}/gt_demo.png', max_size=(512, 512), quality=60)
+                encoded_gt_frame_grid = encode_image(f'{workspace_dir}/gt_demo.png', max_size=(256, 256), quality=60)
             
             evaluator_query_messages = [
                 {"role": "system", "content": initial_task_evaluator_system},
@@ -1279,7 +1387,7 @@ Focus on creating robust, terrain-agnostic locomotion rewards.
         if improved:
             logging.info(f"Iteration {iter}: A better reward function has been generated")
             max_reward_code_path = code_paths[best_sample_idx]
-            best_footage = encode_image(f'{workspace_dir}/training_footage/training_frame_{iter}_{best_sample_idx}.png', max_size=(512, 512), quality=60)
+            best_footage = encode_image(f'{workspace_dir}/training_footage/training_frame_{iter}_{best_sample_idx}.png', max_size=(256, 256), quality=60)
             
             # Get best contact pattern from Isaac Lab - NO FALLBACKS
             rl_filepath = f"env_iter{iter}_response{best_sample_idx}.txt"
@@ -1303,7 +1411,7 @@ Focus on creating robust, terrain-agnostic locomotion rewards.
             if not os.path.exists(contact_pattern_dir):
                 raise RuntimeError(f"Contact analysis file not found: {contact_pattern_dir}")
             
-            best_contact = encode_image(contact_pattern_dir, max_size=(512, 512), quality=60)
+            best_contact = encode_image(contact_pattern_dir, max_size=(256, 256), quality=60)
             logging.info(f"Loaded best contact pattern: {contact_pattern_dir}")
 
         best_code_paths.append(code_paths[best_sample_idx])
@@ -1384,14 +1492,23 @@ def copy_agent_conversations_to_output(workspace_dir):
             
             for conv_file in conversation_files:
                 dest_path = os.path.join(workspace_dir, conv_file)
-                shutil.copy2(conv_file, dest_path)
-                logging.info(f"🔧 Copied: {conv_file} -> {dest_path}")
                 
+                # Check if source and destination are the same file
+                if os.path.abspath(conv_file) == os.path.abspath(dest_path):
+                    continue
+                
+                try:
+                    shutil.copy2(conv_file, dest_path)
+                    logging.info(f"🔧 Copied: {conv_file} -> {dest_path}")
+                except shutil.SameFileError:
+                    continue
+                    
                 # Also copy to Isaac Lab root for easy access
                 try:
                     root_dest = os.path.join("/home/enis/IsaacLab", conv_file)
-                    shutil.copy2(conv_file, root_dest)
-                except:
+                    if os.path.abspath(conv_file) != os.path.abspath(root_dest):
+                        shutil.copy2(conv_file, root_dest)
+                except Exception:
                     pass  # Don't fail if can't copy to root
         else:
             logging.warning("🔧 No agent conversation files found to copy")

@@ -1,7 +1,6 @@
 description: "Humanoid Robot Walking"
 video: walk.mp4
-crop: False
-crop_option: None
-use_annotation: True
+crop: false
+use_annotation: true
 grid_size: 8
  

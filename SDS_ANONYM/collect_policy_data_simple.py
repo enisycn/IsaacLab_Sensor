@@ -731,7 +731,7 @@ class TerrainAwareMetricsCollector:
         smoothness_score = np.exp(-joint_vel_magnitude / max_reasonable_vel)
         
         self.metrics['gait_smoothness_score'].extend(smoothness_score.tolist())
-    
+        
     def _update_stair_climbing_performance(self, robot_state):
         """Update stair climbing performance score (higher is better) - measures ascending progress and stability."""
         # Get current robot height (absolute position for consistent stair measurement)
@@ -753,7 +753,7 @@ class TerrainAwareMetricsCollector:
         # Component 1: Height Progress (40%) - Reward upward movement
         ascent_progress = positive_ascent / 0.10  # Normalize by 10cm step height
         ascent_score = np.clip(ascent_progress, 0.0, 1.0)
-        
+            
         # Component 2: Height Stability (30%) - Maintain appropriate height relative to steps
         target_height = self.stair_baseline_height + self.cumulative_ascent
         height_deviation = np.abs(current_height - target_height)
@@ -782,7 +782,7 @@ class TerrainAwareMetricsCollector:
         total_ascent = np.sum(positive_ascent)
         if total_ascent > 0.01:  # Report if any robot climbed more than 1cm
             print(f"🪜 STAIR ASCENT: {total_ascent:.3f}m total progress, avg performance: {np.mean(performance_score):.3f}")
-
+    
     def _update_obstacle_collision_count(self):
         """Update obstacle collision count (smaller is better) - counts 2*N upper body G1 humanoid contacts with terrain elevation/obstacles (torso, arms, shoulders only - excludes legs)."""
         try:
@@ -810,7 +810,7 @@ class TerrainAwareMetricsCollector:
                 net_contact_forces = contact_sensor.data.net_forces_w_history
                 # Get peak forces over time: [num_envs, num_bodies, 3]
                 peak_forces = torch.max(torch.norm(net_contact_forces, dim=-1), dim=1)[0]  # [num_envs, num_bodies]
-            elif hasattr(contact_sensor.data, 'net_forces_w') and contact_sensor.data.net_forces_w is not None:
+            elif hasattr(contact_sensor.data, "net_forces_w") and contact_sensor.data.net_forces_w is not None:
                 # Use current forces: [num_envs, num_bodies, 3] 
                 net_contact_forces = contact_sensor.data.net_forces_w
                 # Calculate force magnitudes: [num_envs, num_bodies]

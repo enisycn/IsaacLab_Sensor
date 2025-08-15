@@ -32,6 +32,32 @@
 
 **🔍 URGENT: YOU MUST FIND AND USE REAL ENVIRONMENT DATA FROM THE SUS PROMPT BELOW!**
 
+**🏞️ CRITICAL: EXTRACT TERRAIN CLASSIFICATION FROM ENVIRONMENT ANALYSIS!**
+
+**LOOK FOR TERRAIN CLASSIFICATION LINES LIKE:**
+- `TERRAIN_CLASS: 0` (SIMPLE - flat/clear terrain)
+- `TERRAIN_CLASS: 1` (GAP - gaps requiring navigation)  
+- `TERRAIN_CLASS: 2` (OBSTACLES - multiple obstacles requiring avoidance)
+- `TERRAIN_CLASS: 3` (STAIRS - step-like patterns requiring climbing)
+
+**INCLUDE THIS CLASSIFICATION IN YOUR REWARD FUNCTION DOCSTRING!**
+- Copy the exact `TERRAIN_CLASS: [NUMBER]` line from the task analysis
+- Include the terrain type reasoning from the environment image analysis
+- Use this classification to guide your component selection strategy
+
+**🎯 TERRAIN NAVIGATION STRATEGY GUIDANCE:**
+
+**STRATEGIC DECISION FLEXIBILITY:**
+- **Gap Terrain**: Robot can go through gaps, step over them, avoid them, adjust gait patterns, etc. - You decide based on sensor data
+- **Obstacle Terrain**: Navigate around obstacles, step over smaller ones, find efficient paths, etc.
+- **Stair Terrain**: Climb stairs, descend carefully, follow terrain surfaces, adapt step height, etc.
+- **Simple Terrain**: Focus on speed, efficiency, smooth locomotion, etc.
+
+**SENSOR UTILIZATION FOR BETTER PERFORMANCE:**
+- **Height Scanner**: Use for terrain analysis, gap detection, step planning, etc. to achieve better navigation vs. foundation-only
+- **LiDAR**: Use for obstacle detection, path planning, safety assessment, etc. to enable superior avoidance behaviors
+- **Performance Expectation**: Environment-aware sensor usage should result in measurably better metrics than foundation-only mode
+
 **THE SUS PROMPT CONTAINS EXACT LINES LIKE:**
 - "- Gaps Detected: 34 gaps (5 steppable, 17 jumpable, 12 impossible)"
 - "- Terrain Roughness: 2.6cm (below threshold 20cm)"  
@@ -1127,10 +1153,11 @@ obstacles = height_measurements < (baseline - 0.07)  # < 0.139m = obstacles (ter
 gaps = height_measurements > (baseline + gap_threshold)       # Above baseline = gaps (terrain LOWER)
 normal_terrain = ~obstacles & ~gaps                  # Within baseline tolerance = normal terrain
 
-# ✅ LIDAR SENSOR: Direct distance measurement
+# ✅ LIDAR SENSOR: Direct distance measurement (152 rays, 5.0m max range)
 lidar_sensor = env.scene.sensors["lidar"]
 lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
-lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
+# CRITICAL: Handle 5.0m max range - infinite values indicate obstacle-free space beyond range
+lidar_distances = torch.where(torch.isfinite(lidar_distances), lidar_distances, torch.tensor(5.0, device=lidar_distances.device))
 ```
 
 ✅ Use Isaac Lab standard raw sensor access for all reward functions with physical measurements!

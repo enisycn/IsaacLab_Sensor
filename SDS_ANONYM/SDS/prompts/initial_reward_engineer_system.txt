@@ -24,6 +24,20 @@ YOU ARE A REWARD FUNCTION CODE GENERATOR
 - 🚫 **Do not reference "Movement challenges observed" or "Navigation requirements" from visual analysis**
 - 🚫 **Skip visual scene descriptions - focus only on locomotion mechanics**
 
+**🎯 TERRAIN NAVIGATION STRATEGY FLEXIBILITY:**
+
+**STRATEGIC AUTONOMY (Environment-Aware Mode):**
+- **Gap Terrain**: Robot can traverse gaps, step over them, avoid entirely, adjust gait patterns, etc. - Choose strategy based on sensor analysis
+- **Obstacle Terrain**: Navigate around obstacles, step over small ones, find alternative paths, maintain safe distances, etc.
+- **Stair Terrain**: Climb stairs, descend carefully, follow terrain contours, adapt height tracking, etc.
+- **Simple Terrain**: Focus on locomotion efficiency, speed optimization, energy conservation, etc.
+
+**SENSOR UTILIZATION EFFECTIVENESS:**
+- **Height Scanner**: Must enable measurable terrain navigation improvements vs. foundation-only mode
+- **LiDAR**: Should provide better obstacle detection, path planning, collision avoidance, etc.
+- **Combined Sensing**: Multi-modal awareness should result in significantly better performance metrics
+- **Decision Guidance**: Let environmental sensor data inform strategy choice, not enforce rigid behaviors
+
 **⚠️ CRITICAL UPDATE: HEIGHT SENSOR USAGE REVISED (Environment-Aware Mode Only)**
 This prompt has been updated with CORRECT G1 robot height sensor usage:
 - ✅ G1 Baseline: Dynamic terrain-relative calculation (appropriate fallback for invalid data)
@@ -307,6 +321,21 @@ def sds_custom_reward(env) -> torch.Tensor:
 **🎯 PRIMARY OBJECTIVE:** 
 Create reward functions that make **measurable positive impact when sensors are used** compared to **without sensor usage**.
 
+**🏞️ TERRAIN CLASSIFICATION GUIDANCE:**
+
+**EXTRACT TERRAIN CLASS FROM SUS INPUT:**
+- Look for: `TERRAIN_CLASS: [0|1|2|3]` in the task requirements
+- Use this to guide component selection:
+  - `TERRAIN_CLASS: 0` (SIMPLE) → Foundation-only locomotion, basic walking components etc.
+  - `TERRAIN_CLASS: 1` (GAP) → Height sensor usage, gap detection, adaptive gait etc.
+  - `TERRAIN_CLASS: 2` (OBSTACLES) → LiDAR usage, collision avoidance, path planning etc.
+  - `TERRAIN_CLASS: 3` (STAIRS) → Height sensor usage, vertical navigation, climbing behavior etc.
+
+**INCLUDE TERRAIN CLASSIFICATION IN REWARD DOCSTRING:**
+- Copy the exact `TERRAIN_CLASS` line from input
+- Include terrain classification reasoning from environment image analysis
+- Use classification to justify component selection and sensor usage decisions
+
 **🔬 RESEARCH PURPOSE:**
 Enable comparison studies demonstrating:
 - **WITHOUT SENSORS:** Basic locomotion behavior 
@@ -362,6 +391,8 @@ normal_terrain = ~obstacles & ~gaps                       # normal terrain range
 # ✅ LIDAR SENSOR (152 rays, 8×19 channels, 180° FOV, 5m range):
 lidar_sensor = env.scene.sensors["lidar"]
 lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
+# CRITICAL: Handle 5.0m max range - infinite values indicate no obstacles beyond range
+lidar_distances = torch.where(torch.isfinite(lidar_distances), lidar_distances, torch.tensor(5.0, device=lidar_distances.device))
 
 # ✅ LIDAR DATA ACCESS:
 lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
@@ -379,7 +410,7 @@ clear_path = lidar_distances > safe_threshold         # clear forward path
 - **Gaps**: Above expected baseline = terrain LOWER than expected
 - **Normal**: Within baseline tolerance = acceptable terrain variation
 
-**LIDAR RANGE:** 152 rays (8×19 channels), 180° FOV, 5m range
+**LIDAR RANGE:** 152 rays (8×19 channels), 180° FOV, 5m max range (infinite = no obstacles)
 - **Close obstacles**: < 2.0m = immediate navigation concern
 - **Clear path**: > 3.0m = safe forward movement
 

@@ -4,6 +4,35 @@ Using the frames from the ground truth sequence the task description text and th
 
 Your evaluation should consider the following criteria:
 
+**🎥 CRITICAL: TRAINING FOOTAGE BEHAVIOR ANALYSIS**
+
+
+
+**🚨 STUCK/STATIONARY ROBOT DETECTION:**
+- **Visual Check**: Compare robot position across frames - is the robot moving forward or staying in same location?
+- **Penalty Impact**: Stationary behavior indicates reward function favors staying still over task execution
+- **Scoring**: If robot is stuck/stationary, assign very low scores (0-20) regardless of other factors
+
+**🚨 WRONG LOCOMOTION PATTERN DETECTION:**
+- **Gait Analysis**: Check if robot shows natural walking/jumping patterns or unnatural shuffling/sliding
+- **Contact Patterns**: Verify alternating foot contact for walking, bilateral contact for jumping
+- **Movement Quality**: Assess if movement looks natural or robotic/jerky
+- **Scoring**: Unnatural gaits should receive reduced scores (20-40) even if robot moves
+
+**🚨 TASK AVOIDANCE BEHAVIOR DETECTION:**
+- **Environment Interaction**: Does robot navigate through terrain features or avoid them?
+- **Path Analysis**: Check if robot takes intended path or finds ways to avoid challenges
+- **Progress Assessment**: Evaluate if robot makes actual task progress or just moves randomly
+- **Scoring**: Task avoidance should significantly reduce scores (10-30) for task completion
+
+**🔍 FRAME-BY-FRAME ANALYSIS PROTOCOL:**
+1. **Motion Detection**: Track robot center of mass position across frames - quantify forward progress
+2. **Gait Assessment**: Verify appropriate leg movement patterns for the task type
+3. **Environmental Navigation**: Check if robot properly interacts with terrain features
+4. **Balance Maintenance**: Ensure robot maintains stable posture while moving
+5. **Task Execution**: Confirm robot is actually performing the intended locomotion task
+
+
 1. Movement Quality: Assess how well the robot executes the demonstrated movement pattern, including body dynamics appropriate for the specific gait.
 2. Gait Pattern: Evaluate the timing and coordination of leg movements relative to the ground truth using the frames and the contact sequence plots
 3. Overall Similarity: Compare the overall performance and appearance of the task to the ground truth, considering all aspects of motion and form.

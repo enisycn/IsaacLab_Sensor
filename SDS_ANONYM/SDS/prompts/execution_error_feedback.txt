@@ -105,6 +105,7 @@ height_measurements = torch.where(torch.isfinite(height_measurements), height_me
 # LiDAR sensor: 152 rays, 180° FOV, 5m range  
 lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
 # Handle infinite readings correctly - they indicate no obstacles (valuable for exploration)
+# CRITICAL: Infinite values mean rays exceeded 5.0m max range (no obstacles detected)
 finite_mask = torch.isfinite(lidar_distances)
 lidar_clamped = torch.where(finite_mask, lidar_distances, torch.tensor(5.0, device=lidar_distances.device))
 open_space_ratio = (~finite_mask).sum(dim=-1).float() / lidar_distances.shape[-1]
@@ -133,11 +134,45 @@ obstacles = height_readings < (baseline - 0.07)  # < 0.139m = obstacles
 gaps = height_readings > (baseline + gap_threshold)       # Above baseline = gaps
 ```
 
+**CRITICAL LIDAR SENSOR MAX RANGE ERRORS:**
+```python
+# ❌ WRONG: Not handling infinite values from max range exceeded
+lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
+min_distance = torch.min(lidar_distances, dim=1)[0]  # Can be infinite!
+
+# ✅ CORRECT: Handle 5.0m max range - infinite means no obstacles beyond range
+lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
+# Replace infinite values with max range (5.0m) - indicates obstacle-free space
+lidar_distances = torch.where(torch.isfinite(lidar_distances), lidar_distances, torch.tensor(5.0, device=lidar_distances.device))
+min_distance = torch.min(lidar_distances, dim=1)[0]  # Now safely bounded [0.0, 5.0]
+```
+
 🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
 
 Isaac Lab reward functions can encounter various runtime errors. Here's how to diagnose and fix common issues:
 
 **BEHAVIORAL ERRORS - UNNATURAL ROBOT MOVEMENT:**
+
+**🎥 TRAINING FOOTAGE ANALYSIS - MANDATORY BEHAVIOR DIAGNOSIS:**
+
+**🚨 STUCK ROBOT SYNDROME:**
+- **VISUAL SYMPTOM**: Robot appears stationary across video frames, minimal position change
+- **METRICS SYMPTOM**: Very low velocity tracking rewards, high baseline rewards
+- **ROOT CAUSE**: Baseline reward too high relative to movement rewards
+```
+
+**🚨 WRONG GAIT PATTERNS:**
+- **VISUAL SYMPTOM**: Robot shuffling, sliding, unnatural leg movements
+- **METRICS SYMPTOM**: Poor gait rewards, inconsistent contact patterns
+- **ROOT CAUSE**: Air time and contact rewards poorly balanced
+```
+
+**🚨 TURNING IN PLACE SYNDROME:**
+- **VISUAL SYMPTOM**: Robot rotating but not moving forward
+- **METRICS SYMPTOM**: Good yaw tracking, poor forward velocity
+- **ROOT CAUSE**: Yaw rewards too high relative to forward motion
+- 
+```
 
 **HEIGHT HARDCODING ERROR (robots stand still on stairs/platforms):**
 - SYMPTOM: Robots learned to stand still on elevated terrain or go downstairs
@@ -362,3 +397,50 @@ slide_penalty = feet_slide(
 ```
 
 Do NOT mix different `body_names` across cfgs.
+
+ #3 TRAINING CRASH: TORCH.CLAMP TYPEERROR - 
+
+
+**CRITICAL TORCH.CLAMP ARGUMENT ERROR:**
+
+**TYPEERROR: clamp() received an invalid combination of arguments - got (float, min=float)**
+- CAUSE: Using torch.clamp() with scalar values instead of tensors in nested operations
+- CRASH LINE EXAMPLE:
+```python
+# ❌ WRONG: This creates invalid argument combination
+result = torch.clamp(1.0 - value / torch.clamp(tol, min=1e-3), 0.0, 1.0)
+# ERROR: When tol is a float, torch.clamp(tol, min=1e-3) fails
+```
+
+**✅ IMMEDIATE FIX PATTERNS:**
+
+**Pattern 1: Use torch.clamp correctly with scalars**
+```python
+# ❌ WRONG: Nested clamp with scalar
+denominator = torch.clamp(torch.tensor(tol, device=device), min=1e-3)
+# OR use Python max for scalars:
+denominator = max(tol, 1e-3)
+```
+
+**Pattern 2: Safe division with tensor operations**
+```python
+# ❌ WRONG: Mixing scalar and tensor operations
+result = torch.clamp(1.0 - (a - b).abs() / torch.clamp(tol, min=1e-3), 0.0, 1.0)
+
+# ✅ CORRECT: Ensure all operations use tensors consistently
+safe_denominator = torch.clamp(torch.tensor(tol).to(device), min=1e-3)
+result = torch.clamp(1.0 - (a - b).abs() / safe_denominator, 0.0, 1.0)
+
+# ✅ ALTERNATIVE: Use Python max for scalar safety
+safe_denominator = max(tol, 1e-3)
+result = torch.clamp(1.0 - (a - b).abs() / safe_denominator, 0.0, 1.0)
+```
+
+**Pattern 3: Proper tensor device handling**
+```python
+# ✅ CORRECT: Always specify device for tensor creation
+if isinstance(tolerance, (int, float)):
+    tolerance = torch.tensor(tolerance, device=input_tensor.device)
+safe_tolerance = torch.clamp(tolerance, min=1e-3)
+```
+

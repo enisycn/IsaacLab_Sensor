@@ -40,13 +40,13 @@ from .rough_env_cfg import SDSG1RoughEnvCfg, SIMPLE_LEARNING_TERRAIN_CFG  # Impo
 # 1: Gaps terrain (mixed flat + gaps: 30% flat areas, 35% easy gaps 15-25cm, 35% medium gaps 25-35cm, depth 30-40cm)
 # 2: Obstacles terrain (discrete obstacle avoidance)
 # 3: Stairs terrain (stair climbing and steps)
-TERRAIN_TYPE = 0 # Default to SIMPLE for baseline training
+TERRAIN_TYPE = 3 # Default to SIMPLE for baseline training
 
 # 🔧 SENSORS CONTROL: Toggle environmental sensing capabilities
 # SENSORS_ENABLED = True:  Full environmental sensing (height scanner + lidar + sensor observations)
 # SENSORS_ENABLED = False: Proprioceptive-only (no environmental sensors, only robot internal state)
 # Perfect for ablation studies comparing sensor-based vs. non-sensor learning approaches
-SENSORS_ENABLED = False
+SENSORS_ENABLED = True
 
 # 🕳️ RANDOM MIXED GAP TERRAIN: Small + Medium + Large gaps in single terrain (Type 1)
 # 🚀 DESIGN: Using single HfDiscreteObstaclesTerrainCfg with wide range for random gap sizes
@@ -104,7 +104,7 @@ GAPS_TERRAIN_CFG = TerrainGeneratorCfg(
 # ENHANCED: Height variations from 0.2cm to 1.7m with increased obstacle density
 OBSTACLES_TERRAIN_CFG = TerrainGeneratorCfg(
     size=(8.0, 8.0),
-    border_width=20.0,
+    border_width=2.0,
     num_rows=8,     # Increased from 5 to 8 for more terrain variety
     num_cols=10,    # Increased from 8 to 10 for more terrain variety     
     horizontal_scale=0.1,
@@ -145,18 +145,16 @@ OBSTACLES_TERRAIN_CFG = TerrainGeneratorCfg(
     },
 )
 
-# 🪜 STAIRS TERRAIN: Mixed ascending and descending stairs for comprehensive stair navigation
-# 🚀 DESIGN: Balanced mix of ascending (climbing up) and descending (going down) stairs
-# DESIGN FOR COMPREHENSIVE STAIR TERRAIN:
-# - 25% flat corridors for approach and transitions between stair sections
-# - 30% ASCENDING stairs (robots start low, climb up) - using inverted pyramid stairs
-# - 30% DESCENDING stairs (robots start high, go down) - using regular pyramid stairs  
-# - 15% Mixed height platforms for varied navigation challenges
-# - Robot learns both upward climbing and downward descent navigation
-# - Realistic stair environments with bidirectional movement requirements
+# 🪜 STAIRS TERRAIN: Dense descending stairs for upward climbing challenge
+# 🚀 DESIGN: Robots spawn below stairs and climb upward for optimal sensor comparison
+# DESIGN FOR CLIMBING CHALLENGE:
+# - 10% flat corridors for approach zones
+# - 90% DESCENDING STAIRS: Create upward climbing challenge
+# - Robot encounters climbing challenge where sensors provide measurable advantage
+# - Environment-aware mode benefits from step preview and foot placement planning
 STAIRS_TERRAIN_CFG = TerrainGeneratorCfg(
     size=(8.0, 8.0),
-    border_width=20.0,
+    border_width=1.0,
     num_rows=5,     
     num_cols=8,     
     horizontal_scale=0.1,
@@ -165,19 +163,16 @@ STAIRS_TERRAIN_CFG = TerrainGeneratorCfg(
     use_cache=False,
     curriculum=True,  # Enable curriculum for progressive difficulty
     sub_terrains={
-        # 50% FLAT CORRIDORS: Approach and transition areas between stair sections
         "flat_corridors": terrain_gen.MeshPlaneTerrainCfg(
-            proportion=0.50,  # 50% flat - approach zones and starting areas
+            proportion=0.1,  # 10% flat approach areas
+            size=(1.5, 1.5),
         ),
-        
-        # 50% ASCENDING STAIRS ONLY: Robot starts at floor level and climbs UP (consistent 10cm steps)
-        "ascending_stairs": terrain_gen.MeshPyramidStairsTerrainCfg(
-            proportion=0.50,  # 50% ascending stairs - focus on climbing behavior
-            step_height_range=(0.10, 0.10),    # Exactly 10cm step height (consistent)
-            step_width=0.30,                   # 30cm step width (G1 appropriate)
-            platform_width=1.0,                # 1m wide platforms for stability
-            border_width=0.1,                  # Small border for clean edges
-            holes=False,                       # No holes - focus on pure climbing
+        "descending_stairs": terrain_gen.MeshInvertedPyramidStairsTerrainCfg(  # DESCENDING for upward climbing
+            proportion=0.9,  # 90% stair coverage for intensive climbing practice
+            step_height_range=(0.10, 0.10),  # Fixed 10cm steps for consistency
+            step_width=0.30,  # Fixed 30cm step width
+            platform_width=2.0,  # Wide platforms for stable foot placement
+            border_width=0.6,  # Minimal border for maximum stair coverage
         ),
     },
 )

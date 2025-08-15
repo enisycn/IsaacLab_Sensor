@@ -7,11 +7,41 @@ Project context (terrain-aware guidance, not prescriptions):
 
 **🚨 MANDATORY: YOUR RESPONSE MUST INCLUDE COMPREHENSIVE FEEDBACK ANALYSIS! 🚨**
 
+**🎥 CRITICAL: TRAINING FOOTAGE BEHAVIOR ANALYSIS**
+
+**🔍 FRAME-BY-FRAME ANALYSIS PROTOCOL:**
+1. **Motion Detection**: Compare robot position across frames - is it moving forward?
+2. **Gait Analysis**: Check if legs show alternating contact patterns
+3. **Environmental Interaction**: Does robot navigate terrain features or avoid them?
+4. **Stability Assessment**: Is robot maintaining balance while moving?
+5. **Task Progress**: Is robot making progress toward locomotion goals?
+
+
 **CRITICAL: Generate the sds_custom_reward function with detailed analysis in the docstring, following the format:**
 - 🔍 FEEDBACK ANALYSIS (analyze the policy performance issues)
 - 📊 PERFORMANCE METRICS (actual training metrics and observations)
 - 🎯 SOLUTION STRATEGY (reasoning for the improvement approach)
 - 📋 IMPLEMENTATION COMPONENTS (with weight priorities)
+
+**🎯 TERRAIN STRATEGY FLEXIBILITY & SENSOR EFFECTIVENESS:**
+
+**NAVIGATION STRATEGY AUTONOMY:**
+- **Gap Terrain**: Robot can traverse through gaps, step over them, go around, adjust stride length, etc. - GPT decides based on environmental analysis
+- **Obstacle Terrain**: Navigate around obstacles, step over small ones, find optimal paths, maintain clearance, etc.
+- **Stair Terrain**: Climb stairs, descend carefully, use step-following behavior, adapt height control, etc.
+- **Simple Terrain**: Focus on locomotion efficiency, speed optimization, energy conservation, etc.
+
+**ENVIRONMENT-AWARE SENSOR IMPACT:**
+- **Height Scanner Usage**: Should provide measurable improvements in terrain navigation, gap detection, step planning, etc.
+- **LiDAR Integration**: Should enable better obstacle avoidance, path planning, collision prevention, etc.
+- **Sensor Combination**: Multi-modal sensing should result in significantly better performance metrics vs. foundation-only
+- **Measurable Benefits**: 15-30% improvement in success rates, safety metrics, task completion, etc.
+
+**STRATEGY SELECTION GUIDANCE:**
+- Use sensor data to inform behavioral choices, not rigid rules
+- Adapt strategy based on detected environmental characteristics
+- Let environmental analysis guide optimal navigation approach
+- No strict behavioral prescriptions - allow contextual decision making
 
 **📊 ENHANCED METRICS ANALYSIS GUIDANCE:**
 
@@ -83,15 +113,29 @@ Some helpful tips for analyzing the policy feedback:
             * Explosive exponentials: torch.exp(-terrain_var * 100.0) → -∞ values
             * NaN variance propagation: torch.var(sensor_data_with_nan) → NaN
             * Near-zero division: 1.0/torch.min(distances) when distances ≈ 0.001
+            * **torch.clamp() argument errors**: torch.clamp(scalar, min=value) → TypeError
         (b) **MANDATORY SENSOR SAFETY**: 
             ```python
             sensor_data = torch.where(torch.isfinite(sensor_data), sensor_data, fallback)
             terrain_var = torch.clamp(torch.var(height_data), max=0.01)
             total = torch.where(torch.isfinite(total), total, torch.ones_like(total) * 0.5)
             ```
-        (c) **Stability Requirements**: Each component should be [0, 2] range, final reward [0.0, 5.0]
-        (d) **Safe Pattern**: `total = a*2.0 + b*1.5 + c*1.0 + baseline`
-        (e) **Never Use**: Multiplicative chains, division without protection, aggressive exponentials
+        (c) **CRITICAL: TORCH.CLAMP() TYPEERROR FIX**:
+            ```python
+            # ❌ WRONG: Nested clamp with scalar causes TypeError
+            result = torch.clamp(1.0 - value / torch.clamp(tol, min=1e-3), 0.0, 1.0)
+            
+            # ✅ CORRECT: Use Python max() for scalar safety
+            safe_denominator = max(tol, 1e-3)
+            result = torch.clamp(1.0 - value / safe_denominator, 0.0, 1.0)
+            
+            # ✅ ALTERNATIVE: Convert scalar to tensor first
+            safe_denom = torch.clamp(torch.tensor(tol, device=device), min=1e-3)
+            result = torch.clamp(1.0 - value / safe_denom, 0.0, 1.0)
+            ```
+        (d) **Stability Requirements**: Each component should be [0, 2] range, final reward [0.0, 5.0]
+        (e) **Safe Pattern**: `total = a*2.0 + b*1.5 + c*1.0 + baseline`
+        (f) **Never Use**: Multiplicative chains, division without protection, aggressive exponentials, **nested torch.clamp with scalars**
 
     **🚨 SECOND PRIORITY: CHECK FOR SPARSE REWARD PROBLEMS 🚨**
     (0) **Sparse Reward Analysis:** If mean reward is consistently low or zero:
@@ -131,7 +175,7 @@ Some helpful tips for analyzing the policy feedback:
         (g) **Foundation First**: Always test basic locomotion (velocity, height, orientation) before adding sensor components
         (h) **Progressive Integration**: Add sensor components incrementally: velocity tracking → basic contact → terrain adaptation
         (i) **Reward Balance Check**: Ensure sensor-based rewards don't overwhelm core locomotion components (max 30% weight)
-        (j) **Flat-with-Box Specifics**: Use 27x21 height scanner (567 points, 7.5cm resolution, 2x1.5m coverage) and 152-ray lidar (8 channels × 19 horizontal rays, 180° FOV), not generic sensor assumptions
+        (j) **Flat-with-Box Specifics**: Use 27x21 height scanner (567 points, 7.5cm resolution, 2x1.5m coverage) and 152-ray lidar (8 channels × 19 horizontal rays, 180° FOV, 5.0m max range), not generic sensor assumptions
     (6) **Mathematical Stability Check:** If rewards are consistently zero or training crashes:
         (a) Replace aggressive exponentials (factors >3.0) with moderate ones (0.5-2.0)
         (b) Use relaxed tolerances (0.3-1.0) instead of tight ones (<=0.1)
@@ -160,6 +204,7 @@ Some helpful tips for analyzing the policy feedback:
             - Test sensor data shapes: height_measurements should be [num_envs, 567], lidar_distances should be [num_envs, 152] 
             - Check grid access: use height_measurements directly (already flattened from 27x21 grid)
             - Verify ray indexing: forward_rays = lidar_distances[:, :76], backward_rays = lidar_distances[:, 76:]
+            - **LiDAR Max Range**: 5.0m - infinite values mean no obstacles beyond range (handle with torch.where)
             - **Production Fix**: Use numerical stability with clamping: `torch.clamp(total, min=reasonable_min, max=reasonable_max)`
         (f) **Enhanced Environment Specific**: For Isaac-SDS-Velocity-Flat-G1-Enhanced-v0:
             - Use exact sensor configurations: GridPatternCfg (2.0x1.5m, 0.075m resolution), LidarPatternCfg (8 channels, 180° FoV, 10° resolution)

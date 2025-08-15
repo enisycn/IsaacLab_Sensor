@@ -159,8 +159,8 @@ class SDSCaptureSceneCfg(InteractiveSceneCfg):
     capture_camera: CameraCfg = CameraCfg(
         prim_path="{ENV_REGEX_NS}/CaptureCamera",
         update_period=0,  # Update every step for immediate capture
-        height=640,       # Reduced resolution for smaller API payload
-        width=640,        # Reduced resolution for smaller API payload
+        height=900,      # Increased resolution for better stair terrain detection
+        width=900,       # Increased resolution for better stair terrain detection  
         data_types=["rgb"],
         spawn=sim_utils.PinholeCameraCfg(
             focal_length=24.0,

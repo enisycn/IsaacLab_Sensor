@@ -7,10 +7,38 @@
 These guidance explanations are designed for creating **environment-aware locomotion rewards** that enable **intelligent sensor-driven behavior adaptation** for humanoid robots.
 
 How to use this tip (guidance, not prescriptions):
+- **CRITICAL: INCLUDE TERRAIN CLASSIFICATION**: Always extract and include the `TERRAIN_CLASS: [0|1|2|3]` from environment image analysis in your reward function docstring
 - If the SUS includes `TERRAIN_CLASS: [0|1|2|3]`, use it to choose families of components (0 SIMPLE foundation-only; 1 GAP height-based handling; 2 OBSTACLES LiDAR safety; 3 STAIRS relaxed-height). Decide specific components/thresholds/weights from the analysis rather than hardcoding.
+- **MANDATORY**: Include terrain classification reasoning based on environment image visual analysis
 - Keep rewards additive + clamped; include a small baseline (~+0.1); clamp final total (e.g., [0.0, 5.0]). For SIMPLE terrain you MAY use bounded exponential kernels for velocity/yaw tracking (exp-shaped but clamped to [0,1]) to improve natural gait formation.
 - Use direct sensor access; avoid non-existent attributes; validate shapes.
 - Treat examples as patterns; do not copy constants verbatim.
+
+**🎯 TERRAIN NAVIGATION STRATEGY FLEXIBILITY:**
+
+**GPT DECISION AUTONOMY:**
+- **Gap Terrain**: Robot can go through gaps, step over them, avoid them entirely, etc. - GPT decides optimal strategy
+- **Obstacle Terrain**: Robot can navigate around obstacles, step over small ones, find alternative paths, etc.
+- **Stair Terrain**: Robot can climb up, descend carefully, use handrails if available, etc.
+- **Simple Terrain**: Robot can focus on speed, efficiency, energy conservation, etc.
+
+**STRATEGY SELECTION PRINCIPLES:**
+- Use environmental sensor data to inform strategy choice (height scanner for gap assessment, LiDAR for obstacle detection, etc.)
+- Consider robot capabilities and safety constraints
+- Adapt behavior based on detected terrain characteristics
+- No strict rules - let environmental analysis guide decisions
+
+**ENVIRONMENT-AWARE SENSOR UTILIZATION:**
+- **CRITICAL**: Sensor usage must create measurable performance improvements vs. foundation-only mode
+- Use height scanner for terrain analysis, gap detection, surface assessment, etc.
+- Use LiDAR for obstacle avoidance, path planning, safety assessment, etc.
+- Combine sensor data for intelligent decision making, adaptive behavior, contextual responses, etc.
+- **Goal**: 15-30% better performance metrics when sensors are actively utilized vs. disabled
+
+**ADAPTIVE BEHAVIOR EXAMPLES:**
+- Gap terrain: Sensor-guided step length adjustment, clearance assessment, landing prediction, etc.
+- Obstacle terrain: Dynamic path planning, safe distance maintenance, collision avoidance, etc.
+- Variable terrain: Surface adaptation, height adjustment, stability optimization, etc.
 
 **🎯 PRIMARY OBJECTIVE:** 
 Create reward functions that make **measurable positive impact when sensors are used** compared to **without sensor usage**.
@@ -174,6 +202,7 @@ else:
 - ✅ **Obstacle terrain**: Robot maintains safe distances, plans paths (avoidance behavior)  
 - ✅ **Dense obstacles**: Robot moves conservatively with careful navigation
 - ✅ **Open terrain**: No behavioral change (sensor ignored when appropriate)
+- 🔧 **Max Range**: 5.0m - infinite readings indicate obstacle-free space beyond range
 
 
 🚨🚨🚨 **CRITICAL: REAL ENVIRONMENT DATA EXTRACTION - NO FAKE NUMBERS!** 🚨🚨🚨
@@ -204,6 +233,8 @@ height_readings = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.da
 # ✅ CORRECT: Include LiDAR when obstacles present  
 lidar_sensor = env.scene.sensors["lidar"]
 lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.pos_w.unsqueeze(1), dim=-1)
+# CRITICAL: Handle 5.0m max range - infinite values mean no obstacles detected
+lidar_distances = torch.where(torch.isfinite(lidar_distances), lidar_distances, torch.tensor(5.0, device=lidar_distances.device))
 obstacle_avoidance = torch.min(lidar_distances, dim=1)[0]  # Maintain safe distances
 ```
 
@@ -226,6 +257,11 @@ If images or videos are provided:
 def sds_custom_reward(env) -> torch.Tensor:
     """
     🔍 COMPREHENSIVE ENVIRONMENT ANALYSIS:
+    
+    🏞️ TERRAIN CLASSIFICATION:
+    - TERRAIN_CLASS: [0|1|2|3] ([SIMPLE/GAP/OBSTACLES/STAIRS])
+    - Classification reasoning: [brief justification from environment image analysis]
+    - Sensor data confidence: [HIGH/MEDIUM/LOW] ([reasoning])
     
     📊 NUMERICAL ANALYSIS RESULTS:
     - Height Scanner: [X] total rays, [Y] rays ([Z]%) gaps, [W] rays ([V]%) obstacles  
@@ -332,6 +368,36 @@ for foot in foot_ids:
 ```
 
 **TARGET: <5 minutes for 500 training iterations**
+
+**🚨 CRITICAL: TORCH.CLAMP() SAFETY PATTERNS:**
+
+**COMMON TYPEERROR: clamp() received invalid combination of arguments**
+```python
+# ❌ WRONG: Nested clamp with scalar causes TypeError
+result = torch.clamp(1.0 - value / torch.clamp(tolerance, min=1e-3), 0.0, 1.0)
+# ERROR: When tolerance is a float, this fails
+
+# ✅ CORRECT: Use Python max() for scalar safety
+safe_tolerance = max(tolerance, 1e-3)
+result = torch.clamp(1.0 - value / safe_tolerance, 0.0, 1.0)
+
+# ✅ ALTERNATIVE: Convert scalar to tensor first
+if isinstance(tolerance, (int, float)):
+    tolerance = torch.tensor(tolerance, device=value.device)
+safe_tolerance = torch.clamp(tolerance, min=1e-3)
+result = torch.clamp(1.0 - value / safe_tolerance, 0.0, 1.0)
+```
+
+**SAFE CLAMPING PATTERNS:**
+```python
+# ✅ Always use torch.clamp for tensors, max/min for scalars
+denominator = max(scalar_tolerance, 1e-6)  # Scalar safety
+tensor_result = torch.clamp(tensor_input, min=0.0, max=2.0)  # Tensor safety
+
+# ✅ Safe division with clamping
+safe_denom = torch.clamp(tensor_denom, min=1e-6)
+result = numerator / safe_denom
+```
 
 **🔧 DEBUGGING BEHAVIORAL ISSUES:**
 

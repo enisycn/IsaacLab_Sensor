@@ -21,7 +21,7 @@ You are an expert in analyzing humanoid locomotion tasks with advanced environme
 
 **2. ENVIRONMENTAL SENSOR INTEGRATION (Real-Time Data):**
    - **Height Scanner Analysis:** Process grid-based height measurements for terrain features
-   - **LiDAR Sensor Analysis:** Process ~180° front hemisphere distance measurements for obstacle detection  
+   - **LiDAR Sensor Analysis:** Process ~180° front hemisphere distance measurements for obstacle detection (5.0m max range)  
    - **Gap Classification:** Categorize detected gaps by size for environmental analysis:
   * **Small terrain variations:** Detailed measurement and traversability assessment
 * **Medium terrain variations:** Terrain dimensions and environmental challenge level
@@ -67,34 +67,47 @@ If environmental analysis is NOT AVAILABLE (foundation-only mode), focus on basi
      Normal range: 0.139m to 0.279m
    📊 CORRECTED RAY ANALYSIS (Isaac Lab Standards):
      Total rays: 28350 (from 50 robots)
-     Height readings: -0.732m to 0.601m (avg: 0.150m)
+     Height readings: -0.684m to 0.412m (avg: 0.089m)
      Isaac Lab baseline: 0.209m (standard)
-     Measured baseline: 0.150m (actual terrain average)
+     Measured baseline: 0.089m (actual terrain average)
    ---
    🔺 OBSTACLES:
-     Count: 9515 rays (33.6%)
-     Tallest obstacle height above baseline: 0.871m
-       (Obstacle sensor reading: -0.732m)
+     Count: 13436 rays (47.4%)
+     Tallest obstacle height above baseline: 0.823m
+       (Obstacle sensor reading: -0.684m)
        (Isaac Lab baseline: 0.209m)
        (Threshold: <0.139m)
-       (Physical meaning: Terrain is 0.871m higher than expected)
+       (Physical meaning: Terrain is 0.823m higher than expected)
    🕳️  GAPS:
-     Count: 2154 rays (7.6%)
-     Deepest gap depth below baseline: 0.322m
-       (Gap sensor reading: 0.601m)
+     Count: 51 rays (0.2%)
+     Deepest gap depth below baseline: 0.133m
+       (Gap sensor reading: 0.412m)
        (Isaac Lab baseline: 0.209m)
        (Threshold: >0.279m)
-       (Physical meaning: Terrain is 0.392m lower than expected)
-     Shallowest gap depth below baseline: 0.014m
-       (Gap sensor reading: 0.293m)
-       (Physical meaning: Terrain is 0.084m lower than expected)
+       (Physical meaning: Terrain is 0.203m lower than expected)
+     Shallowest gap depth below baseline: 0.021m
+       (Gap sensor reading: 0.300m)
+       (Physical meaning: Terrain is 0.091m lower than expected)
    🏞️  NORMAL TERRAIN:
-     Count: 16681 rays (58.8%)
+     Count: 14863 rays (52.4%)
      Definition: Terrain between 0.139m and 0.279m
      Range: ±0.07m tolerance zone around 0.209m baseline
-   🌊 TERRAIN ROUGHNESS: 2.3cm variation (🟡 MODERATE)
+   🌊 TERRAIN ROUGHNESS: 2.7cm variation (🟠 ROUGH)
+   📡 LIDAR OBSTACLE ANALYSIS:
+     Total LiDAR rays: 7200 (from 50 robots)
+     Obstacles detected: 3212 rays (44.6%)
+     Clear space (inf): 3988 rays (55.4%)
+     Closest obstacle: 0.980m
+     Farthest obstacle: 5.000m
+     Average obstacle distance: 2.779m
+     📍 Distance classification:
+       🔴 Near obstacles (<2.0m): 469 rays (6.5%)
+       🟡 Moderate obstacles (2.0-4.0m): 2485 rays (34.5%)
+       🟢 Far obstacles (>4.0m): 258 rays (3.6%)
+     Obstacle density: 🟡 MODERATE
+     Navigation impact: ⚠️ MODERATE RISK - Careful navigation required
    🚨 Overall terrain safety: 🔴 DANGEROUS
-     Reason: 7.6% gaps (limit: 10.0%), 33.6% obstacles (limit: 30.0%)
+     Reason: 0.2% gaps (limit: 10.0%), 47.4% obstacles (limit: 30.0%)
 <!-- ENVIRONMENT_ANALYSIS_END -->
 
 **🎯 ANALYSIS MODE INSTRUCTIONS:**
@@ -229,7 +242,7 @@ Provide comprehensive analysis using these sections, integrating visual footage 
   * **task=jump**: FORWARD JUMPING over gaps with velocity tracking + controlled landing
 - **STAIRS**: Step-like patterns requiring climbing or descent behaviors
 
-**PROJECT TERRAIN CLASS (MANDATORY - Derive from image + sensors):**
+**PROJECT TERRAIN CLASS (MANDATORY - Derive from IMAGE ONLY):**
 - Output a single line identifying the terrain class for downstream processing:
 - `TERRAIN_CLASS: [0|1|2|3]`  
   - 0 = SIMPLE (flat/clear)
@@ -237,13 +250,47 @@ Provide comprehensive analysis using these sections, integrating visual footage 
   - 2 = OBSTACLES
   - 3 = STAIRS
 
-**CLASSIFICATION REASONING (IMAGE-BASED):**
-- Provide a brief 1–3 sentence justification based on visual cues in the environment image:
+**🎯 TERRAIN NAVIGATION FLEXIBILITY & SENSOR UTILIZATION:**
+
+**STRATEGIC DECISION AUTONOMY:**
+- **Gap Navigation**: Robot can traverse gaps, avoid them, find alternative routes, adjust gait patterns, etc. - Strategy based on environmental analysis
+- **Obstacle Handling**: Navigate around, step over small obstacles, find efficient paths, maintain safe distances, etc.
+- **Stair Locomotion**: Climb ascending stairs, descend carefully, adapt step height, use terrain following, etc.
+- **Simple Terrain**: Optimize for speed, energy efficiency, smooth locomotion, direct paths, etc.
+
+**ENVIRONMENT-AWARE SENSOR ADVANTAGES:**
+- **Height Scanner Benefits**: Terrain analysis, gap detection, surface assessment, step planning, etc. should provide measurable navigation improvements
+- **LiDAR Benefits**: Obstacle detection, path planning, collision avoidance, distance assessment, etc. should enable safer and more efficient locomotion
+- **Combined Sensing**: Multi-modal environmental awareness, predictive behavior, adaptive responses, contextual decision making, etc.
+- **Performance Target**: Environment-aware mode should achieve significantly better metrics vs. foundation-only mode
+
+**ADAPTIVE STRATEGY PRINCIPLES:**
+- Let environmental sensor data guide strategy selection
+- No rigid behavioral rules - adapt based on detected conditions
+- Use sensor information for predictive and reactive behavior adjustments
+- Focus on measurable performance improvements through intelligent sensor utilization
+
+
+
+**🚨 CRITICAL: THIS TERRAIN_CLASS LINE MUST APPEAR IN YOUR FINAL OUTPUT! 🚨**
+**Downstream reward engineering systems search for this exact format!**
+
+**CLASSIFICATION REASONING (IMAGE-BASED ONLY):**
+- **CRITICAL**: Terrain classification must be based ONLY on visual analysis of the environment image/video
+- **DO NOT** use sensor data for terrain type decision - sensor data is for detailed analysis after classification
+- Provide a brief 1–3 sentence justification based ONLY on visual cues in the environment image:
   - 0 SIMPLE: Broad uniform surface; no recurring depressions/protrusions; clean paths
   - 1 GAP: Repeated dark/depressed regions or linear trenches indicating holes/gaps
   - 2 OBSTACLES: Multiple protruding objects blocking paths; occlusions or clutter
   - 3 STAIRS: Regular, periodic step edges; consistent riser/tread patterns
-- If sensor data is available and contradicts visuals, note the discrepancy but still include the visual justification (sensors take priority downstream).
+- **VISUAL ANALYSIS PRIORITY**: Make terrain classification decision purely from what you observe in the environment image
+- **SENSOR DATA ROLE**: Use sensor measurements to provide detailed analysis AFTER terrain type is determined visually
+
+**🎯 TERRAIN CLASSIFICATION VALIDATION:**
+- **Image Analysis**: What does the environment capture image show? (PRIMARY DECISION FACTOR)
+- **Classification Decision**: Base terrain type ONLY on visual observation of environment image
+- **Sensor Confirmation**: Use sensor measurements for detailed analysis, NOT for overriding visual classification
+- **Confidence Level**: How confident are you in this visual terrain classification?
 
 **MIXED TERRAIN CLASSIFICATION:**
 - **When multiple features detected**: Choose PRIMARY based on most prominent feature (highest count or coverage)
@@ -425,6 +472,12 @@ Your analysis must END with this exact format:
 📊 STANDARDIZED NUMERICAL ANALYSIS SUMMARY FOR DOWNSTREAM PROCESSING
 ================================================================================
 
+🏞️ TERRAIN CLASSIFICATION DECISION:
+- TERRAIN_CLASS: [0|1|2|3] ([SIMPLE/GAP/OBSTACLES/STAIRS])
+- Classification confidence: [HIGH/MEDIUM/LOW] 
+- Visual justification: [reasoning based on environment image analysis]
+- Sensor validation: [how sensor data supports or contradicts visual classification]
+
 🔍 COMPREHENSIVE ENVIRONMENT ANALYSIS:
 
 📊 NUMERICAL ANALYSIS RESULTS:
@@ -511,52 +564,40 @@ Task descriptions should include:
 - Multi-modal navigation task requirements
 - Component-level task objective categorization 
 
-**🚨 CRITICAL: SENSOR DATA vs VISUAL ANALYSIS CONFLICT RESOLUTION**
+**🚨 CRITICAL: TERRAIN CLASSIFICATION vs DETAILED ANALYSIS SEPARATION**
 
-**PRIORITY HIERARCHY (MOST IMPORTANT TO LEAST):**
-1. **SENSOR DATA** (quantitative, robot-designed measurements)
-2. **Environmental analysis** (numerical terrain assessment) 
-3. **Visual analysis** (subjective, can be misleading)
+**DECISION HIERARCHY FOR TERRAIN CLASSIFICATION:**
+1. **ENVIRONMENT IMAGE** (visual terrain type identification)
+2. **SENSOR DATA** (detailed analysis after classification)
 
-**WHEN SENSOR DATA CONFLICTS WITH VISUAL ANALYSIS:**
+**TERRAIN CLASSIFICATION APPROACH:**
 
-**❌ NEVER dismiss sensor data because visual analysis suggests "flat terrain"**
-**✅ ALWAYS prioritize sensor measurements over visual interpretation**
+**✅ CORRECT APPROACH - Image-Based Terrain Classification:**
+- **Step 1**: Analyze environment image to determine terrain type (0=SIMPLE, 1=GAP, 2=OBSTACLES, 3=STAIRS)
+- **Step 2**: Use sensor data to provide detailed numerical analysis for the identified terrain type
+- **Step 3**: Create task description combining visual terrain type with quantitative sensor details
 
-**REASONING:**
-- **Sensor data is QUANTITATIVE**: Exact gap counts, obstacle measurements, roughness values
-- **Sensors are ROBOT-DESIGNED**: Specifically calibrated for navigation needs
-- **Visual analysis can MISLEAD**: Camera angles, lighting, resolution can hide terrain features
-- **Robot NEEDS sensor data**: Must navigate based on actual physical measurements, not visual appearance
+**TERRAIN TYPE vs DETAILED ANALYSIS:**
 
-**CONFLICT RESOLUTION EXAMPLES:**
+**TERRAIN CLASSIFICATION (Image-Based Decision):**
+- **Purpose**: Determine which type of locomotion strategy is needed
+- **Method**: Visual analysis of environment image/video
+- **Output**: TERRAIN_CLASS: [0|1|2|3] based on what you see
+- **Reasoning**: "I see [visual evidence] in the environment image"
 
-**Example 1 - Gap Detection Conflict:**
-- **Sensor data**: "PRIMARY SCENARIO: GAP (based on sensor detection)"
-- **Visual analysis**: "No gaps visible in video"
-- **DECISION**: ✅ TRUST SENSORS - Use GAP scenario classification
+**DETAILED ANALYSIS (Sensor-Based Information):**
+- **Purpose**: Provide quantitative details about the terrain features
+- **Method**: Use sensor measurements for numerical analysis
+- **Output**: Gap counts, obstacle measurements, roughness values, safety scores
+- **Role**: Support task specification with precise environmental data
 
-**Example 2 - Obstacle Detection Conflict:**
-- **Sensor data**: "PRIMARY SCENARIO: OBSTACLE (based on sensor detection)"
-- **Visual analysis**: "Clean environment with no obstacles"  
-- **DECISION**: ✅ TRUST SENSORS - Use OBSTACLE scenario classification
+**EXAMPLE OF CORRECT SEPARATION:**
 
-**Example 3 - Terrain Classification Conflict:**
-- **Sensor data**: "PRIMARY SCENARIO: STAIRS (based on sensor analysis)"
-- **Visual analysis**: "Smooth uniform surface"
-- **DECISION**: ✅ TRUST SENSORS - Use STAIRS scenario classification
+**Terrain Classification Decision (Image-Based):**
+- "TERRAIN_CLASS: 2 (OBSTACLES) - Environment image shows multiple dark objects scattered across the surface blocking clear paths"
 
-**MANDATORY SENSOR-FIRST DECISION FRAMEWORK:**
+**Detailed Analysis (Sensor-Based):**
+- "Sensor data reveals 15 obstacles detected with varying characteristics, 2.3cm terrain roughness, 78% traversable terrain"
 
-```
-IF environment_analysis.classification != FLAT:
-    ENVIRONMENTAL_SENSING = REQUIRED
-    JUSTIFICATION = "Sensor data indicates significant terrain features requiring navigation adaptation"
-    
-ELSE IF visual_analysis.conflicts_with_sensors:
-    ENVIRONMENTAL_SENSING = REQUIRED  
-    JUSTIFICATION = "Prioritizing quantitative sensor measurements over visual interpretation"
-    
-ELSE:
-    ENVIRONMENTAL_SENSING = OPTIONAL
-```
+**FINAL TASK DESCRIPTION:**
+- "Navigate obstacle terrain (determined visually) with 15 detected obstacles requiring careful path planning (sensor details)"

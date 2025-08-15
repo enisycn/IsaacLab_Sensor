@@ -24,6 +24,14 @@ You are an expert in humanoid robotics and task specification generation. Your o
 
 **CRITICAL: EXACT ENVIRONMENTAL DATA PRESERVATION REQUIRED (Environment-Aware Mode Only)**
 
+**🏞️ TERRAIN CLASSIFICATION PRESERVATION:**
+
+**MANDATORY: EXTRACT AND PRESERVE TERRAIN CLASSIFICATION FROM TASK DESCRIPTION!**
+- Look for lines like: `TERRAIN_CLASS: [0|1|2|3]` in the task description
+- Copy this EXACT line to your SUS output 
+- Include the terrain classification reasoning from environment image analysis
+- This data is CRITICAL for downstream reward engineering to select appropriate components
+
 **IF the Task Description contains environmental analysis data, you MUST copy the EXACT numerical values without any summarizing, paraphrasing, or omission. This data is ESSENTIAL for downstream reward engineering.**
 
 **🚫 FOUNDATION-ONLY MODE N/A VALUE HANDLING:**

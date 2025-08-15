@@ -230,11 +230,11 @@ def plot_numeric_comparison(ax, env_name_a: str, env_name_b: str, data_a: Dict[s
         if higher_is_better:
             # For higher-is-better metrics
             if mean_a > mean_b:
-                winner_text = f"{env_name_a} WINS"
+            winner_text = f"{env_name_a} WINS"
                 winner_color = '#27AE60'
                 winner_icon = "🏆"
             elif mean_b > mean_a:
-                winner_text = f"{env_name_b} WINS"
+            winner_text = f"{env_name_b} WINS"
                 winner_color = '#27AE60'
                 winner_icon = "🏆"
             else:
@@ -251,8 +251,8 @@ def plot_numeric_comparison(ax, env_name_a: str, env_name_b: str, data_a: Dict[s
                 winner_text = f"{env_name_b} WINS"
                 winner_color = '#27AE60'
                 winner_icon = "🏆"
-            else:
-                winner_text = "TIE"
+        else:
+            winner_text = "TIE"
                 winner_color = '#F39C12'
                 winner_icon = "⚖️"
         
@@ -556,7 +556,7 @@ def main():
                 pdf.savefig(fig, bbox_inches='tight', facecolor='white')
                 
                 print(f"✅ Generated: {metric}")
-                plot_count += 1
+                    plot_count += 1
                 
                 plt.close(fig)
         
@@ -573,7 +573,7 @@ def main():
                 "summary", metric, modern_colors
             )
                 
-            if success:
+                if success:
                 fig.suptitle("Performance Comparison Study", 
                            fontsize=16, fontweight='bold', color='#2C3E50', y=0.95)
                 
@@ -584,7 +584,7 @@ def main():
                 
                 plt.tight_layout(rect=[0, 0, 1, 0.93])
                 
-                filename = f"summary__{metric}.png"
+                    filename = f"summary__{metric}.png"
                 out_path = outdir / filename
                 fig.savefig(out_path, dpi=300, bbox_inches='tight',
                            facecolor='white', edgecolor='none',
@@ -592,7 +592,7 @@ def main():
                 pdf.savefig(fig, bbox_inches='tight', facecolor='white')
                 
                 print(f"✅ Generated: Summary • {metric}")
-                plot_count += 1
+                    plot_count += 1
                 
                 plt.close(fig)
     

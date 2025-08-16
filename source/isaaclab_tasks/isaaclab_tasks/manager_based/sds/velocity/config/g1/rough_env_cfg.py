@@ -93,10 +93,10 @@ class SDSG1RoughEnvCfg(SDSVelocityRoughEnvCfg):
             },
         }
 
-        # 🚀 ENHANCED: Updated velocity ranges for forward-only movement
-        self.commands.base_velocity.ranges.lin_vel_x = (0.3, 0.8)     # Forward-only movement (no backward)
-        self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)  # Increased lateral movement range
-        self.commands.base_velocity.ranges.ang_vel_z = (0.0, 0.0)    # Increased turning range for better maneuverability
+        # ✅ FIXED: Slow controlled forward movement for better locomotion
+        self.commands.base_velocity.ranges.lin_vel_x = (0.1, 0.3)     # Slow controlled movement
+        self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)     # ✅ NO lateral movement 
+        self.commands.base_velocity.ranges.ang_vel_z = (0.0, 0.0)     # ✅ NO turning commands
 
         # 🚨 CRITICAL FIX: Minimize standing commands to encourage locomotion
         self.commands.base_velocity.rel_standing_envs = 0.02  # Only 2% standing for active learning
@@ -142,11 +142,11 @@ class SDSG1RoughEnvCfg_PLAY(SDSG1RoughEnvCfg):
             self.scene.terrain.terrain_generator.num_cols = 5
             self.scene.terrain.terrain_generator.curriculum = False
 
-        # Commands - UPDATED: Allow backward movement but keep demo movements conservative
-        self.commands.base_velocity.ranges.lin_vel_x = (0.3, 0.8)  # Allow backward movement + forward velocity for demos
-        self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)  # Conservative lateral movement for clean demos
-        self.commands.base_velocity.ranges.ang_vel_z = (0.0, 0.0)  # Conservative turning for stable demo walking
-        self.commands.base_velocity.ranges.heading = (0.0, 0.0)   # Straight forward heading
+        # ✅ FIXED: Slow controlled forward movement for demo/play
+        self.commands.base_velocity.ranges.lin_vel_x = (0.1, 0.3)  # Slow controlled movement for demos
+        self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)  # ✅ NO lateral movement
+        self.commands.base_velocity.ranges.ang_vel_z = (0.0, 0.0)  # ✅ NO turning commands
+        self.commands.base_velocity.ranges.heading = (0.0, 0.0)   # ✅ NO heading commands
         
         # 🚨 EVEN MORE CRITICAL for PLAY: No standing still in demos!
         self.commands.base_velocity.rel_standing_envs = 0.0  # 0% standing for active demos

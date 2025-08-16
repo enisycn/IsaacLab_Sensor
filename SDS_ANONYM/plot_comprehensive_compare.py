@@ -3,15 +3,16 @@
 Comprehensive Metrics Comparison Plotting Tool
 ==============================================
 
-Generates publication-ready comparison plots for ALL 7 STANDARDIZED METRICS between 
+Generates publication-ready comparison plots for ALL 7-8 STANDARDIZED METRICS between 
 environment-aware and foundation-only modes with enhanced visualizations.
 
 Metrics Coverage:
 - 5 Smaller-is-Better: height_deviation, velocity_tracking_error, disturbance_resistance, 
   contact_termination_rate, obstacle_collision_count
-- 2 Higher-is-Better: balance_stability_score, gait_smoothness_score
+- 2-3 Higher-is-Better: balance_stability_score, gait_smoothness_score, 
+  stair_climbing_performance (stairs terrain only)
 
-All terrain types (0,1,2,3) now have identical metric sets for fair comparison.
+Terrain types 0,1,2 have 7 metrics; Stairs terrain (type 3) has 8 metrics for comprehensive comparison.
 """
 
 import argparse
@@ -75,9 +76,9 @@ def to_title(text: str) -> str:
 
 
 def get_metric_description(category: str, metric: str) -> str:
-    """Get human-readable description for all 8 standardized metrics."""
+    """Get human-readable description for all 7-8 standardized walking metrics."""
     descriptions = {
-        # UNIVERSAL 7 METRICS (smaller is better)
+        # UNIVERSAL 6 METRICS (smaller is better first 4, higher is better last 2)
         "height_deviation": "Height deviation from nominal (m) - Smaller is Better",
         "velocity_tracking_error": "Velocity tracking error (m/s) - Smaller is Better", 
         "disturbance_resistance": "External disturbance resistance - Smaller is Better",
@@ -89,7 +90,7 @@ def get_metric_description(category: str, metric: str) -> str:
         
         # TERRAIN-SPECIFIC METRICS
         "obstacle_collision_count": "Upper body collision count - Smaller is Better",  # Smaller is better
-        "stair_climbing_performance": "Stair ascending performance - Higher is Better",  # Higher is better
+        "stair_climbing_performance": "Stair climbing performance - Higher is Better",  # Higher is better
         
         # Summary Metrics
         "total_steps": "Total simulation steps",
@@ -230,11 +231,11 @@ def plot_numeric_comparison(ax, env_name_a: str, env_name_b: str, data_a: Dict[s
         if higher_is_better:
             # For higher-is-better metrics
             if mean_a > mean_b:
-            winner_text = f"{env_name_a} WINS"
+                winner_text = f"{env_name_a} WINS"
                 winner_color = '#27AE60'
                 winner_icon = "🏆"
             elif mean_b > mean_a:
-            winner_text = f"{env_name_b} WINS"
+                winner_text = f"{env_name_b} WINS"
                 winner_color = '#27AE60'
                 winner_icon = "🏆"
             else:
@@ -251,8 +252,8 @@ def plot_numeric_comparison(ax, env_name_a: str, env_name_b: str, data_a: Dict[s
                 winner_text = f"{env_name_b} WINS"
                 winner_color = '#27AE60'
                 winner_icon = "🏆"
-        else:
-            winner_text = "TIE"
+            else:
+                winner_text = "TIE"
                 winner_color = '#F39C12'
                 winner_icon = "⚖️"
         
@@ -504,7 +505,7 @@ def main():
     # Modern color palette
     modern_colors = ['#3498DB', '#E74C3C']  # Modern blue and red
     
-    # Plot all 7 standardized metrics
+    # Plot all 7-8 standardized metrics (8 for stairs terrain)
     standardized_metrics = [
         # UNIVERSAL 6 METRICS
         'height_deviation',
@@ -513,16 +514,25 @@ def main():
         'contact_termination_rate',
         'balance_stability_score',
         'gait_smoothness_score',
-        # TERRAIN-SPECIFIC METRIC
-        'obstacle_collision_count'
+        # TERRAIN-SPECIFIC METRICS
+        'obstacle_collision_count',
+        'stair_climbing_performance'  # Only available for stairs terrain (type 3)
     ]
     
     # Create plots with enhanced styling
     plot_count = 0
-    pdf_path = outdir / "comprehensive_7metrics_comparison.pdf"
+    pdf_path = outdir / "comprehensive_metrics_comparison.pdf"
     
     with PdfPages(pdf_path) as pdf:
         for metric in standardized_metrics:
+            # Check if metric exists in both datasets (some metrics are terrain-specific)
+            env_aware_has_metric = metric in env_aware_data.get('metrics', {})
+            foundation_only_has_metric = metric in foundation_only_data.get('metrics', {})
+            
+            if not (env_aware_has_metric and foundation_only_has_metric):
+                print(f"⏭️  Skipping {metric} - not available in both datasets")
+                continue
+            
             # Create figure with enhanced size and styling
             fig, ax = plt.subplots(figsize=(10, 7), dpi=150)
             fig.patch.set_facecolor('white')
@@ -556,7 +566,7 @@ def main():
                 pdf.savefig(fig, bbox_inches='tight', facecolor='white')
                 
                 print(f"✅ Generated: {metric}")
-                    plot_count += 1
+                plot_count += 1
                 
                 plt.close(fig)
         
@@ -566,14 +576,14 @@ def main():
         for metric in summary_metrics:
             fig, ax = plt.subplots(figsize=(10, 7), dpi=150)
             fig.patch.set_facecolor('white')
-                
+            
             success = plot_numeric_comparison(
                 ax, args.env_aware_label, args.foundation_only_label,
                 env_aware_data, foundation_only_data, 
                 "summary", metric, modern_colors
             )
-                
-                if success:
+            
+            if success:
                 fig.suptitle("Performance Comparison Study", 
                            fontsize=16, fontweight='bold', color='#2C3E50', y=0.95)
                 
@@ -584,7 +594,7 @@ def main():
                 
                 plt.tight_layout(rect=[0, 0, 1, 0.93])
                 
-                    filename = f"summary__{metric}.png"
+                filename = f"summary__{metric}.png"
                 out_path = outdir / filename
                 fig.savefig(out_path, dpi=300, bbox_inches='tight',
                            facecolor='white', edgecolor='none',
@@ -592,7 +602,7 @@ def main():
                 pdf.savefig(fig, bbox_inches='tight', facecolor='white')
                 
                 print(f"✅ Generated: Summary • {metric}")
-                    plot_count += 1
+                plot_count += 1
                 
                 plt.close(fig)
     
@@ -601,7 +611,7 @@ def main():
     print(f"📁 Output directory: {outdir}")
     print(f"📄 Combined PDF: {pdf_path}")
     print(f"🖼️  Individual PNGs: {plot_count} files")
-    print(f"\n🎯 COMPREHENSIVE METRICS ANALYSIS (8 Standardized Metrics):")
+    print(f"\n🎯 COMPREHENSIVE METRICS ANALYSIS (7-8 Standardized Metrics):")
     print(f"\n   📉 SMALLER IS BETTER METRICS:")
     print(f"      • Height Deviation: Stability measure (smaller = more stable)")
     print(f"      • Velocity Tracking Error: Performance measure (smaller = better tracking)")  
@@ -611,8 +621,8 @@ def main():
     print(f"\n   📈 HIGHER IS BETTER METRICS:")
     print(f"      • Balance Stability Score: Body stability (higher = more stable)")
     print(f"      • Gait Smoothness Score: Joint coordination (higher = smoother)")
-    print(f"      • Locomotion Efficiency Score: Forward progress (higher = more efficient)")
-    print(f"\n   🎯 All terrain types now have identical 8-metric sets for fair comparison!")
+    print(f"      • Stair Climbing Performance: Ascending progress (higher = better climbing)")
+    print(f"\n   🎯 Terrain types 0,1,2 have 7 metrics; Stairs terrain (type 3) has 8 metrics!")
     print(f"\n   ✨ Enhanced with modern visual aesthetics and professional styling!")
     
 

@@ -231,7 +231,7 @@ def capture_environment_image_automatically(workspace_dir):
         
         try:
             # Find Isaac Lab root and use absolute path
-            isaac_lab_root = find_isaac_lab_root()
+        isaac_lab_root = find_isaac_lab_root()
             config_path = os.path.join(isaac_lab_root, "source/isaaclab_tasks/isaaclab_tasks/manager_based/sds/velocity/config/g1/flat_with_box_env_cfg.py")
             with open(config_path, 'r') as f:
                 content = f.read()
@@ -252,8 +252,8 @@ def capture_environment_image_automatically(workspace_dir):
             # Check if source image exists
             if not os.path.exists(source_image):
                 logging.error(f"❌ Pre-captured image not found: {source_image}")
-                return False
-            
+            return False
+        
             try:
                 # Load and process the image with quality reduction
                 logging.info(f"🖼️ Processing pre-captured image with quality reduction...")
@@ -402,7 +402,7 @@ def main(cfg):
     
     # Encode GT demo for analysis
     encoded_gt_frame_grid = encode_image(f'{workspace_dir}/gt_demo.png', max_size=(256, 256), quality=60)
-
+    
     # Encode environment image for analysis
     environment_image_path = f'{workspace_dir}/environment_image.png'
     has_environment_image = os.path.exists(environment_image_path) and env_aware
@@ -854,7 +854,7 @@ Focus on creating robust, terrain-agnostic locomotion rewards.
                 
                 # Use the retry-specific log file for error checking
                 rl_filepath = retry_rl_filepath
-
+                
                 if process.returncode == 0:
                     # Training succeeded
                     training_successful = True
@@ -947,7 +947,7 @@ Focus on creating robust, terrain-agnostic locomotion rewards.
                     f"{isaac_lab_root}/isaaclab.sh",
                     "-p", "scripts/reinforcement_learning/rsl_rl/play.py",
                     "--task=Isaac-SDS-Velocity-Flat-G1-Enhanced-Play-v0",
-                    "--num_envs=1",
+                    "--num_envs=50",
                     f"--checkpoint={latest_checkpoint}",
                     "--video",
                     f"--video_length={cfg.video_length}",
@@ -1244,7 +1244,7 @@ Focus on creating robust, terrain-agnostic locomotion rewards.
             for contact_dir in contact_pattern_dirs:
                 
                 encoded_contact = encode_image(contact_dir, max_size=(256, 256), quality=60)
-                
+            
                 contact_evaluator_query_content.append(
                     {
                     "type": "image_url",
@@ -1498,16 +1498,16 @@ def copy_agent_conversations_to_output(workspace_dir):
                     continue
                 
                 try:
-                    shutil.copy2(conv_file, dest_path)
-                    logging.info(f"🔧 Copied: {conv_file} -> {dest_path}")
+                shutil.copy2(conv_file, dest_path)
+                logging.info(f"🔧 Copied: {conv_file} -> {dest_path}")
                 except shutil.SameFileError:
                     continue
-                    
+                
                 # Also copy to Isaac Lab root for easy access
                 try:
                     root_dest = os.path.join("/home/enis/IsaacLab", conv_file)
                     if os.path.abspath(conv_file) != os.path.abspath(root_dest):
-                        shutil.copy2(conv_file, root_dest)
+                    shutil.copy2(conv_file, root_dest)
                 except Exception:
                     pass  # Don't fail if can't copy to root
         else:

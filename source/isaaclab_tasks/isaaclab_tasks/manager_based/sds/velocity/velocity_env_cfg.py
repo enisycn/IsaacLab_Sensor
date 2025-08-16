@@ -74,10 +74,12 @@ class MySceneCfg(InteractiveSceneCfg):
     # sensors - height scanner configured for G1 torso
     height_scanner = RayCasterCfg(
         prim_path="{ENV_REGEX_NS}/Robot/torso_link",  # Updated for G1 humanoid torso body name
-        offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
         attach_yaw_only=True,
-        pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6, 1.0]),
-        debug_vis=False, # Disable height scanner rays for cleaner visualization
+        pattern_cfg=patterns.GridPatternCfg(
+            resolution=0.075,  # ✅ IMPROVED: 7.5cm spacing for better detail
+            size=[2.0, 1.5],   # ✅ EXPANDED: 2m forward × 1.5m lateral coverage
+        ),
+        debug_vis=True,  # ✅ ENABLE for debugging stair detection
         mesh_prim_paths=["/World/ground"],
     )
     contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*_ankle_roll_link", history_length=3, track_air_time=True, force_threshold=50.0)
@@ -115,10 +117,10 @@ class CommandsCfg:
         heading_control_stiffness=0.5,
         debug_vis=True,   # Enable BLUE velocity arrows
         ranges=mdp.UniformVelocityCommandCfg.Ranges(
-            lin_vel_x=(0.3, 0.8),        # Forward-only movement (no backward)
-            lin_vel_y=(0.0, 0.0),     # Increased lateral movement range
-            ang_vel_z=(0.0, 0.0),       # Increased turning range for better maneuverability
-            heading=(-math.pi, math.pi)
+            lin_vel_x=(0.1, 0.3),        # Slow controlled forward movement for stair climbing
+            lin_vel_y=(0.0, 0.0),        # ✅ NO lateral movement
+            ang_vel_z=(0.0, 0.0),        # ✅ NO turning commands
+            heading=(0.0, 0.0)           # ✅ NO heading commands
         ),
     )
 

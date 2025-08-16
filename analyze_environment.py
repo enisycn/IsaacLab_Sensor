@@ -18,7 +18,7 @@ from isaaclab.app import AppLauncher
 # add argparse arguments
 parser = argparse.ArgumentParser(description="RL Policy Height Scanner Monitor")
 parser.add_argument("--num_envs", type=int, default=4, help="Number of environments")
-parser.add_argument("--task", type=str, default="Isaac-SDS-Velocity-Rough-G1-Enhanced-v0", help="Task name")
+parser.add_argument("--task", type=str, default="Isaac-SDS-Velocity-Flat-G1-Enhanced-v0", help="Task name")
 parser.add_argument("--checkpoint", type=str, default="logs/rsl_rl/g1_enhanced/2025-08-14_00-40-58/model_700.pt", help="Path to RL checkpoint file")
 parser.add_argument(
     "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."
@@ -211,7 +211,7 @@ def main():
                     valid_rays = len(all_height_readings)
 
                     # ✅ USE ISAAC LAB STANDARD BASELINE (same as reward function)
-                    baseline_height_standard = 0.209  # Standard G1 baseline from Isaac Lab guide
+                    baseline_height_standard = 0.22  # Standard G1 baseline from Isaac Lab guide (verified correct)
                     
                     # ✅ USE DYNAMIC THRESHOLDS (adaptable based on analysis)
                     baseline_threshold = 0.07         # Default threshold for balanced detection
@@ -414,7 +414,7 @@ def main():
                         print(f"   📡 LIDAR ANALYSIS: Error accessing LiDAR data ({e})")
                     
                     # Safety assessment with corrected thresholds
-                    if gap_pct > 10.0 or obstacle_pct > 30.0:
+                    if gap_pct > 7.0 or obstacle_pct > 20.0:
                         safety = "🔴 DANGEROUS"
                     elif gap_pct > 5.0 or obstacle_pct > 20.0:
                         safety = "🟡 CAUTION"

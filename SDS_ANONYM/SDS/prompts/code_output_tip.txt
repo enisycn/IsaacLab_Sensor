@@ -35,6 +35,16 @@ How to use this tip (guidance, not prescriptions):
 - Combine sensor data for intelligent decision making, adaptive behavior, contextual responses, etc.
 - **Goal**: 15-30% better performance metrics when sensors are actively utilized vs. disabled
 
+🎯 **TERRAIN CONSISTENCY ANALYSIS:**
+**Critical Understanding**: Sensor readings must be interpreted in context of selected terrain type:
+
+- **STAIRS Terrain**: If terrain type is STAIRS, sensor-detected "gaps" are stair-related elevation changes, not separate gaps to avoid. The environment contains stairs, not additional gap hazards.
+- **GAP Terrain**: If terrain type is GAP, sensor-detected "obstacles" are gap-related features (edges, platforms), not separate obstacles to navigate around.
+- **OBSTACLE Terrain**: If terrain type is OBSTACLE, sensor readings detect obstacle-related features, not gaps or stairs.
+- **SIMPLE Terrain**: If terrain type is SIMPLE, minimal sensor variation indicates flat/gentle terrain features.
+
+**Integration Principle**: Sensor analysis should complement and explain the selected terrain classification, not contradict it. When stairs are selected, sensor readings showing height variations confirm stair geometry rather than indicating gap hazards.
+
 **ADAPTIVE BEHAVIOR EXAMPLES:**
 - Gap terrain: Sensor-guided step length adjustment, clearance assessment, landing prediction, etc.
 - Obstacle terrain: Dynamic path planning, safe distance maintenance, collision avoidance, etc.
@@ -77,8 +87,20 @@ Enable comparison studies demonstrating:
 - **Coverage**: 2.0m forward × 1.5m lateral  
 - **Resolution**: 7.5cm spacing between rays
 - **Range**: 3.0m maximum distance
-- **Baseline**: Dynamic calculation per environment (0.209m fallback only)
-- **Formula**: `height_reading = sensor.data.pos_w[:, 2].unsqueeze(1) - sensor.data.ray_hits_w[..., 2] - 0.5`
+
+📊 **SENSOR TYPE SELECTION GUIDANCE:**
+Choose sensor type based on task requirements (let GPT decide optimal approach):
+
+| Task Type | Recommended Sensor | Reason |
+|-----------|-------------------|---------|
+| **Stair Climbing** | ✅ **Absolute** | Navigation requires world coordinates for clear goal direction |
+| **Obstacle Avoidance** | ✅ **Relative** | Safety requires clearance measurements above terrain |
+| **Path Planning** | ✅ **Absolute** | Need actual terrain elevations for route decisions |
+| **Foot Placement** | ✅ **Relative** | Need clearance measurements for safe step placement |
+
+🔧 **SENSOR FORMULAS:**
+- **Absolute**: `terrain_height = sensor.data.ray_hits_w[..., 2]` (world Z coordinates)
+- **Relative**: `clearance = sensor.data.pos_w[:, 2].unsqueeze(1) - sensor.data.ray_hits_w[..., 2] - 0.5` (Isaac Lab standard)
 
 🔧 **CONTACT SENSOR DEFAULT (G1):**
 - **❌ CRITICAL: ONLY foot bodies available**: `.*_ankle_roll_link`
@@ -146,7 +168,7 @@ contacts_mask = force_mag > 50.0
   
   # Apply collision penalty (obstacle/terrain impacts)
   collision_penalty = -collision_count.float() * 0.2  # Penalty for body collisions
-  ```
+```
 
 🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯
 🎯 SENSOR-DRIVEN BEHAVIORAL ADAPTATION: CRITICAL PROJECT REQUIREMENT 🎯

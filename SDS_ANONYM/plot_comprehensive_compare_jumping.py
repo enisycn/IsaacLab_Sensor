@@ -3,21 +3,16 @@
 Comprehensive Jumping Metrics Comparison Plotting Tool
 =====================================================
 
-Generates publication-ready comparison plots for ALL 8 STANDARDIZED JUMPING METRICS between 
+Generates publication-ready comparison plots for ALL 7-8 STANDARDIZED JUMPING METRICS between 
 environment-aware and foundation-only modes with enhanced visualizations.
 
-Jumping Metrics Coverage:
-- 5 Smaller-is-Better: height_deviation (jump trajectory consistency), velocity_tracking_error, 
+Jumping-Specific Metrics Coverage:
+- 5 Smaller-is-Better: height_deviation (trajectory consistency), velocity_tracking_error, 
   disturbance_resistance, contact_termination_rate, obstacle_collision_count
-- 3 Higher-is-Better: balance_stability_score, gait_smoothness_score (jump coordination smoothness),
-  stair_climbing_performance (jumping on stairs - terrain 3 only)
+- 2-3 Higher-is-Better: balance_stability_score, gait_smoothness_score (jumping coordination),
+  stair_climbing_performance (stairs terrain only)
 
-JUMPING-SPECIFIC MODIFICATIONS:
-- height_deviation: Measures jump trajectory consistency (smaller = more consistent jumping)
-- gait_smoothness_score: Measures jumping coordination smoothness (higher = better bilateral coordination)
-- stair_climbing_performance: Adapted for jumping on stairs (higher = better jumping ascent)
-
-All terrain types (0,1,2,3) now have identical metric sets for fair jumping comparison.
+Terrain types 0,1,2 have 7 metrics; Stairs terrain (type 3) has 8 metrics for comprehensive comparison.
 """
 
 import argparse
@@ -81,21 +76,21 @@ def to_title(text: str) -> str:
 
 
 def get_metric_description(category: str, metric: str) -> str:
-    """Get human-readable description for all 7 standardized jumping metrics."""
+    """Get human-readable description for all 7-8 standardized jumping metrics."""
     descriptions = {
-        # JUMPING-SPECIFIC METRICS (smaller is better)
-        "height_deviation": "Jump trajectory consistency - Smaller is Better",
+        # UNIVERSAL 6 JUMPING METRICS (smaller is better first 4, higher is better last 2)
+        "height_deviation": "Jump trajectory consistency (m) - Smaller is Better",
         "velocity_tracking_error": "Velocity tracking error (m/s) - Smaller is Better", 
         "disturbance_resistance": "External disturbance resistance - Smaller is Better",
         "contact_termination_rate": "Fall/contact failure rate - Smaller is Better",
         
-        # JUMPING COORDINATION QUALITY METRICS (higher is better)
-        "balance_stability_score": "Body stability score - Higher is Better",
-        "gait_smoothness_score": "Jump coordination smoothness - Higher is Better",
+        # JUMPING QUALITY METRICS (higher is better)
+        "balance_stability_score": "Body stability during jumps - Higher is Better",
+        "gait_smoothness_score": "Jumping coordination smoothness - Higher is Better",
         
-        # TERRAIN-SPECIFIC METRICS
+        # TERRAIN-SPECIFIC JUMPING METRICS
         "obstacle_collision_count": "Upper body collision count - Smaller is Better",  # Smaller is better
-        "stair_climbing_performance": "Stair jumping performance - Higher is Better",  # Higher is better (adapted for jumping)
+        "stair_climbing_performance": "Jumping height performance on stairs - Higher is Better",  # Higher is better
         
         # Summary Metrics
         "total_steps": "Total simulation steps",
@@ -107,10 +102,10 @@ def get_metric_description(category: str, metric: str) -> str:
 
 
 def is_higher_better_metric(metric: str) -> bool:
-    """Determine if higher values are better for this metric."""
+    """Determine if higher values are better for this jumping metric."""
     higher_better_metrics = {
         "balance_stability_score",
-        "gait_smoothness_score",
+        "gait_smoothness_score",  # Now represents jumping coordination
         "stair_climbing_performance"
     }
     return metric in higher_better_metrics
@@ -236,11 +231,11 @@ def plot_numeric_comparison(ax, env_name_a: str, env_name_b: str, data_a: Dict[s
         if higher_is_better:
             # For higher-is-better metrics
             if mean_a > mean_b:
-            winner_text = f"{env_name_a} WINS"
+                winner_text = f"{env_name_a} WINS"
                 winner_color = '#27AE60'
                 winner_icon = "🏆"
             elif mean_b > mean_a:
-            winner_text = f"{env_name_b} WINS"
+                winner_text = f"{env_name_b} WINS"
                 winner_color = '#27AE60'
                 winner_icon = "🏆"
             else:
@@ -257,8 +252,8 @@ def plot_numeric_comparison(ax, env_name_a: str, env_name_b: str, data_a: Dict[s
                 winner_text = f"{env_name_b} WINS"
                 winner_color = '#27AE60'
                 winner_icon = "🏆"
-        else:
-            winner_text = "TIE"
+            else:
+                winner_text = "TIE"
                 winner_color = '#F39C12'
                 winner_icon = "⚖️"
         
@@ -425,7 +420,7 @@ def create_summary_info_plot(fig, data_a: Dict[str, Any], data_b: Dict[str, Any]
     obs_dims_b = extract_obs_dims(meta_b.get('observation_space', ''))
     
     # Title
-    ax.text(0.5, 0.95, "Environment-Aware vs Foundation-Only Locomotion", 
+    ax.text(0.5, 0.95, "Environment-Aware vs Foundation-Only Jumping Locomotion", 
             ha='center', va='top', fontsize=16, weight='bold')
     
     # Create comparison table
@@ -443,11 +438,11 @@ Performance Summary:
 ├─ Mean Step Reward:     {summary_a.get('mean_step_reward', 'N/A')} vs {summary_b.get('mean_step_reward', 'N/A')}
 └─ Total Episodes:       {summary_a.get('total_episodes', 'N/A')} vs {summary_b.get('total_episodes', 'N/A')}
 
-Key Insights:
-• Observation space difference indicates sensor usage
-• Higher-dimensional space = environmental sensing enabled
-• Performance metrics show learning effectiveness
-• Comprehensive metrics below show detailed comparisons
+Key Jumping Insights:
+• Observation space difference indicates environmental sensor usage for jumping
+• Higher-dimensional space = environmental sensing enabled for terrain-aware jumping
+• Performance metrics show jumping learning effectiveness and coordination
+• Comprehensive jumping metrics below show detailed bilateral coordination comparisons
     """
     
     ax.text(0.1, 0.8, info_text, ha='left', va='top', fontsize=10, 
@@ -462,13 +457,13 @@ Key Insights:
 
 
 def main():
-    """Generate comprehensive comparison plots with enhanced aesthetics."""
-    parser = argparse.ArgumentParser(description="Generate comprehensive metric comparison plots")
-    parser.add_argument("--env_aware", required=True, help="Path to environment-aware data file")
-    parser.add_argument("--foundation_only", required=True, help="Path to foundation-only data file")
-    parser.add_argument("--outdir", default="plots_comprehensive", help="Output directory")
-    parser.add_argument("--env_aware_label", default="Environment-Aware", help="Label for environment-aware data")
-    parser.add_argument("--foundation_only_label", default="Foundation-Only", help="Label for foundation-only data")
+    """Generate comprehensive jumping metrics comparison plots with enhanced aesthetics."""
+    parser = argparse.ArgumentParser(description="Generate comprehensive jumping metric comparison plots")
+    parser.add_argument("--env_aware", required=True, help="Path to environment-aware jumping data file")
+    parser.add_argument("--foundation_only", required=True, help="Path to foundation-only jumping data file")
+    parser.add_argument("--outdir", default="plots_jumping_comprehensive", help="Output directory")
+    parser.add_argument("--env_aware_label", default="Environment-Aware Jumping", help="Label for environment-aware jumping data")
+    parser.add_argument("--foundation_only_label", default="Foundation-Only Jumping", help="Label for foundation-only jumping data")
     
     args = parser.parse_args()
     
@@ -510,7 +505,7 @@ def main():
     # Modern color palette
     modern_colors = ['#3498DB', '#E74C3C']  # Modern blue and red
     
-    # Plot all 8 jumping metrics (includes stair jumping for terrain 3)
+    # Plot all 7-8 standardized metrics (8 for stairs terrain)
     standardized_metrics = [
         # UNIVERSAL 6 METRICS
         'height_deviation',
@@ -521,15 +516,23 @@ def main():
         'gait_smoothness_score',
         # TERRAIN-SPECIFIC METRICS
         'obstacle_collision_count',
-        'stair_climbing_performance'  # Included for terrain 3 jumping
+        'stair_climbing_performance'  # Only available for stairs terrain (type 3)
     ]
     
     # Create plots with enhanced styling
     plot_count = 0
-    pdf_path = outdir / "comprehensive_8metrics_jumping_comparison.pdf"
+    pdf_path = outdir / "comprehensive_jumping_metrics_comparison.pdf"
     
     with PdfPages(pdf_path) as pdf:
         for metric in standardized_metrics:
+            # Check if metric exists in both datasets (some metrics are terrain-specific)
+            env_aware_has_metric = metric in env_aware_data.get('metrics', {})
+            foundation_only_has_metric = metric in foundation_only_data.get('metrics', {})
+            
+            if not (env_aware_has_metric and foundation_only_has_metric):
+                print(f"⏭️  Skipping {metric} - not available in both datasets")
+                continue
+            
             # Create figure with enhanced size and styling
             fig, ax = plt.subplots(figsize=(10, 7), dpi=150)
             fig.patch.set_facecolor('white')
@@ -542,7 +545,7 @@ def main():
             
             if success:
                 # Apply additional modern styling
-                fig.suptitle("Performance Comparison Study", 
+                fig.suptitle("Jumping Performance Comparison Study", 
                            fontsize=16, fontweight='bold', color='#2C3E50', y=0.95)
         
                 # Add subtle border around the plot
@@ -563,7 +566,7 @@ def main():
                 pdf.savefig(fig, bbox_inches='tight', facecolor='white')
                 
                 print(f"✅ Generated: {metric}")
-                    plot_count += 1
+                plot_count += 1
                 
                 plt.close(fig)
         
@@ -573,15 +576,15 @@ def main():
         for metric in summary_metrics:
             fig, ax = plt.subplots(figsize=(10, 7), dpi=150)
             fig.patch.set_facecolor('white')
-                
+            
             success = plot_numeric_comparison(
                 ax, args.env_aware_label, args.foundation_only_label,
                 env_aware_data, foundation_only_data, 
                 "summary", metric, modern_colors
             )
-                
-                if success:
-                fig.suptitle("Performance Comparison Study", 
+            
+            if success:
+                fig.suptitle("Jumping Performance Comparison Study", 
                            fontsize=16, fontweight='bold', color='#2C3E50', y=0.95)
                 
                 for spine in ax.spines.values():
@@ -591,7 +594,7 @@ def main():
                 
                 plt.tight_layout(rect=[0, 0, 1, 0.93])
                 
-                    filename = f"summary__{metric}.png"
+                filename = f"summary__{metric}.png"
                 out_path = outdir / filename
                 fig.savefig(out_path, dpi=300, bbox_inches='tight',
                            facecolor='white', edgecolor='none',
@@ -599,7 +602,7 @@ def main():
                 pdf.savefig(fig, bbox_inches='tight', facecolor='white')
                 
                 print(f"✅ Generated: Summary • {metric}")
-                    plot_count += 1
+                plot_count += 1
                 
                 plt.close(fig)
     
@@ -608,19 +611,20 @@ def main():
     print(f"📁 Output directory: {outdir}")
     print(f"📄 Combined PDF: {pdf_path}")
     print(f"🖼️  Individual PNGs: {plot_count} files")
-    print(f"\n🦘 COMPREHENSIVE JUMPING METRICS ANALYSIS (8 Standardized Metrics):")
-    print(f"\n   📉 SMALLER IS BETTER METRICS:")
-    print(f"      • Jump Trajectory Consistency: Movement quality (smaller = more consistent jumping)")
-    print(f"      • Velocity Tracking Error: Performance measure (smaller = better tracking)")  
-    print(f"      • Disturbance Resistance: Robustness measure (smaller = more robust)")
+    print(f"\n🎯 COMPREHENSIVE JUMPING METRICS ANALYSIS (7-8 Standardized Metrics):")
+    print(f"\n   📉 SMALLER IS BETTER JUMPING METRICS:")
+    print(f"      • Jump Trajectory Consistency: Movement quality (smaller = more consistent)")
+    print(f"      • Velocity Tracking Error: Command following (smaller = better tracking)")  
+    print(f"      • Disturbance Resistance: Robustness during jumps (smaller = more robust)")
     print(f"      • Contact Termination Rate: Fall prevention (smaller = fewer falls)")
-    print(f"      • Obstacle Collision Count: Safety measure (smaller = fewer collisions)")
-    print(f"\n   📈 HIGHER IS BETTER METRICS:")
-    print(f"      • Balance Stability Score: Body stability (higher = more stable)")
-    print(f"      • Jump Coordination Smoothness: Bilateral jumping (higher = better coordination)")
-    print(f"      • Stair Jumping Performance: Jumping ascent ability (higher = better)")
-    print(f"\n   🦘 All terrain types now have identical 8-metric sets for fair jumping comparison!")
+    print(f"      • Obstacle Collision Count: Safety during jumping (smaller = fewer collisions)")
+    print(f"\n   📈 HIGHER IS BETTER JUMPING METRICS:")
+    print(f"      • Balance Stability Score: Body stability during jumps (higher = more stable)")
+    print(f"      • Jumping Coordination Score: Bilateral jumping coordination (higher = smoother)")
+    print(f"      • Stair Climbing Performance: Jumping height performance on stairs (higher = better)")
+    print(f"\n   🎯 Terrain types 0,1,2 have 7 metrics; Stairs terrain (type 3) has 8 metrics!")
     print(f"\n   ✨ Enhanced with modern visual aesthetics and professional styling!")
+    print(f"\n   🦘 Specialized for jumping locomotion performance analysis!")
     
 
 if __name__ == "__main__":

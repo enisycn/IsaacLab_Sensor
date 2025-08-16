@@ -974,18 +974,27 @@ standard_rays_lateral = int(1.0 / 0.1) + 1 = 11 rays
 standard_total = 17 × 11 = 187 rays
 ```
 
-## 🎯 **Relative Height Tracking Rewards**
+## 🎯 **Height Sensor Selection for Different Tasks**
 
-### **1. ONLY Relative Terrain Navigation**
+Choose sensor type based on task requirements:
+
+| Task Type | Recommended Sensor | Reason |
+|-----------|-------------------|---------|
+| **Stair Climbing** | ✅ **Absolute** | Navigation requires world coordinates |
+| **Obstacle Avoidance** | ✅ **Relative** | Safety requires clearance measurements |
+| **Path Planning** | ✅ **Absolute** | Need actual terrain elevations |
+| **Foot Placement** | ✅ **Relative** | Need clearance above surface |
+
+### **1. Absolute Height for Navigation Tasks**
 ```python
-def relative_terrain_reward(env, sensor_cfg=SceneEntityCfg("height_scanner")):
-    """Pure relative height tracking - NO absolute positioning."""
+def navigation_height_reward(env, sensor_cfg=SceneEntityCfg("height_scanner")):
+    """Absolute height for stair climbing and navigation."""
     
     sensor = env.scene.sensors[sensor_cfg.name]
     
-    # Isaac Lab formula (RELATIVE measurements only)
-    height_readings = sensor.data.pos_w[:, 2].unsqueeze(1) - sensor.data.ray_hits_w[..., 2] - 0.5
-    baseline = 0.209  # G1 robot baseline
+    # Absolute world coordinates for navigation
+    terrain_heights = sensor.data.ray_hits_w[..., 2]
+    robot_height = env.scene["robot"].data.root_pos_w[:, 2]
     
     # Classification using ONLY sensor readings
     obstacles = height_readings < (baseline - obstacle_threshold)

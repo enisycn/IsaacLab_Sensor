@@ -29,6 +29,12 @@ You are an expert in analyzing humanoid locomotion tasks with advanced environme
    - **Obstacle Distribution:** Analyze obstacle density, size distribution, navigation complexity
    - **Terrain Characteristics:** Assess roughness, height variation, safety levels
 
+🔬 **CRITICAL SENSOR METHODOLOGY CLARIFICATION:**
+   - **Gap Detection Count**: Represents individual sensor rays that detected gaps, NOT separate gap regions
+   - **Ray-Based Analysis**: Each number reflects sensor rays hitting specific conditions (e.g., 109 rays detected gaps out of total sensor rays)
+   - **Percentage Interpretation**: Safety scores show proportion of rays (e.g., 65% = 65% of sensor rays found safe terrain)
+   - **Technical Accuracy**: "109 gaps detected" = "109 individual sensor rays detected gap conditions," not "109 separate holes in the ground"
+
 **3. VISUAL-SENSOR CORRELATION (Combined Analysis):**
    - **Cross-Validate Observations:** Compare visual footage with sensor measurements
    - **Identify Discrepancies:** Note differences between visual appearance and sensor data
@@ -67,47 +73,47 @@ If environmental analysis is NOT AVAILABLE (foundation-only mode), focus on basi
      Normal range: 0.139m to 0.279m
    📊 CORRECTED RAY ANALYSIS (Isaac Lab Standards):
      Total rays: 28350 (from 50 robots)
-     Height readings: -0.684m to 0.412m (avg: 0.089m)
+     Height readings: -0.634m to 0.446m (avg: 0.113m)
      Isaac Lab baseline: 0.209m (standard)
-     Measured baseline: 0.089m (actual terrain average)
+     Measured baseline: 0.113m (actual terrain average)
    ---
    🔺 OBSTACLES:
-     Count: 13436 rays (47.4%)
-     Tallest obstacle height above baseline: 0.823m
-       (Obstacle sensor reading: -0.684m)
+     Count: 12594 rays (44.4%)
+     Tallest obstacle height above baseline: 0.773m
+       (Obstacle sensor reading: -0.634m)
        (Isaac Lab baseline: 0.209m)
        (Threshold: <0.139m)
-       (Physical meaning: Terrain is 0.823m higher than expected)
+       (Physical meaning: Terrain is 0.773m higher than expected)
    🕳️  GAPS:
-     Count: 51 rays (0.2%)
-     Deepest gap depth below baseline: 0.133m
-       (Gap sensor reading: 0.412m)
+     Count: 109 rays (0.4%)
+     Deepest gap depth below baseline: 0.167m
+       (Gap sensor reading: 0.446m)
        (Isaac Lab baseline: 0.209m)
        (Threshold: >0.279m)
-       (Physical meaning: Terrain is 0.203m lower than expected)
-     Shallowest gap depth below baseline: 0.021m
-       (Gap sensor reading: 0.300m)
-       (Physical meaning: Terrain is 0.091m lower than expected)
+       (Physical meaning: Terrain is 0.237m lower than expected)
+     Shallowest gap depth below baseline: 0.029m
+       (Gap sensor reading: 0.308m)
+       (Physical meaning: Terrain is 0.099m lower than expected)
    🏞️  NORMAL TERRAIN:
-     Count: 14863 rays (52.4%)
+     Count: 15647 rays (55.2%)
      Definition: Terrain between 0.139m and 0.279m
      Range: ±0.07m tolerance zone around 0.209m baseline
-   🌊 TERRAIN ROUGHNESS: 2.7cm variation (🟠 ROUGH)
+   🌊 TERRAIN ROUGHNESS: 2.5cm variation (🟠 ROUGH)
    📡 LIDAR OBSTACLE ANALYSIS:
      Total LiDAR rays: 7200 (from 50 robots)
-     Obstacles detected: 3212 rays (44.6%)
-     Clear space (inf): 3988 rays (55.4%)
-     Closest obstacle: 0.980m
-     Farthest obstacle: 5.000m
-     Average obstacle distance: 2.779m
+     Obstacles detected: 3163 rays (43.9%)
+     Clear space (inf): 4037 rays (56.1%)
+     Closest obstacle: 1.041m
+     Farthest obstacle: 4.990m
+     Average obstacle distance: 2.858m
      📍 Distance classification:
-       🔴 Near obstacles (<2.0m): 469 rays (6.5%)
-       🟡 Moderate obstacles (2.0-4.0m): 2485 rays (34.5%)
-       🟢 Far obstacles (>4.0m): 258 rays (3.6%)
+       🔴 Near obstacles (<2.0m): 338 rays (4.7%)
+       🟡 Moderate obstacles (2.0-4.0m): 2554 rays (35.5%)
+       🟢 Far obstacles (>4.0m): 271 rays (3.8%)
      Obstacle density: 🟡 MODERATE
      Navigation impact: ⚠️ MODERATE RISK - Careful navigation required
    🚨 Overall terrain safety: 🔴 DANGEROUS
-     Reason: 0.2% gaps (limit: 10.0%), 47.4% obstacles (limit: 30.0%)
+     Reason: 0.4% gaps (limit: 10.0%), 44.4% obstacles (limit: 30.0%)
 <!-- ENVIRONMENT_ANALYSIS_END -->
 
 **🎯 ANALYSIS MODE INSTRUCTIONS:**
@@ -412,6 +418,16 @@ Based on the environment analysis, provide specific task description guidance:
 - **Safety Prioritization:** Balance task completion with environmental risk factors
 - **Sensor Integration:** 🎯 **CRITICAL FOR COMPARATIVE ANALYSIS** - Emphasize that environmental sensors (height scanner, LiDAR) MUST be actively utilized to achieve superior performance compared to foundation-only mode. Describe specific sensor-based advantages for navigation, obstacle avoidance, and terrain adaptation.
 
+🎯 **TERRAIN-SENSOR CONSISTENCY REQUIREMENTS:**
+**Critical Integration Principle**: Sensor analysis must align with and explain the selected terrain classification:
+
+- **STAIRS Environment**: Sensor-detected height variations indicate stair geometry features (risers, treads, landings), not separate gap or obstacle hazards.
+- **GAP Environment**: Sensor readings showing elevation changes represent gap-related features (gap edges, landing platforms), not independent obstacles or stairs.
+- **OBSTACLE Environment**: Sensor detections identify obstacle-related features for navigation, not gaps or stair patterns.
+- **SIMPLE Environment**: Minimal sensor variation confirms smooth/flat terrain characteristics.
+
+**Analysis Coherence**: When describing sensor-based advantages, ensure detected features support and explain the primary terrain classification rather than suggesting conflicting terrain types.
+
 **TASK COMPLEXITY SCALING:**
 - **Complex environments:** Emphasize safety-focused task descriptions
 - **Simple environments:** Focus on efficiency and task completion objectives
@@ -482,6 +498,7 @@ Your analysis must END with this exact format:
 
 📊 NUMERICAL ANALYSIS RESULTS:
 - Gaps Detected: [EXACT NUMBER FROM ANALYSIS] gaps with varying characteristics
+  ⚠️ CLARIFICATION: This number represents individual sensor rays that detected gaps, NOT the total number of separate gap regions. Each ray scans a specific direction and reports gap detection. The percentage in safety score shows the proportion of rays detecting gaps vs total rays scanned.
 - Obstacles Detected: [EXACT NUMBER FROM ANALYSIS] large obstacles  
 - Terrain Roughness: [EXACT VALUE FROM ANALYSIS]cm ([complexity level], [above/below] threshold [threshold value]cm)
 - Safety Score: [EXACT PERCENTAGE FROM ANALYSIS]% traversable terrain

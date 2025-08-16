@@ -40,7 +40,7 @@ from .rough_env_cfg import SDSG1RoughEnvCfg, SIMPLE_LEARNING_TERRAIN_CFG  # Impo
 # 1: Gaps terrain (mixed flat + gaps: 30% flat areas, 35% easy gaps 15-25cm, 35% medium gaps 25-35cm, depth 30-40cm)
 # 2: Obstacles terrain (discrete obstacle avoidance)
 # 3: Stairs terrain (stair climbing and steps)
-TERRAIN_TYPE = 3 # Default to SIMPLE for baseline training
+TERRAIN_TYPE = 3 # Stairs terrain for stair climbing training
 
 # 🔧 SENSORS CONTROL: Toggle environmental sensing capabilities
 # SENSORS_ENABLED = True:  Full environmental sensing (height scanner + lidar + sensor observations)
@@ -154,25 +154,26 @@ OBSTACLES_TERRAIN_CFG = TerrainGeneratorCfg(
 # - Environment-aware mode benefits from step preview and foot placement planning
 STAIRS_TERRAIN_CFG = TerrainGeneratorCfg(
     size=(8.0, 8.0),
-    border_width=1.0,
+    border_width=2.0,
     num_rows=5,     
     num_cols=8,     
     horizontal_scale=0.1,
     vertical_scale=0.005,
     slope_threshold=0.75,
     use_cache=False,
-    curriculum=True,  # Enable curriculum for progressive difficulty
+    curriculum=False,  # Disable curriculum - force stairs from start for debugging
     sub_terrains={
         "flat_corridors": terrain_gen.MeshPlaneTerrainCfg(
             proportion=0.1,  # 10% flat approach areas
             size=(1.5, 1.5),
         ),
-        "descending_stairs": terrain_gen.MeshInvertedPyramidStairsTerrainCfg(  # DESCENDING for upward climbing
-            proportion=0.9,  # 90% stair coverage for intensive climbing practice
+        "regular_mesh_stairs": terrain_gen.MeshPyramidStairsTerrainCfg(  # ✅ Regular mesh stairs (robot descends then ascends)
+            proportion=0.90,  # 90% stair coverage for mixed terrain navigation
             step_height_range=(0.10, 0.10),  # Fixed 10cm steps for consistency
             step_width=0.30,  # Fixed 30cm step width
-            platform_width=2.0,  # Wide platforms for stable foot placement
-            border_width=0.6,  # Minimal border for maximum stair coverage
+            platform_width=2.0,  # Central platform for robot spawning
+            border_width=0.6,   # Minimal border for maximum stair coverage
+            holes=False,        # No holes in the steps
         ),
     },
 )
@@ -231,11 +232,11 @@ class SDSG1FlatWithBoxEnvCfg(SDSG1RoughEnvCfg):
             self.scene.terrain.terrain_generator = STAIRS_TERRAIN_CFG
             print("🪜 TERRAIN TYPE 3: STAIRS terrain for stair climbing and step navigation")
             
-            # ✅ WAYPOINT NAVIGATION: keep target forward at (3.0, 0.0)
-            self.commands.base_velocity.ranges.lin_vel_x = (0.8, 1.2)
-            self.commands.base_velocity.ranges.lin_vel_y = (-0.05, 0.05)
-            self.commands.base_velocity.ranges.ang_vel_z = (-0.1, 0.1)
-            print("🎯 WAYPOINT COMMANDS: Forward velocity 0.8-1.2 m/s toward target (0, 3)")
+            # ✅ FIXED: Slow controlled forward movement for stair climbing
+            self.commands.base_velocity.ranges.lin_vel_x = (0.1, 0.3)
+            self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)  # No lateral movement
+            self.commands.base_velocity.ranges.ang_vel_z = (0.0, 0.0)  # No turning
+            print("🎯 FIXED COMMANDS: Slow controlled forward velocity 0.1-0.3 m/s for stair climbing")
         
         # Simple arm positions for natural walking
         self.scene.robot.init_state.joint_pos.update({
@@ -258,10 +259,10 @@ class SDSG1FlatWithBoxEnvCfg(SDSG1RoughEnvCfg):
         if SENSORS_ENABLED:
             print("🔧 SENSORS ENABLED: Full environmental sensing capabilities activated")
             
-            # 1. HEIGHT SCANNER - For terrain height detection  
+            # 1. HEIGHT SCANNER - For terrain height detection (Isaac Lab default offset)
             self.scene.height_scanner = RayCasterCfg(
                 prim_path="{ENV_REGEX_NS}/Robot/torso_link", 
-                offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 0.696)),  # ✅ ADJUSTED: 69.6cm above torso to achieve 0.709m sensor height → 0.209m baseline
+                # Using Isaac Lab default offset (no custom offset)
                 attach_yaw_only=True,
                 pattern_cfg=patterns.GridPatternCfg(
                     resolution=0.075,  # 🚀 IMPROVED: 7.5cm resolution (was 15cm) - 2x better gap detection!

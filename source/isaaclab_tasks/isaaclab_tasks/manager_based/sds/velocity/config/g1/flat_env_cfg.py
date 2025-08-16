@@ -32,12 +32,13 @@ class SDSG1FlatEnvCfg(SDSG1RoughEnvCfg):
         # self.rewards.sds_custom is already configured in the base class
 
         # Commands - CORRECTED: Zero velocity for stationary jumping (SDS locomotion tasks)
+        # ✅ FIXED: Slow controlled forward movement for better locomotion
         # NOTE: For different locomotion tasks, adjust these velocity ranges:
         # - Stationary (jumping): (0.0, 0.0) for all axes
-        # - Walking/Running: (0.0, 1.2) for lin_vel_x, (-0.3, 0.3) for lin_vel_y, (-0.5, 0.5) for ang_vel_z
-        self.commands.base_velocity.ranges.lin_vel_x = (0.2, 0.8)   # Allow backward movement + forward velocity
-        self.commands.base_velocity.ranges.lin_vel_y = (-0.15, 0.15)  # Increased lateral movement range
-        self.commands.base_velocity.ranges.ang_vel_z = (-0.3, 0.3)  # Increased turning range for better maneuverability
+        # - Slow controlled walking: (0.1, 0.3) for lin_vel_x, (0.0, 0.0) for others
+        self.commands.base_velocity.ranges.lin_vel_x = (0.1, 0.3)   # Slow controlled movement
+        self.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)   # ✅ NO lateral movement
+        self.commands.base_velocity.ranges.ang_vel_z = (0.0, 0.0)   # ✅ NO turning commands
 
         # change terrain to flat
         self.scene.terrain.terrain_type = "plane"

@@ -45,6 +45,16 @@
 - Include the terrain type reasoning from the environment image analysis
 - Use this classification to guide your component selection strategy
 
+🎯 **TERRAIN-SENSOR CONSISTENCY REQUIREMENTS:**
+**Critical**: Sensor readings must be interpreted within the context of the selected terrain type:
+
+- **STAIRS Terrain**: When terrain type is STAIRS, sensor-detected height variations represent stair features (steps, landings), not separate gaps or obstacles to avoid.
+- **GAP Terrain**: When terrain type is GAP, sensor readings showing elevation changes are gap-related features (edges, platforms), not independent obstacles.
+- **OBSTACLE Terrain**: When terrain type is OBSTACLE, sensor detections represent obstacle features for navigation, not gaps or stairs.
+- **SIMPLE Terrain**: When terrain type is SIMPLE, minimal sensor variation confirms flat terrain characteristics.
+
+**Integration Rule**: Sensor analysis should support and explain the primary terrain classification, not suggest conflicting terrain types.
+
 **🎯 TERRAIN NAVIGATION STRATEGY GUIDANCE:**
 
 **STRATEGIC DECISION FLEXIBILITY:**
@@ -60,8 +70,10 @@
 
 **THE SUS PROMPT CONTAINS EXACT LINES LIKE:**
 - "- Gaps Detected: 34 gaps (5 steppable, 17 jumpable, 12 impossible)"
+  📊 TECHNICAL NOTE: This represents 34 sensor rays that detected gap conditions, not 34 separate holes
 - "- Terrain Roughness: 2.6cm (below threshold 20cm)"  
 - "- Safety Score: 88.7% traversable terrain"
+  📊 TECHNICAL NOTE: This shows percentage of sensor rays that found safe terrain
 
 **🚫 FOUNDATION-ONLY MODE DETECTION:**
 **IF YOU SEE N/A VALUES LIKE:**
@@ -339,10 +351,10 @@ total = (basic_movement * 2.0 + progress * 1.0 + coordination_bonus + baseline).
 🚨 **REJECTION CRITERIA:** Any reward function using fake data (0 gaps, 0 obstacles, 0.2cm roughness, 100% safety) will be INVALID!
 
 **CRITICAL: ENSURE IMPLEMENTATION FOLLOWS DETECTION:**
-- **Obstacles detected** → MUST include LiDAR-based obstacle avoidance (use `env.scene.sensors["lidar"]`)
+- **Obstacles detected** → Consider LiDAR-based navigation strategy (use `env.scene.sensors["lidar"]`) - decide optimal approach
 - **Gaps detected** → MUST include height scanner gap navigation (use `env.scene.sensors["height_scanner"]`)
 - **Gap crossing** → Reward CROSSING BEHAVIOR (maintaining height over gaps), not just detection
-- **Obstacle avoidance** → Reward SAFE DISTANCES from obstacles, not just sensing them
+- **Obstacle navigation** → Decide optimal strategy (safe distances, stepping over, path planning) based on analysis
 
 **🎯 SENSOR-DRIVEN BEHAVIORA L ADAPTATION REQUIREMENT 🎯**
 
@@ -547,7 +559,7 @@ foundation_locomotion_reward = velocity_tracking + orientation_stability + heigh
 **DECISION LOGIC FOR ENVIRONMENTAL SENSING:**
 - **ALWAYS**: Start reward function with environmental analysis acknowledgment comment
 - **IF environment analysis shows gaps detected (>0)**: MUST INCLUDE gap navigation components
-- **IF environment analysis shows obstacles detected (>0)**: MUST INCLUDE obstacle avoidance components
+- **IF environment analysis shows obstacles detected (>0)**: Consider appropriate navigation strategy components
 - **IF environment analysis shows stairs/slopes detected**: MUST INCLUDE terrain adaptation components
 - **IF environment analysis data contains specific numbers**: USE those exact numbers in your decisions
 
@@ -565,7 +577,7 @@ foundation_locomotion_reward = velocity_tracking + orientation_stability + heigh
 **ABSOLUTE REQUIREMENTS:**
 - **ALWAYS**: Start reward function with environmental analysis acknowledgment comment
 - **IF environment analysis shows gaps detected (>0)**: MUST INCLUDE gap navigation components
-- **IF environment analysis shows obstacles detected (>0)**: MUST INCLUDE obstacle avoidance components  
+- **IF environment analysis shows obstacles detected (>0)**: Consider appropriate navigation strategy components  
 - **IF terrain roughness exceeds threshold**: MUST INCLUDE terrain adaptation components
 - **IF environment analysis data contains specific numbers**: USE those exact numbers in your decisions
 - **IF environment is truly flat with no features**: Focus foundation-only BUT DOCUMENT THIS DECISION
@@ -1210,7 +1222,7 @@ gap_width_raw = torch.sum(consecutive_gap_points.float(), dim=1) * 0.075  # 7.5c
 # Gap classification based on environmental analysis data
 steppable_gaps = extract_steppable_gaps_from_analysis()      # Small gaps: Step over
 jumpable_gaps = extract_jumpable_gaps_from_analysis()       # Medium gaps: Jump required
-impossible_gaps = extract_impossible_gaps_from_analysis()   # Large gaps: Must avoid
+impossible_gaps = extract_impossible_gaps_from_analysis()   # Large gaps: Strategy decision needed
 
 # Count terrain features for adaptive navigation
 total_rays = height_measurements.shape[-1]  # 567 rays
@@ -1297,13 +1309,19 @@ total_reward = (basic_locomotion_reward * locomotion_weight +
                environmental_adaptation_reward * environmental_weight)
 ```
 
-**🎯 G1 BASELINE KEY IMPLEMENTATION PRINCIPLES:**
-1. **Use G1 baseline classification**: Always use baseline = 0.209m with ±0.07m thresholds
+**🎯 HEIGHT SENSOR SELECTION PRINCIPLES:**
+1. **Task-based sensor choice**: Select absolute or relative based on task requirements, not rigid rules
 2. **Direct sensor usage**: Use sensor data directly from Isaac Lab APIs
-3. **Relative terrain classification**: Obstacles (< 0.139m), Gaps (> 0.279m), Normal (0.139-0.279m)
-4. **Precise baseline tracking**: Reward staying within 3cm of G1 baseline for terrain adaptation
-5. **Count-based terrain analysis**: Use ray counts and ratios for adaptive navigation strategies
-6. **NO absolute height tracking**: Use ONLY relative terrain classification for navigation rewards
+3. **Stair climbing**: Use absolute heights (world coordinates) for clear navigation goals
+4. **Obstacle avoidance**: Use relative heights (clearance) for safety measurements
+5. **Path planning**: Use absolute heights for terrain elevation mapping
+6. **Foot placement**: Use relative heights for clearance above surface
+
+📊 **SENSOR SELECTION TABLE:**
+| Task Type | Sensor Type | Formula | Use Case |
+|-----------|-------------|---------|----------|
+| Stair Climbing | Absolute | `ray_hits_w[..., 2]` | Navigation to target elevations |
+| Obstacle Avoidance | Relative | `pos_w[:, 2] - ray_hits_w[..., 2] - 0.5` | Safety clearance maintenance |
 
 ---
 

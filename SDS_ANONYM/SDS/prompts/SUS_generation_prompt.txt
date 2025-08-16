@@ -34,6 +34,9 @@ You are an expert in humanoid robotics and task specification generation. Your o
 
 **IF the Task Description contains environmental analysis data, you MUST copy the EXACT numerical values without any summarizing, paraphrasing, or omission. This data is ESSENTIAL for downstream reward engineering.**
 
+🔬 **TECHNICAL CLARIFICATION FOR SENSOR DATA:**
+When copying gap detection data (e.g., "Gaps Detected: 109 gaps"), understand that this represents individual sensor rays that detected gaps, not separate gap regions. Include this clarification in your output to guide proper reward interpretation. This ensures downstream reward engineers understand the ray-based nature of the sensor data.
+
 **🚫 FOUNDATION-ONLY MODE N/A VALUE HANDLING:**
 
 **IF the Task Description contains N/A values (indicating foundation-only mode):**

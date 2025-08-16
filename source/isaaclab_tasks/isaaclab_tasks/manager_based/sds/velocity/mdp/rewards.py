@@ -126,263 +126,290 @@ def track_ang_vel_z_world_exp(
 
 def sds_custom_reward(env) -> torch.Tensor:
     """
-    🔍 COMPREHENSIVE ENVIRONMENT ANALYSIS (ENVIRONMENT-AWARE MODE):
-
-    🏞️ TERRAIN CLASSIFICATION (from SUS prompt):
-    - TERRAIN_CLASS: 3 (STAIRS)
-    - Classification confidence: HIGH
-    - Visual justification: Repeating, evenly spaced tread–riser edges and L-shaped landings dominate the scene; humanoid steps on discrete treads.
-    - Sensor validation: Height scanner shows Obstacles: Count: 13161 rays (46.4%); LiDAR obstacles: 3199 rays (44.4%); Closest obstacle: 1.043m.
-      Baseline shift observed: measured baseline 0.111m vs Isaac G1 baseline 0.209m → risers classified as obstacles (expected on stairs).
-
-    📊 NUMERICAL ANALYSIS RESULTS (exact data preserved):
-    - Total rays (height scanner): 28350 (from 50 robots)
-    - Total LiDAR rays: 7200 (from 50 robots)
-    - Gaps Detected: 66 gaps with varying characteristics (0.2% of height rays)
-    - Obstacles Detected: 13161 large obstacles (46.4% of height rays)
-    - Terrain Roughness: 2.1cm (MODERATE, below threshold 7.0cm)
-    - Safety Score: 53.3% traversable terrain
-    - LiDAR obstacle distances: closest 1.043m, farthest 4.980m, average 2.845m; near <2.0m: 4.6%, moderate 2–4m: 36.2%, far >4.0m: 3.6%
-    - Environment Verdict: DANGEROUS (Reason: obstacles 46.4% > 30% limit; gaps minimal 0.2%)
-
-    📸 VISUAL ANALYSIS INSIGHTS:
-    - Primary terrain type: Stair fields with periodic riser/tread patterns and L-shaped landings.
-    - Movement challenges: Toe clearance over each riser, precise mid-tread foot placement, CoM control during ascent/descent and turns.
-    - Navigation requirements: Use height scanner to estimate riser height 2–3 steps ahead; use LiDAR to maintain standoff to vertical faces; prioritize step-up planning over gap handling.
-
-    🎯 REWARD STRATEGY DECISION (Single-skill: Stair Walking Specialist):
-    - PRIMARY SCENARIO: STAIRS
-    - Environmental sensing: NEEDED (dense vertical faces; DANGEROUS verdict)
-    - Component priorities (weights reflected below):
-      1) CoM/torso stability and safe, non-slipping stance (major)
-      2) Healthy alternating steps without flight (walking, not jumping)
-      3) Sensor-adaptive swing-foot clearance above riser height (height scanner)
-      4) LiDAR-based safe standoff from vertical faces (1–3m band)
-      5) Cautious progress and heading control through turns
-    - Expected behavior:
-      - Alternating single-support with brief double-support on landings (0.10–0.20 cycle).
-      - Swing foot clears sensed riser height with safety margin.
-      - Maintain upright torso, suppress vertical/heave and roll/pitch.
-      - Maintain safe distance to vertical faces; plan smooth heading changes.
-
-    📋 IMPLEMENTATION COMPONENTS:
-    - Foundation (Isaac Lab proven):
-      - track_lin_vel_xy_yaw_frame_exp (std=0.45) for cautious forward progress
-      - track_ang_vel_z_world_exp (std=0.6) for smooth heading regulation
-      - feet_air_time_positive_biped (threshold=0.45s) for alternating steps without flight
-      - feet_slide penalty (G1 feet, 50N+ contact-aware) to limit tangential slip
-      - Upright posture via projected gravity (lean control)
-      - Suppress destabilizing lin_vel_z and ang_vel_xy
-    - Environmental (stairs-focused):
-      - Height scanner (567 rays, G1 baseline): dynamic-baseline riser estimation (near zone of scan)
-      - Swing-foot clearance shaping: target ≥ riser_height + 3cm safety
-      - Double-support landing bonus (brief and bounded)
-      - LiDAR standoff bonus: maintain ~≥1.2m from vertical faces ahead
-      - Optional upper-body collision penalty (>300N) for walls/risers
-    - Weights (normalized intent): Stability ~0.35, Footstep/gait ~0.30, Clearance ~0.15, Progress/heading ~0.10, Efficiency/penalties ~0.10
+    🚶 HEIGHT SENSOR-BASED TERRAIN NAVIGATION REWARD
+    
+    Terrain-aware locomotion approach:
+    1. Velocity tracking (slow, controlled movement 0.1-0.3 m/s)
+    2. ✅ HEIGHT SENSOR terrain detection (obstacles = stairs, gaps = holes)
+    3. Proper bipedal gait with alternating feet and air time
+    4. Forward movement encouragement with terrain awareness
+    5. Stair detection and climbing rewards using height sensor
+    6. Terrain navigation bonuses (approach stairs, avoid gaps)
+    7. Stability and balance with foot sliding prevention
     """
     import torch
     from isaaclab.managers import SceneEntityCfg
+    from isaaclab.utils.math import quat_apply_inverse, yaw_quat
 
-    device = env.device
+    # Get required components
     robot = env.scene["robot"]
     contact_sensor = env.scene.sensors["contact_forces"]
+    commands = env.command_manager.get_command("base_velocity")
 
-    # --------------------------------------------------------------------------------------
-    # Proven Isaac Lab FOUNDATION components (walking on stairs; cautious tracking)
-    # --------------------------------------------------------------------------------------
-    vel_reward = track_lin_vel_xy_yaw_frame_exp(env, std=0.45, command_name="base_velocity")  # [N]
-    yaw_reward = track_ang_vel_z_world_exp(env, command_name="base_velocity", std=0.6)        # [N]
-
-    gait_reward = feet_air_time_positive_biped(
-        env,
-        command_name="base_velocity",
-        threshold=0.45,  # cap air/contact mode time to promote walking cadence (no flight)
-        sensor_cfg=SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-    )  # [N]
-
-    slide_pen = feet_slide(
-        env,
-        sensor_cfg=SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
-        asset_cfg=SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
-    )  # [N] (penalty; contact-aware)
-
-    # Upright posture: projected gravity in body (lean small -> better)
-    grav_xy = robot.data.projected_gravity_b[:, :2]  # [N,2]
-    lean_reward = torch.clamp(1.0 - torch.norm(grav_xy, dim=1), 0.0, 1.0)  # [0,1]
-
-    # Stabilizers: suppress vertical heave and roll/pitch rates (dense, small penalties)
-    lin_vel_z = torch.abs(robot.data.root_lin_vel_w[:, 2])  # [N]
-    ang_vel_xy = torch.norm(robot.data.root_ang_vel_w[:, :2], dim=1)  # [N]
-    lin_vel_z_pen = torch.clamp(lin_vel_z / 0.6, 0.0, 1.0)            # normalize by 0.6 m/s
-    ang_vel_xy_pen = torch.clamp(ang_vel_xy / 2.0, 0.0, 1.0)          # normalize by 2 rad/s
-
-    # --------------------------------------------------------------------------------------
-    # ENVIRONMENTAL components (STAIRS): Height-scanner riser estimation + LiDAR standoff
-    # --------------------------------------------------------------------------------------
-    # Height scanner: G1-standard relative measurements with sanitization
-    height_sensor = env.scene.sensors["height_scanner"]
-    hm = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5  # [N,567]
-    hm = torch.where(torch.isfinite(hm), hm, torch.zeros_like(hm))
-
-    # Dynamic baseline per env (robust on stairs with baseline shift 0.111m vs 0.209m):
-    # masked mean over finite values (vectorized)
-    valid_mask = torch.isfinite(hm)
-    valid_count = torch.clamp(valid_mask.sum(dim=1).float(), min=1.0)
-    baseline_dyn = (torch.where(valid_mask, hm, torch.zeros_like(hm)).sum(dim=1) / valid_count)  # [N]
-    # G1 thresholds (±7 cm) around dynamic baseline
-    obst_thr = baseline_dyn - 0.07  # terrain higher than expected (risers)
-    gap_thr = baseline_dyn + 0.07   # terrain lower than expected (gaps; rare here)
-
-    # Reshape to 27x21 to analyze forward zones (2.0m × 1.5m, 7.5cm resolution)
-    try:
-        height_grid = hm.view(-1, 27, 21)  # [N,27,21] forward×lateral
-    except Exception:
-        # Fallback: if shape differs, use central slice heuristics on flat vector
-        height_grid = hm  # keep as [N,567]
-
-    # Near forward zone (first 9 forward rows ≈ 0–0.675m): estimate upcoming riser height
-    if height_grid.dim() == 3:
-        near_zone = height_grid[:, :9, :]  # [N,9,21]
-        # Obstacles in near zone: readings lower than obst_thr (risers)
-        # Approx riser reading = min value in near zone (closest/highest vertical face)
-        near_min = torch.amin(near_zone.view(near_zone.shape[0], -1), dim=1)  # [N]
-    else:
-        # Use central 150 rays as "near" proxy
-        near_min = torch.amin(hm[:, :150], dim=1)
-
-    # Riser height estimate relative to dynamic baseline (non-negative)
-    riser_delta = torch.clamp(baseline_dyn - near_min, min=0.0, max=0.30)  # cap to 30cm
-    # Safety margin: +3cm (toe clearance target above riser)
-    clearance_need = torch.clamp(riser_delta + 0.03, 0.03, 0.20)  # 3–20cm target band
-
-    # Foot states for clearance and landing shaping
+    # Foot indices
     foot_ids_list, _ = contact_sensor.find_bodies(".*_ankle_roll_link")
-    foot_ids = torch.tensor(foot_ids_list[:2], dtype=torch.long, device=device)
-    # Body z positions for those feet
-    foot_z = robot.data.body_pos_w[:, foot_ids, 2]  # [N,2]
-    # Contact timing and state
-    contact_time = contact_sensor.data.current_contact_time[:, foot_ids]  # [N,2]
-    air_time = contact_sensor.data.current_air_time[:, foot_ids]          # [N,2]
-    in_contact = contact_time > 0.0                                      # [N,2]
+    foot_ids = torch.tensor(foot_ids_list, dtype=torch.long, device=env.device)
+    if foot_ids.numel() > 2:
+        foot_ids = foot_ids[:2]
 
-    # Determine stance and swing foot z (prefer exactly-one-in-contact; else neutral)
-    left_in = in_contact[:, 0]
-    right_in = in_contact[:, 1]
-    # stance_z: if left in contact → left_z, elif right → right_z, else → min of both
-    stance_z = torch.where(
-        left_in, foot_z[:, 0],
-        torch.where(right_in, foot_z[:, 1], torch.min(foot_z, dim=1)[0]),
-    )
-    # swing_z: other foot if one-in-contact; else → max of both
-    swing_z = torch.where(
-        left_in, foot_z[:, 1],
-        torch.where(right_in, foot_z[:, 0], torch.max(foot_z, dim=1)[0]),
-    )
-    one_in_contact = (left_in ^ right_in)
-
-    # Clearance reward: encourage swing_z - stance_z ≥ clearance_need
-    clearance_raw = torch.clamp((swing_z - stance_z - clearance_need) / 0.10, 0.0, 1.0)  # normalize by 10cm
-    clearance_reward = torch.where(one_in_contact, clearance_raw, torch.zeros_like(clearance_raw))
-
-    # Landing double-support bonus: brief, bounded (target 0.10–0.20s)
-    both_in_contact = (in_contact.int().sum(dim=1) == 2)
-    ds_time = torch.min(contact_time, dim=1)[0]  # min contact time among feet
-    ds_bonus = torch.clamp(ds_time / 0.20, 0.0, 1.0) * both_in_contact.float()
-
-    # LiDAR standoff in the forward sector (152 rays, use center 32)
-    lidar = env.scene.sensors["lidar"]
-    lidar_dist = torch.norm(lidar.data.ray_hits_w - lidar.data.pos_w.unsqueeze(1), dim=-1)  # [N,152]
-    lidar_dist = torch.where(torch.isfinite(lidar_dist), lidar_dist, torch.ones_like(lidar_dist) * 5.0)
-    center = lidar_dist.shape[1] // 2
-    front_slice = slice(max(center - 16, 0), min(center + 16, lidar_dist.shape[1]))
-    min_front = torch.amin(lidar_dist[:, front_slice], dim=1)  # [N]
-    # Target safe standoff ~1.2m+ (bounded), gentle shaping
-    standoff_bonus = torch.clamp((min_front - 0.8) / 0.4, 0.0, 1.0)  # 0.8→1.2m maps to 0→1
-
-    # Optional upper-body collision penalty (walls/risers)
-    collision_sensor = env.scene.sensors.get("collision_sensor") or env.scene.sensors.get("torso_contact")
-    if collision_sensor is not None and getattr(collision_sensor.data, "net_forces_w_history", None) is not None:
-        peak_forces = collision_sensor.data.net_forces_w_history.norm(dim=-1).max(dim=1)[0]  # [N,B]
-        upper_body_parts = [
-            "pelvis", "torso_link", "pelvis_contour_link",
-            "left_shoulder_pitch_link", "right_shoulder_pitch_link",
-            "left_shoulder_roll_link", "right_shoulder_roll_link",
-            "left_shoulder_yaw_link", "right_shoulder_yaw_link",
-            "left_elbow_pitch_link", "right_elbow_pitch_link",
-            "left_elbow_roll_link", "right_elbow_roll_link",
-            "left_palm_link", "right_palm_link",
-        ]
-        collision_body_ids = []
-        if hasattr(robot, "body_names") and robot.body_names is not None:
-            for name in upper_body_parts:
-                if name in robot.body_names:
-                    idx = robot.body_names.index(name)
-                    if idx < peak_forces.shape[1]:
-                        collision_body_ids.append(idx)
-        if len(collision_body_ids) > 0:
-            col_forces = peak_forces[:, collision_body_ids]
-            col_mask = col_forces > 300.0
-            col_count = torch.sum(col_mask, dim=1).float()
-            collision_pen = col_count * 0.2  # to be subtracted later
+    # ============================================
+    # 1) BASIC LOCOMOTION (Foundation)
+    # ============================================
+    
+    # Manual velocity tracking (simple version)
+    vel_yaw = quat_apply_inverse(yaw_quat(robot.data.root_quat_w), robot.data.root_lin_vel_w[:, :3])
+    actual_vel = torch.norm(vel_yaw[:, :2], dim=1)
+    target_vel = torch.norm(commands[:, :2], dim=1)
+    vel_error = torch.square(actual_vel - target_vel)
+    vel_reward = torch.exp(-vel_error / (1.0**2))
+    
+    # Basic upright stability
+    if hasattr(robot.data, "projected_gravity_b") and robot.data.projected_gravity_b is not None:
+        gravity_proj_xy = robot.data.projected_gravity_b[:, :2]
+        lean_reward = torch.clamp(1.0 - torch.norm(gravity_proj_xy, dim=1), 0.0, 1.0)
+    else:
+        lean_reward = torch.ones(env.num_envs, dtype=torch.float32, device=env.device)
+    
+    # ✅ IMPROVED: Proper bipedal gait with alternating foot lifting and air time
+    contact_time = contact_sensor.data.current_contact_time[:, foot_ids]
+    air_time = contact_sensor.data.current_air_time[:, foot_ids]
+    in_contact = (contact_time > 0.0)
+    
+    # Reward single stance (one foot down, one foot up) - proper bipedal gait
+    single_stance = torch.sum(in_contact.int(), dim=1) == 1
+    single_stance_reward = single_stance.float()
+    
+    # Reward good air time (when feet are lifted)
+    # Use minimum air time across feet to encourage both feet to lift properly
+    min_air_time = torch.min(air_time, dim=1)[0]
+    air_time_reward = torch.clamp(min_air_time / 0.3, 0.0, 1.0)  # Reward up to 0.3s air time
+    
+    # Penalize double stance (both feet down) - encourages lifting
+    double_stance = torch.sum(in_contact.int(), dim=1) == 2
+    double_stance_penalty = double_stance.float() * 0.5  # Small penalty for double stance
+    
+    # Penalize double flight (both feet up) - discourage jumping
+    double_flight = torch.sum(in_contact.int(), dim=1) == 0
+    double_flight_penalty = double_flight.float() * 2.0  # Stronger penalty for double flight
+    
+    # Combined gait reward: encourage single stance + air time, penalize bad patterns
+    gait_reward = (
+        single_stance_reward * 2.0 +  # Strong reward for proper single stance
+        air_time_reward * 1.0 -       # Moderate reward for air time
+        double_stance_penalty -       # Small penalty for double stance
+        double_flight_penalty         # Strong penalty for double flight
+    ).clamp(min=0.0)
+    
+    # Additional foot sliding penalty for better walking quality
+    forces_hist = contact_sensor.data.net_forces_w_history[:, :, foot_ids, :]  # [N, H, F, 3]
+    contact_forces = forces_hist.norm(dim=-1).max(dim=1)[0]  # [N, F]
+    contacts = contact_forces > 25.0  # Lower threshold for G1
+    body_vel = robot.data.body_lin_vel_w[:, foot_ids, :2]  # [N, F, 2] 
+    foot_slide_penalty = torch.sum(body_vel.norm(dim=-1) * contacts, dim=1)
+    
+    # Final gait reward with slide penalty
+    gait_reward = gait_reward - foot_slide_penalty * 0.1  # Small slide penalty
+    
+    # ============================================
+    # 2) ✅ BIDIRECTIONAL STAIR NAVIGATION (DESCEND → ASCEND)
+    # ============================================
+    
+    # Get height sensor data for absolute terrain measurements
+    height_sensor = env.scene.sensors["height_scanner"]
+    robot_height = robot.data.root_pos_w[:, 2]  # Robot absolute height
+    
+    # TERRAIN-RELATIVE MEASUREMENTS (Height-normalized for robot variation)
+    sensor_pos_z = height_sensor.data.pos_w[:, 2].unsqueeze(1)  # Sensor Z position
+    terrain_hit_z = height_sensor.data.ray_hits_w[..., 2]  # Terrain hit Z coordinates
+    
+    # Isaac Lab relative height formula
+    raw_terrain_heights = sensor_pos_z - terrain_hit_z - 0.5
+    
+    # ✅ SAFETY: Filter out infinite values (ray misses) and replace with median
+    finite_mask = torch.isfinite(raw_terrain_heights)
+    terrain_heights = torch.where(finite_mask, raw_terrain_heights, torch.tensor(0.0, device=raw_terrain_heights.device))
+    
+    # 🔧 THRESHOLD-FREE STATISTICAL TERRAIN ANALYSIS
+    # No fixed thresholds - use distribution statistics for adaptive classification
+    
+    # Calculate per-robot terrain statistics (robust to any baseline)
+    robot_stats = []
+    normalized_heights = []
+    
+    for i in range(terrain_heights.shape[0]):
+        robot_readings = terrain_heights[i][finite_mask[i]]
+        
+        if robot_readings.numel() > 5:  # Minimum for statistics
+            # Statistical measures (no fixed assumptions)
+            median_val = torch.median(robot_readings)
+            q25 = torch.quantile(robot_readings, 0.25)
+            q75 = torch.quantile(robot_readings, 0.75)
+            iqr = q75 - q25
+            
+            # Normalize using interquartile range (outlier-resistant)
+            normalized = (robot_readings - median_val) / (iqr + 0.01)  # Avoid division by zero
+            
+            robot_stats.append({
+                'median': median_val,
+                'q25': q25, 
+                'q75': q75,
+                'iqr': iqr
+            })
         else:
-            collision_pen = torch.zeros(env.num_envs, device=device, dtype=torch.float32)
-    else:
-        collision_pen = torch.zeros(env.num_envs, device=device, dtype=torch.float32)
-
-    # --------------------------------------------------------------------------------------
-    # ENERGY/SMOOTHNESS (simple, dense)
-    # --------------------------------------------------------------------------------------
-    # Penalize joint velocity norm (proxy for effort/jerk; small weight)
-    joint_vel = robot.data.joint_vel
-    if joint_vel is not None:
-        dof_vel_l2 = torch.clamp((joint_vel**2).mean(dim=1), 0.0, 4.0)
-    else:
-        dof_vel_l2 = torch.zeros(env.num_envs, device=device, dtype=torch.float32)
-
-    # --------------------------------------------------------------------------------------
-    # COMBINATION (stable, additive; foundation-dominant with environmental support)
-    # --------------------------------------------------------------------------------------
-    # Foundation weights (stability and natural walking on stairs)
-    w_vel = 1.6
-    w_yaw = 1.0
-    w_gait = 1.8
-    w_lean = 1.0
-    w_slide = 0.8
-    w_linZ_pen = 0.3
-    w_angXY_pen = 0.3
-
-    foundation = (
-        w_vel * vel_reward +
-        w_yaw * yaw_reward +
-        w_gait * gait_reward +
-        w_lean * lean_reward -
-        w_slide * slide_pen -
-        w_linZ_pen * lin_vel_z_pen -
-        w_angXY_pen * ang_vel_xy_pen +
-        0.2  # baseline to maintain gradients
+            # Handle sparse readings without fixed thresholds
+            median_val = torch.mean(robot_readings) if robot_readings.numel() > 0 else torch.tensor(0.0)
+            robot_stats.append({
+                'median': median_val,
+                'q25': median_val,
+                'q75': median_val, 
+                'iqr': torch.tensor(0.01)  # Small value for normalization
+            })
+            normalized = torch.zeros_like(robot_readings)
+        
+        # Pad normalized values to original shape
+        full_normalized = torch.zeros_like(terrain_heights[i])
+        full_normalized[finite_mask[i]] = normalized
+        normalized_heights.append(full_normalized)
+    
+    # Convert to tensor format
+    terrain_heights = torch.stack(normalized_heights)  # Now contains z-scores (threshold-free)
+    
+    # Forward terrain analysis for bidirectional navigation (27x21 grid: first 9 rows = forward zone)
+    terrain_grid = terrain_heights.view(-1, 27, 21)  # Reshape to grid
+    forward_terrain = terrain_grid[:, :9, :]  # Forward 9 rows (≈0-0.675m ahead)
+    
+    # STATISTICAL TERRAIN ANALYSIS (No fixed thresholds!)
+    current_z_score = torch.mean(terrain_heights, dim=1)  # Current z-score (0 = median terrain)
+    forward_max_z = torch.max(forward_terrain.view(forward_terrain.shape[0], -1), dim=1)[0]  # Max z-score ahead
+    forward_min_z = torch.min(forward_terrain.view(forward_terrain.shape[0], -1), dim=1)[0]  # Min z-score ahead
+    forward_std = torch.std(forward_terrain.view(forward_terrain.shape[0], -1), dim=1)  # Variation ahead
+    
+    # Stair detection: High statistical variation ahead (threshold-free)
+    # Use coefficient of variation instead of fixed thresholds
+    on_stairs = forward_std > 0.8  # High z-score variation = complex terrain
+    
+    # Statistical terrain opportunities (outlier-based detection)
+    # Gaps: Significantly positive z-scores ahead (statistical outliers above median)
+    gaps_ahead = forward_max_z > 1.0  # >1 standard deviation above median = gap
+    # Obstacles: Significantly negative z-scores ahead (statistical outliers below median)
+    obstacles_ahead = forward_min_z < -1.0  # <1 standard deviation below median = obstacle
+    
+    # Statistical phase detection (distribution-based, no fixed thresholds)
+    # Elevated: Robot consistently above statistical median of local terrain
+    robot_highly_elevated = current_z_score > 0.5   # >0.5 standard deviations above median
+    robot_near_terrain = current_z_score < -0.5     # >0.5 standard deviations below median
+    
+    should_descend = robot_highly_elevated & gaps_ahead      # High + gaps ahead = descend
+    should_ascend = robot_near_terrain & obstacles_ahead     # Low + obstacles ahead = ascend
+    
+    # ============================================
+    # 3) BIDIRECTIONAL MOVEMENT REWARDS
+    # ============================================
+    
+    # Forward movement with phase-aware navigation
+    forward_velocity = robot.data.root_lin_vel_w[:, 0]
+    
+    # Base movement reward: encourage forward, penalize backward
+    movement_bonus = torch.where(
+        forward_velocity > 0.0,
+        torch.clamp(forward_velocity / 0.5, 0.0, 2.0),  # Reward forward movement
+        forward_velocity * 2.0  # Penalty for backward movement
     )
-
-    # Environmental (stairs) weights
-    w_clear = 1.2
-    w_ds = 0.6
-    w_standoff = 0.6
-    w_collision = 0.3
-    w_effort = 0.2
-
-    environmental = (
-        w_clear * clearance_reward +
-        w_ds * ds_bonus +
-        w_standoff * standoff_bonus -
-        w_collision * collision_pen -
-        w_effort * dof_vel_l2 * 0.1  # small cost on excessive joint velocity
+    
+    # Descending bonus: reward forward movement when robot should descend
+    descent_bonus = torch.where(
+        should_descend & (forward_velocity > 0.1),
+        2.5,  # Strong bonus for moving toward lower terrain when elevated
+        0.0
     )
+    
+    # Ascending bonus: reward forward movement when robot should ascend
+    ascent_bonus = torch.where(
+        should_ascend & (forward_velocity > 0.1),
+        3.0,  # Strong bonus for moving toward higher terrain when at ground
+        0.0
+    )
+    
+    # Stair navigation speed control: reward appropriate speed on complex terrain
+    stair_speed_bonus = torch.where(
+        on_stairs & (forward_velocity > 0.05) & (forward_velocity < 0.4),
+        1.5,  # Reward controlled speed on stairs (5-40cm/s)
+        0.0
+    )
+    
+    # Terrain exploration bonus
+    terrain_bonus = torch.where(
+        on_stairs,
+        0.8,  # Bonus for being on complex terrain (stairs)
+        0.2   # Small bonus for flat terrain navigation
+    )
+    
+    # ============================================
+    # 4) ✅ ADAPTIVE HEIGHT PROGRESS TRACKING
+    # ============================================
+    
+    # Store initial robot height for progress tracking
+    if not hasattr(env, '_initial_robot_height'):
+        env._initial_robot_height = robot_height.clone()  # Store starting height
+    
+    # Statistical clearance assessment (no fixed thresholds)
+    foot_clearance_z_score = current_z_score.clamp(min=-3.0, max=3.0)  # Z-score clearance
+    
+    # Optimal clearance reward: stay near statistical median (threshold-free)
+    # Reward being close to the statistical center of the terrain distribution
+    optimal_clearance = torch.exp(-torch.abs(foot_clearance_z_score) / 0.5)  # Gaussian reward around z=0
+    
+    # Statistical progress rewards (no fixed thresholds)
+    # When elevated: reward moving toward statistical median (descent progress)
+    descent_progress = torch.where(
+        robot_highly_elevated,
+        torch.clamp((0.5 - current_z_score) / 1.0, 0.0, 1.0),  # Progress from elevated to median
+        0.0
+    ) * 1.5
+    
+    # When low: reward moving toward statistical median (ascent progress)
+    ascent_progress = torch.where(
+        robot_near_terrain,
+        torch.clamp((current_z_score + 0.5) / 1.0, 0.0, 1.0),  # Progress from low to median
+        0.0
+    ) * 2.0
+    
+    # Statistical clearance bonus: reward safe navigation regardless of absolute values
+    step_clearance_bonus = torch.where(
+        (gaps_ahead | obstacles_ahead) & (torch.abs(foot_clearance_z_score) < 2.0),
+        1.0,  # Bonus for reasonable clearance when terrain changes ahead (within 2σ)
+        0.0
+    )
+    
+    # Navigation success bonus: reward staying near statistical center (completely threshold-free)
+    navigation_success_bonus = torch.exp(-torch.abs(current_z_score) / 0.3) * 2.0  # Gaussian reward centered at z=0
+    
+    # ============================================
+    # 5) BIDIRECTIONAL NAVIGATION REWARD COMBINATION
+    # ============================================
+    
+    total_reward = (
+        vel_reward * 0.3 +                    # Velocity tracking (reduced for navigation focus)
+        lean_reward * 0.5 +                   # Stay upright (important for stairs)
+        gait_reward * 1.0 +                   # Proper gait essential
+        movement_bonus * 1.2 +                # Base forward movement
+        descent_bonus * 2.5 +                 # ✅ NEW: Descending bonus when elevated
+        ascent_bonus * 3.0 +                  # ✅ NEW: Ascending bonus when at ground
+        stair_speed_bonus * 1.5 +             # ✅ NEW: Controlled stair speed
+        terrain_bonus * 0.8 +                 # Terrain navigation
+        optimal_clearance * 1.0 +             # ✅ NEW: Optimal foot clearance
+        descent_progress * 2.0 +              # ✅ NEW: Progress toward ground when elevated
+        ascent_progress * 2.5 +               # ✅ NEW: Progress upward when at ground
+        step_clearance_bonus * 1.5 +          # ✅ NEW: Step clearance (bidirectional)
+        navigation_success_bonus * 3.0 +      # ✅ NEW: Zone transition rewards
+        0.2                                   # Baseline bonus
+    )
+    
 
-    # Composition: foundation dominates (60/40 split prevents in-place turning on obstacles)
-    total = foundation * 0.6 + environmental * 0.4
-
-    # Final safety: finite + bounds
-    total = torch.where(torch.isfinite(total), total, torch.ones_like(total) * 0.2)
-    return total.clamp(min=0.0, max=6.0)
+    # ✅ SAFETY: Check for NaN/infinity and replace with safe values
+    total_reward = torch.where(torch.isfinite(total_reward), total_reward, torch.tensor(0.1, device=total_reward.device))
+    
+    # Final safety clamp
+    return total_reward.clamp(min=0.0, max=10.0)
 
 

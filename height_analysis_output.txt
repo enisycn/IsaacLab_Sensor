@@ -1,0 +1,276 @@
+[3gH    H    H    H    H    H    H    H    H    H    H    H    H    H    H    H    H    H    H    H    H    H    H    H  [INFO] Using python from: /home/enis/miniconda3/envs/sam2/bin/python
+[Warning] [simulation_app.simulation_app] Modules: ['omni.kit_app'] were loaded before SimulationApp was started and might not be loaded correctly.
+[Warning] [simulation_app.simulation_app] Please check to make sure no extra omniverse or pxr modules are imported before the call to SimulationApp(...)
+Loading user config located at: '/home/enis/miniconda3/envs/sam2/lib/python3.10/site-packages/omni/data/Kit/Isaac-Sim/4.5/user.config.json'
+[Info] [carb] Logging to file: /home/enis/miniconda3/envs/sam2/lib/python3.10/site-packages/omni/logs/Kit/Isaac-Sim/4.5/kit_20250816_140850.log
+2025-08-16 13:08:50 [0ms] [Warning] [omni.kit.app.plugin] No crash reporter present, dumps uploading isn't available.
+2025-08-16 13:08:50 [2ms] [Warning] [omni.ext.plugin] [ext: rendering_modes] Extensions config 'extension.toml' doesn't exist '/home/enis/IsaacLab/apps/rendering_modes' or '/home/enis/IsaacLab/apps/rendering_modes/config'
+2025-08-16 13:08:50 [153ms] [Warning] [omni.usd_config.extension] Enable omni.materialx.libs extension to use MaterialX
+2025-08-16 13:08:51 [437ms] [Warning] [omni.isaac.dynamic_control] omni.isaac.dynamic_control is deprecated as of Isaac Sim 4.5. No action is needed from end-users.
+2025-08-16 13:08:52 [1,591ms] [Warning] [pxr.Semantics] pxr.Semantics is deprecated - please use Semantics instead
+
+|---------------------------------------------------------------------------------------------|
+| Driver Version: 570.153.02    | Graphics API: Vulkan
+|=============================================================================================|
+| GPU | Name                             | Active | LDA | GPU Memory | Vendor-ID | LUID       |
+|     |                                  |        |     |            | Device-ID | UUID       |
+|     |                                  |        |     |            | Bus-ID    |            |
+|---------------------------------------------------------------------------------------------|
+| 0   | NVIDIA GeForce RTX 5080 Laptop.. | Yes: 0 |     | 16303   MB | 10de      | 0          |
+|     |                                  |        |     |            | 2c59      | 1ad35b58.. |
+|     |                                  |        |     |            | 64        |            |
+|=============================================================================================|
+| OS: 22.04.5 LTS (Jammy Jellyfish) ubuntu, Version: 22.04.5, Kernel: 6.8.0-65-generic
+| XServer Vendor: The X.Org Foundation, XServer Version: 12201001 (1.22.1.1)
+| Processor: AMD Ryzen AI 9 HX 370 w/ Radeon 890M
+| Cores: 12 | Logical Cores: 24
+|---------------------------------------------------------------------------------------------|
+| Total Memory (MB): 31197 | Free Memory: 20681
+| Total Page/Swap (MB): 2047 | Free Page/Swap: 2047
+|---------------------------------------------------------------------------------------------|
+2025-08-16 13:08:54 [3,693ms] [Warning] [gpu.foundation.plugin] IOMMU is enabled.
+2025-08-16 13:08:54 [3,802ms] [Warning] [omni.kvdb.plugin] Disabling key-value database because another kit process is locking it
+2025-08-16 13:08:54 [3,962ms] [Warning] [isaaclab.envs.manager_based_env] Seed not set for the environment. The environment creation may not be deterministic.
+2025-08-16 13:08:56 [5,550ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdPreviewSurface.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-08-16 13:08:56 [5,550ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdUVTexture.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-08-16 13:08:56 [5,550ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdPrimvarReader_float.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-08-16 13:08:56 [5,550ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdPrimvarReader_float2.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-08-16 13:08:56 [5,550ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdPrimvarReader_float3.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-08-16 13:08:56 [5,550ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdPrimvarReader_float4.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-08-16 13:08:56 [5,550ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdPrimvarReader_int.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-08-16 13:08:56 [5,550ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdPrimvarReader_string.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-08-16 13:08:56 [5,550ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdPrimvarReader_normal.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-08-16 13:08:56 [5,550ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdPrimvarReader_point.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-08-16 13:08:56 [5,550ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdPrimvarReader_vector.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-08-16 13:08:56 [5,550ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdPrimvarReader_matrix.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-08-16 13:08:56 [5,550ms] [Warning] [omni.usd] Warning: in GetNodeDiscoveryResults at line 136 of /builds/omniverse/usd-ci/USD/pxr/usd/usdShade/shaderDefUtils.cpp -- Unable to resolve info:sourceAsset </UsdTransform2d.info:mdl:sourceAsset> with value @UsdPreviewSurface.mdl@.
+
+2025-08-16 13:08:56 [6,208ms] [Warning] [isaaclab.actuators.actuator_pd] The <ImplicitActuatorCfg> object has a value for 'effort_limit'. This parameter will be removed in the future. To set the effort limit, please use 'effort_limit_sim' instead.
+2025-08-16 13:08:56 [6,208ms] [Warning] [isaaclab.actuators.actuator_pd] The <ImplicitActuatorCfg> object has a value for 'velocity_limit'. Previously, although this value was specified, it was not getting used by implicit actuators. Since this parameter affects the simulation behavior, we continue to not use it. This parameter will be removed in the future. To set the velocity limit, please use 'velocity_limit_sim' instead.
+2025-08-16 13:08:56 [6,215ms] [Warning] [isaaclab.actuators.actuator_pd] The <ImplicitActuatorCfg> object has a value for 'effort_limit'. This parameter will be removed in the future. To set the effort limit, please use 'effort_limit_sim' instead.
+2025-08-16 13:08:56 [6,219ms] [Warning] [isaaclab.actuators.actuator_pd] The <ImplicitActuatorCfg> object has a value for 'effort_limit'. This parameter will be removed in the future. To set the effort limit, please use 'effort_limit_sim' instead.
+2025-08-16 13:08:56 [6,219ms] [INFO][AppLauncher]: Using device: cuda:0
+[INFO][AppLauncher]: Loading experience file: /home/enis/IsaacLab/apps/isaaclab.python.headless.kit
+[INFO]: Parsing configuration from: isaaclab_tasks.manager_based.sds.velocity.config.g1.flat_with_box_env_cfg:SDSG1FlatWithBoxEnvCfg
+🚀 SDS TRAINING MODE: Gravity ENABLED for realistic physics
+🪜 TERRAIN TYPE 3: STAIRS terrain for stair climbing and step navigation
+🎯 FIXED COMMANDS: Slow controlled forward velocity 0.1-0.3 m/s for stair climbing
+🔧 SENSORS ENABLED: Full environmental sensing capabilities activated
+🎯 CONTACT VISUALIZATION ENABLED: Real contact forces will be shown as visual markers
+[INFO]: Parsing configuration from: isaaclab_tasks.manager_based.sds.velocity.config.g1.agents.rsl_rl_ppo_cfg:G1EnhancedPPORunnerCfg
+[INFO] Loading experiment from directory: /home/enis/IsaacLab/logs/rsl_rl/g1_enhanced
+[INFO]: Base environment:
+	Environment device    : cuda:0
+	Environment seed      : None
+	Physics step-size     : 0.005
+	Rendering step-size   : 0.02
+	Environment step-size : 0.02
+[INFO] Generating terrains based on curriculum took : 0.182620 seconds
+[INFO]: Time taken for scene creation : 1.900912 seconds
+[INFO]: Scene manager:  <class InteractiveScene>
+	Number of environments: 200
+	Environment spacing   : 2.5
+	Source prim name      : /World/envs/env_0
+	Global prim paths     : ['/World/ground']
+	Replicate physics     : True
+[INFO]: Starting the simulation. This may take a few seconds. Please wait...
+[INFO]: Time taken for simulation start : 0.874317 seconds
+[INFO] Command Manager:  <CommandManager> contains 1 active terms.
++------------------------------------------------+
+|              Active Command Terms              |
++-------+---------------+------------------------+
+| Index | Name          |          Type          |
++-------+---------------+------------------------+
+|   0   | base_velocity | UniformVelocityCommand |
++-------+---------------+------------------------+
+
+[INFO] Event Manager:  <EventManager> contains 2 active terms.
++--------------------------------------+
+| Active Event Terms in Mode: 'startup' |
++----------+---------------------------+
+|  Index   | Name                      |
++----------+---------------------------+
+|    0     | physics_material          |
+|    1     | add_base_mass             |
+|    2     | base_com                  |
++----------+---------------------------+
++---------------------------------------+
+|  Active Event Terms in Mode: 'reset'  |
++--------+------------------------------+
+| Index  | Name                         |
++--------+------------------------------+
+|   0    | base_external_force_torque   |
+|   1    | reset_base                   |
+|   2    | reset_robot_joints           |
++--------+------------------------------+
+
+[INFO] Recorder Manager:  <RecorderManager> contains 0 active terms.
++---------------------+
+| Active Recorder Terms |
++-----------+---------+
+|   Index   | Name    |
++-----------+---------+
++-----------+---------+
+
+[INFO] Action Manager:  <ActionManager> contains 1 active terms.
++------------------------------------+
+|  Active Action Terms (shape: 23)   |
++--------+-------------+-------------+
+| Index  | Name        |   Dimension |
++--------+-------------+-------------+
+|   0    | joint_pos   |          23 |
++--------+-------------+-------------+
+
+[INFO] Observation Manager: <ObservationManager> contains 1 groups.
++----------------------------------------------------------+
+| Active Observation Terms in Group: 'policy' (shape: (792,)) |
++-----------+--------------------------------+-------------+
+|   Index   | Name                           |    Shape    |
++-----------+--------------------------------+-------------+
+|     0     | base_lin_vel                   |     (3,)    |
+|     1     | base_ang_vel                   |     (3,)    |
+|     2     | projected_gravity              |     (3,)    |
+|     3     | velocity_commands              |     (3,)    |
+|     4     | joint_pos                      |    (23,)    |
+|     5     | joint_vel                      |    (23,)    |
+|     6     | actions                        |    (23,)    |
+|     7     | height_scan                    |    (567,)   |
+|     8     | lidar_range                    |    (144,)   |
++-----------+--------------------------------+-------------+
+
+[INFO] Termination Manager:  <TerminationManager> contains 2 active terms.
++---------------------------------+
+|     Active Termination Terms    |
++-------+--------------+----------+
+| Index | Name         | Time Out |
++-------+--------------+----------+
+|   0   | time_out     |   True   |
+|   1   | base_contact |  False   |
++-------+--------------+----------+
+
+[INFO] Reward Manager:  <RewardManager> contains 1 active terms.
++-----------------------------+
+|     Active Reward Terms     |
++-------+------------+--------+
+| Index | Name       | Weight |
++-------+------------+--------+
+|   0   | sds_custom |    1.0 |
++-------+------------+--------+
+
+[INFO] Curriculum Manager:  <CurriculumManager> contains 1 active terms.
++---------------------------+
+|  Active Curriculum Terms  |
++--------+------------------+
+| Index  | Name             |
++--------+------------------+
+|   0    | terrain_levels   |
++--------+------------------+
+
+[INFO]: Completed setting up the environment...
+[INFO]: Loading model checkpoint from: /home/enis/IsaacLab/logs/rsl_rl/g1_enhanced/2025-08-16_12-45-53/model_550.pt
+Actor MLP: Sequential(
+  (0): Linear(in_features=792, out_features=768, bias=True)
+  (1): ELU(alpha=1.0)
+  (2): Linear(in_features=768, out_features=384, bias=True)
+  (3): ELU(alpha=1.0)
+  (4): Linear(in_features=384, out_features=192, bias=True)
+  (5): ELU(alpha=1.0)
+  (6): Linear(in_features=192, out_features=23, bias=True)
+)
+Critic MLP: Sequential(
+  (0): Linear(in_features=792, out_features=768, bias=True)
+  (1): ELU(alpha=1.0)
+  (2): Linear(in_features=768, out_features=384, bias=True)
+  (3): ELU(alpha=1.0)
+  (4): Linear(in_features=384, out_features=192, bias=True)
+  (5): ELU(alpha=1.0)
+  (6): Linear(in_features=192, out_features=1, bias=True)
+)
+
+🔍 DEBUG REWARDS (Step 0, Env 0):
+  Target vel: 0.206 m/s
+  Actual vel: 0.585 m/s
+  Forward vel: -0.100 m/s
+  Robot height: 0.738 m
+  Height gain: 0.000 m
+  On stairs: False
+  🚶 GAIT DEBUG:
+    Contact status: L=False, R=False
+    Air time: L=0.020s, R=0.020s
+    Contact time: L=0.000s, R=0.000s
+    Single stance: False
+    Double stance: False
+    Double flight: True
+    Foot slide penalty: 0.000
+  💰 REWARD BREAKDOWN:
+    Vel reward: 0.866
+    Lean reward: 0.969
+    Gait reward: 0.000
+    Movement bonus: -0.300
+    Stair bonus: 0.000
+    Height bonus: 0.000
+    Total reward: 0.235
+  📍 POSITION: tensor([  8.2846, -27.7833,   0.7380], device='cuda:0')
+  🎮 COMMANDS: tensor([0.2056, 0.0000, 0.0000], device='cuda:0')
+
+🔍 DEBUG REWARDS (Step 100, Env 0):
+  Target vel: 0.206 m/s
+  Actual vel: 0.950 m/s
+  Forward vel: 0.885 m/s
+  Robot height: 0.611 m
+  Height gain: -0.127 m
+  On stairs: False
+  🚶 GAIT DEBUG:
+    Contact status: L=True, R=False
+    Air time: L=0.000s, R=0.030s
+    Contact time: L=0.025s, R=0.000s
+    Single stance: True
+    Double stance: False
+    Double flight: False
+    Foot slide penalty: 0.950
+  💰 REWARD BREAKDOWN:
+    Vel reward: 0.575
+    Lean reward: 0.889
+    Gait reward: 1.905
+    Movement bonus: 1.770
+    Stair bonus: 0.000
+    Height bonus: 0.000
+    Total reward: 6.131
+  📍 POSITION: tensor([  8.7146, -27.4628,   0.6110], device='cuda:0')
+  🎮 COMMANDS: tensor([0.2056, 0.0000, 0.0000], device='cuda:0')
+
+🔍 DEBUG REWARDS (Step 200, Env 0):
+  Target vel: 0.206 m/s
+  Actual vel: 0.962 m/s
+  Forward vel: 0.921 m/s
+  Robot height: 0.615 m
+  Height gain: -0.123 m
+  On stairs: False
+  🚶 GAIT DEBUG:
+    Contact status: L=False, R=True
+    Air time: L=0.020s, R=0.000s
+    Contact time: L=0.000s, R=0.005s
+    Single stance: True
+    Double stance: False
+    Double flight: False
+    Foot slide penalty: 1.072
+  💰 REWARD BREAKDOWN:
+    Vel reward: 0.564
+    Lean reward: 0.957
+    Gait reward: 1.893
+    Movement bonus: 1.841
+    Stair bonus: 0.000
+    Height bonus: 0.000
+    Total reward: 6.283

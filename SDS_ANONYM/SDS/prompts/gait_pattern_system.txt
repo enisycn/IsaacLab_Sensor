@@ -678,7 +678,7 @@ The contact patterns show synchronized bilateral contact phases with controlled 
 - Rotation: 360° backward somersault
 
 **Walking/March/Pace Indicators:**
-- Height: Terrain-relative maintained consistently using height sensor
+- Height: Task-appropriate sensor selection (absolute for navigation, relative for safety)
 - Movement quality: Smooth, controlled locomotion
 - Torso coordination: Natural stability (walking) or compensatory (pace)
 - Contact pattern: Alternating or lateral movement
@@ -686,7 +686,7 @@ The contact patterns show synchronized bilateral contact phases with controlled 
 
 
 **Sprint Indicators:**
-- Height: Terrain-relative maintained during high-speed movement using sensor feedback
+- Height: Task-appropriate sensor selection (absolute for navigation, relative for safety)
 - Movement quality: Dynamic power with controlled acceleration
 - Torso coordination: Dynamic engagement for forward propulsion
 - Contact pattern: Brief stance phases with extended flight

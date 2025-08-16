@@ -186,36 +186,35 @@ height_err = torch.abs(robot.data.root_pos_w[:, 2] - 0.74)  # Target height abov
 height_reward = torch.clamp(1.0 - (height_err / 0.3), 0.0, 2.0)
 ```
 
-**TERRAIN-RELATIVE HEIGHT - For adaptive surface following:**
+**HEIGHT SENSOR TYPE SELECTION - Choose based on task requirements:**
+
+📊 **SENSOR SELECTION GUIDELINES:**
+| Task Type | Recommended Sensor | Reason |
+|-----------|-------------------|---------|
+| **Stair Climbing** | ✅ **Absolute** | Navigation requires world coordinates for clear goal direction |
+| **Obstacle Avoidance** | ✅ **Relative** | Safety requires clearance measurements above terrain |
+| **Path Planning** | ✅ **Absolute** | Need actual terrain elevations for route decisions |
+| **Foot Placement** | ✅ **Relative** | Need clearance measurements for safe step placement |
+
+**🔧 SENSOR FORMULAS:**
 ```python
-# Use when: Variable terrain heights OR climbing stairs OR navigating slopes
 height_sensor = env.scene.sensors["height_scanner"]
-height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
 
-# CRITICAL: Always sanitize height sensor data first
-height_measurements = torch.where(torch.isfinite(height_measurements), height_measurements, torch.zeros_like(height_measurements))
+# ✅ ABSOLUTE HEIGHT (world coordinates for navigation):
+terrain_heights = height_sensor.data.ray_hits_w[..., 2]  # Direct world Z coordinates
 
-# G1 robot baseline: 0.209m on flat terrain (sensor_height - terrain_z - offset)
-# Terrain classification using relative thresholds
-baseline = 0.209  # G1 robot baseline
-obstacle_threshold = 0.07  # 7cm threshold for obstacles  
-gap_threshold = dynamic_threshold       # Dynamic threshold for gaps
+# ✅ RELATIVE HEIGHT (Isaac Lab standard clearance for safety):
+height_clearance = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
 
-obstacles = height_measurements < (baseline - obstacle_threshold)  # < 0.139m
-gaps = height_measurements > (baseline + gap_threshold)            # Above baseline threshold
-normal_terrain = ~obstacles & ~gaps                               # Within baseline tolerance
-
-# Count terrain features for terrain-adaptive behavior
-total_rays = height_measurements.shape[-1]  # 567 rays
-obstacle_ratio = obstacles.sum(dim=-1).float() / total_rays
-gap_ratio = gaps.sum(dim=-1).float() / total_rays
+# CRITICAL: Always sanitize sensor data
+terrain_heights = torch.where(torch.isfinite(terrain_heights), terrain_heights, torch.zeros_like(terrain_heights))
 ```
 
 **DECISION GUIDE - Let task requirements guide your choice:**
-- Large gaps requiring stepping → Absolute height maintains clearance
-- Variable surface heights → Terrain-relative adapts to surface
-- Consistent platform levels → Absolute height for smooth transitions
-- Climbing/descending behavior needed → Terrain-relative for adaptation
+- **Stair climbing/navigation** → Use absolute heights for clear directional goals
+- **Obstacle avoidance/safety** → Use relative heights for clearance measurements
+- **Mixed terrain navigation** → Use absolute heights for path planning
+- **Foot placement precision** → Use relative heights for surface clearance
 
 
 

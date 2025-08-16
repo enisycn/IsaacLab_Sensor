@@ -368,20 +368,27 @@ Enable comparison studies demonstrating:
 
 Isaac Lab height sensor uses G1 robot baseline (0.209m on flat terrain) for terrain classification!
 
-**🎯 CORRECT HEIGHT SENSOR FORMULA & G1 BASELINE:**
+**🎯 HEIGHT SENSOR TYPE SELECTION:**
 
-✅ **ISAAC LAB STANDARD WITH G1 BASELINE:**
+Choose sensor approach based on task requirements:
+
+📊 **SENSOR SELECTION GUIDELINES:**
+| Task Type | Recommended Sensor | Reason |
+|-----------|-------------------|---------|
+| **Stair Climbing** | ✅ **Absolute** | Navigation requires world coordinates for clear goal direction |
+| **Obstacle Avoidance** | ✅ **Relative** | Safety requires clearance measurements above terrain |
+| **Path Planning** | ✅ **Absolute** | Need actual terrain elevations for route decisions |
+| **Foot Placement** | ✅ **Relative** | Need clearance measurements for safe step placement |
+
+**🔧 SENSOR FORMULAS:**
 ```python
-# ✅ CORRECT: Isaac Lab standard height sensor access
 height_sensor = env.scene.sensors["height_scanner"]
-height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
 
-# ✅ HEIGHT SENSOR DATA ACCESS:
-height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - offset
+# ✅ ABSOLUTE HEIGHT (world coordinates):
+terrain_heights = height_sensor.data.ray_hits_w[..., 2]  # Direct world Z coordinates
 
-# ✅ G1 ROBOT BASELINE & CLASSIFICATION (567 rays, 27×21 grid):
-baseline = analyzed_baseline  # G1 robot baseline on flat terrain
-threshold = analyzed_threshold  # threshold for balanced detection
+# ✅ RELATIVE HEIGHT (Isaac Lab standard clearance):
+height_clearance = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
 
 # ✅ CORRECT CLASSIFICATION:
 obstacles = height_measurements < (baseline - threshold)  # obstacles (terrain higher)
@@ -582,7 +589,7 @@ height_measurements = sensor.data.pos_w[:, 2].unsqueeze(1) - sensor.data.ray_hit
 height_measurements = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - offset
 
 # ✅ G1 BASELINE CLASSIFICATION:
-baseline = 0.209  # G1 robot on flat terrain
+baseline = 0.21  # G1 robot on flat terrain
 obstacles = height_measurements < (baseline - 0.07)  # < 0.139m = obstacles
 gaps = height_measurements > (baseline + gap_threshold)       # Above baseline = gaps
 normal = ~obstacles & ~gaps                                      # Within tolerance = normal
@@ -611,20 +618,28 @@ lidar_distances = torch.norm(lidar_sensor.data.ray_hits_w - lidar_sensor.data.po
 
 **🚨🚨🚨 CRITICAL BEHAVIORAL ERRORS - CAUSE UNNATURAL MOVEMENT 🚨🚨🚨**
 
-**❌ HEIGHT TRACKING METHOD MISMATCH - ROBOTS BEHAVE UNNATURALLY:**
+**❌ HEIGHT SENSOR METHOD MISMATCH - ROBOTS BEHAVE UNNATURALLY:**
 ```python
-# ERROR - Using inappropriate height tracking method for terrain characteristics:
-height_err = torch.abs(robot.data.root_pos_w[:, 2] - target_height)  # Use relative height from sensor!
+# ERROR - Using wrong sensor type for task requirements:
+# Using relative height for navigation tasks OR absolute height for safety clearance
 ```
-**PROBLEM:** Using wrong height method leads to unnatural behavior (standing still on stairs, poor gap crossing, etc.)!
+**PROBLEM:** Using wrong sensor approach leads to unnatural behavior (poor navigation, unsafe clearance, etc.)!
 
-**✅ RELATIVE HEIGHT TRACKING - USE HEIGHT SENSOR FOR TERRAIN ADAPTATION:**
+**✅ TASK-APPROPRIATE HEIGHT SENSOR SELECTION:**
 
-**ABSOLUTE HEIGHT - For consistent body clearance:**
+**ABSOLUTE HEIGHT - For navigation and goal-directed movement:**
 ```python
-# Use when: Flat terrain OR gap crossing (large stepping) OR consistent platform heights
-height_err = torch.abs(robot.data.root_pos_w[:, 2] - 0.74)  # Target height above world origin
-height_reward = torch.clamp(1.0 - (height_err / 0.3), 0.0, 2.0)
+# Use when: Stair climbing, path planning, reaching target elevations
+terrain_heights = height_sensor.data.ray_hits_w[..., 2]  # World coordinates
+robot_height = robot.data.root_pos_w[:, 2]
+height_progress = (robot_height - start_height) / (target_height - start_height)
+```
+
+**RELATIVE HEIGHT - For safety and clearance maintenance:**
+```python
+# Use when: Obstacle avoidance, foot placement, maintaining safe clearance
+clearance = height_sensor.data.pos_w[:, 2].unsqueeze(1) - height_sensor.data.ray_hits_w[..., 2] - 0.5
+safe_clearance = torch.clamp(clearance, min=0.1, max=0.3)  # Maintain 10-30cm clearance
 ```
 
 **TERRAIN-RELATIVE HEIGHT - G1 baseline with terrain adaptation:**
@@ -1688,7 +1703,7 @@ gap_width_raw = torch.sum(consecutive_gap_points.float(), dim=1) * sensor_resolu
 # Gap classification based on detected gap analysis from environmental data
 steppable_gaps = extract_steppable_gaps()      # Small gaps: Step over
 jumpable_gaps = extract_jumpable_gaps()       # Medium gaps: Jump required  
-impossible_gaps = extract_impossible_gaps()   # Large gaps: Must avoid
+impossible_gaps = extract_impossible_gaps()   # Large gaps: Strategy decision needed
 ```
 
 **🦶 RESEARCH-BASED FOOT PLACEMENT AND LANDING ZONE STRATEGIES:**
